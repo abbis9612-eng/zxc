@@ -15,6 +15,7 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
+const BattleScene := preload("res://battle/battle_scene.gd")
 const Development := preload("res://sim/development.gd")
 const Icons := preload("res://ui/icons.gd")
 const Flags := preload("res://ui/flags.gd")
@@ -41,6 +42,7 @@ var tab_boxes: Array = []        # VBox لكل تبويب
 var selected: String = ""
 var focus_strait: String = ""
 var selected_region: String = ""
+var _battle: Control = null
 var move_division: int = -1        # أول فرقة في وضع التحريك
 var ctx: Dictionary = {}           # ما تعرضه بطاقة السياق: {kind: region|units|move, ...}
 
@@ -429,6 +431,9 @@ func _build_map_tools() -> void:
 		z.custom_minimum_size = Vector2(TOUCH, TOUCH)
 		z.add_theme_font_size_override("font_size", 22)
 		v.add_child(z)
+	var globe_btn := _pill_button("diplomacy", "", _toggle_globe, "الكرة أو الخريطة المسطحة")
+	globe_btn.custom_minimum_size = Vector2(TOUCH, TOUCH)
+	v.add_child(globe_btn)
 	var home := _pill_button("capital", "", _go_home, "العودة إلى دولتك")
 	home.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	v.add_child(home)
@@ -1406,6 +1411,7 @@ func _build_army_controls() -> void:
 
 func _on_game_started() -> void:
 	start_screen.visible = false
+	map.apply_quality(Game.quality)
 	map.sim = Game.sim
 	selected = Game.sim.state["player"]
 	map.selected = selected
@@ -1488,6 +1494,7 @@ func _on_events(evs: Array) -> void:
 		else:
 			buttons = [{"text": "حسناً"}]
 		if e.get("kind", "") in ["war", "capital"] and not Game.sim.state["last_battle"].is_empty():
+			buttons.append({"text": "شاهد المعركة", "cb": _watch_battle})
 			buttons.append({"text": "تقرير آخر معركة", "cb": _show_battle_report})
 		_show_dialog(e["title"], e["text"], buttons)
 	_dirty = true
@@ -3109,8 +3116,8 @@ func _show_battle_report() -> void:
 	if r.has("front_a"):
 		v.add_child(UI.kv("الفرق على الجبهة", "المهاجم %d، المدافع %d" % [int(r["front_a"]), int(r["front_d"])], UI.C_TEXT))
 	v.add_child(UI.kv("تغير نتيجة الحرب", UI.signed(float(r["delta"]), 1), UI.C_ACCENT))
-	v.add_child(UI.label("مشهد المعركة ثلاثي الأبعاد يأتي في مرحلة لاحقة، وسيعرض هذا التقرير نفسه.", UI.C_MUTED, 13))
-	_show_dialog("تقرير المعركة", "", [{"text": "إغلاق"}], v)
+	v.add_child(UI.label("المشهد يعرض هذه المراحل نفسها، ولا يغيّر نتيجة المحاكاة.", UI.C_MUTED, 13))
+	_show_dialog("تقرير المعركة", "", [{"text": "شاهد المشهد", "cb": _watch_battle}, {"text": "إغلاق"}], v)
 
 
 # ------------------------------------------------------------------ تبويب الأخبار
@@ -3270,12 +3277,42 @@ func _on_load() -> void:
 		_toast("لا يوجد حفظ.")
 
 
+func _toggle_globe() -> void:
+	map.set_globe(not map.globe)
+	_toast("الكرة الأرضية" if map.globe else "الخريطة المسطحة")
+
+
+func _cycle_quality() -> void:
+	Game.set_quality((Game.quality + 1) % 3)
+	map.apply_quality(Game.quality)
+	_toast("الرسوميات: %s" % Game.QUALITY_NAMES[Game.quality])
+
+
+func _watch_battle() -> void:
+	if not Game.is_running() or Game.sim.state.get("last_battle", {}).is_empty():
+		return
+	if _battle != null and is_instance_valid(_battle):
+		return
+	var was_paused := Game.paused
+	Game.set_paused(true)
+	var sc := BattleScene.new()
+	sc.setup(Game.sim.state["last_battle"], Game.quality)
+	_battle = sc
+	add_child(sc)
+	sc.closed.connect(func():
+		if is_instance_valid(sc):
+			sc.queue_free()
+		_battle = null
+		Game.set_paused(was_paused))
+
+
 func _show_menu() -> void:
 	Game.set_paused(true)
 	_show_dialog("القائمة", "", [
 		{"text": "حفظ", "cb": _on_save},
 		{"text": "تحميل", "cb": _on_load},
 		{"text": "الوضع الفاتح" if not Game.light_theme else "الوضع الداكن", "cb": func(): Game.set_light_theme(not Game.light_theme)},
+		{"text": "الرسوميات: %s" % Game.QUALITY_NAMES[Game.quality], "cb": _cycle_quality},
 		{"text": "القائمة الرئيسية", "cb": _back_to_menu},
 		{"text": "متابعة"},
 	])

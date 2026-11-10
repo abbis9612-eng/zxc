@@ -16,6 +16,8 @@ const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
 const Development := preload("res://sim/development.gd")
 const Arsenal := preload("res://sim/arsenal.gd")
+const GlobeCam := preload("res://world/globe_cam.gd")
+const BattleScene := preload("res://battle/battle_scene.gd")
 
 var db: DataDB
 var failures := 0
@@ -37,6 +39,7 @@ func _init() -> void:
 		test_trade_pacts()
 		test_straits()
 		test_reference_systems()
+		test_presentation()
 		test_factions()
 		test_intel()
 		test_divisions()
@@ -460,6 +463,31 @@ func test_straits() -> void:
 		Straits.monthly(a)
 		Straits.monthly(b)
 	check(a.checksum() == b.checksum(), "قرار الممر عند الذكاء الاصطناعي حتمي")
+
+
+func test_presentation() -> void:
+	print("الكرة ومشهد المعركة")
+	var vp := Vector2(1600, 900)
+	var center := GlobeCam.to_map(44.4, 33.3)
+	var screen := GlobeCam.project(center, 6.0, vp, 44.4, 33.3)
+	check(screen.distance_to(vp * 0.5) < 40.0, "مركز الكرة في وسط الشاشة")
+	var back := GlobeCam.unproject(center, 6.0, vp, screen)
+	check(back.distance_to(center) < 1.2, "النقر يعود إلى النقطة نفسها")
+	var far := GlobeCam.project(center, 6.0, vp, 44.4 + 180.0, -33.3)
+	check(far.x < -1000.0, "ظهر الكرة لا يُرسم")
+	var missed := GlobeCam.unproject(GlobeCam.to_map(0.0, 0.0), 1.0, vp, Vector2(2, 2))
+	check(missed.x < 0.0, "النقر خارج الكرة لا يصيب أرضاً")
+	var report := {
+		"phases": [
+			{"id": "air", "name_ar": "الجو", "result": 0.4},
+			{"id": "land", "name_ar": "البر", "result": -0.2},
+		],
+		"ratio": 0.62,
+	}
+	var plan: Array = BattleScene.plan(report)
+	check(plan.size() == 2, "المشهد يعرض مرحلتي التقرير فقط")
+	check(bool(plan[0]["attacker_wins"]) and not bool(plan[1]["attacker_wins"]), "تفوق كل مرحلة من إشارة نتيجتها")
+	check(str(plan[1]["name_ar"]) == "البر", "اسم المرحلة هو اسم التقرير")
 
 
 func test_reference_systems() -> void:
