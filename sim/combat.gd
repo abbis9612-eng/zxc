@@ -248,7 +248,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var losers: Array = D if a_wins else A
 	var naval_w := naval_a if a_wins else 1.0 - naval_a
 	var dominance := absf(ratio - 0.5) * 2.0
-	var taken: Array = Territory.advance(sim, w, winners, losers, MAX_GAINS, naval_w, dominance, pkey)
+	var taken: Array = Territory.advance(sim, w, winners, losers, MAX_GAINS, naval_w, dominance, pkey, Divisions.attack_targets(sim, winners))
 	w["score"] = Territory.war_score(sim, w)
 	var delta: float = float(w["score"]) - old_score
 	w["battles"] = int(w["battles"]) + 1

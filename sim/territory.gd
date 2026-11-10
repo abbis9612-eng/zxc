@@ -286,7 +286,7 @@ static func capture_cost(sim, rid: String) -> float:
 	return minf(c, 3.0)
 
 
-static func advance(sim, w: Dictionary, winners: Array, losers: Array, max_gains: int, naval_superiority: float, dominance: float = 1.0, progress_key: String = "") -> Array:
+static func advance(sim, w: Dictionary, winners: Array, losers: Array, max_gains: int, naval_superiority: float, dominance: float = 1.0, progress_key: String = "", focus: Array = []) -> Array:
 	var taken: Array = []
 	var loser_lead: String = losers[0]
 	for i in max_gains:
@@ -299,7 +299,14 @@ static func advance(sim, w: Dictionary, winners: Array, losers: Array, max_gains
 		elif cap in cands and dominance < CAPITAL_MIN_DOMINANCE:
 			cands.erase(cap)
 		var rid := ""
-		if not cands.is_empty():
+		# أوامر الهجوم أولاً: الهدف الذي تقف عنده فرق الرابح
+		for f in focus:
+			if f in cands and not (f in taken):
+				rid = f
+				break
+		if rid != "":
+			pass
+		elif not cands.is_empty():
 			rid = _pick_target(sim, cands, winners, loser_lead)
 		elif naval_superiority > 0.6 and taken.is_empty() and not working_facilities(sim, winners, "port").is_empty():
 			# إنزال بحري يحتاج ميناءً عاملاً: أقرب منطقة ساحلية للعدو إلى عاصمة الرابح

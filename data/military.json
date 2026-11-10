@@ -13,7 +13,10 @@
     "recovery_per_day": 0.007,
     "exp_per_battle": 0.02,
     "exp_bonus": 0.3,
-    "retreat_loss": 0.2
+    "retreat_loss": 0.2,
+    "_attack_note": "أمر الهجوم: الفرقة تتقدم لأقرب منطقة صديقة تجاور الهدف، وتقاتل هناك بقوة أعلى وإرهاق أكبر، والمعركة البرية تأخذ الهدف أولاً إن ربحت.",
+    "attack_bonus": 0.2,
+    "attack_fatigue": 1.5
   },
   "range_km": {
     "fighters": [0, 600, 800, 1000, 1200, 1500],

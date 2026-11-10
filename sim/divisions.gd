@@ -29,7 +29,7 @@ static func init_state(sim) -> void:
 
 
 static func _create(sim, owner: String, rid: String) -> Dictionary:
-	var d := {"id": int(sim.state["next_division_id"]), "owner": owner, "region": rid, "strength": 1.0, "exp": 0.0, "target": "", "eta": -1, "depart": -1}
+	var d := {"id": int(sim.state["next_division_id"]), "owner": owner, "region": rid, "strength": 1.0, "exp": 0.0, "target": "", "eta": -1, "depart": -1, "attack": ""}
 	sim.state["next_division_id"] = int(sim.state["next_division_id"]) + 1
 	sim.state["divisions"].append(d)
 	return d
@@ -140,6 +140,9 @@ static func theater(sim, id: String, allies_side: Array, enemies: Array) -> Dict
 		if d["region"] in front and int(d["eta"]) < 0:
 			f = 1.0
 			front_n += 1
+			# فرقة بأمر هجوم تجاور هدفها: تقاتل بتركيز أعلى
+			if attacking(sim, d):
+				f += float(conf.get("attack_bonus", 0.0))
 		land += f * float(d["strength"]) * (1.0 + float(conf["exp_bonus"]) * float(d["exp"]))
 	land = land / maxf(1.0, float(divs.size())) * float(conf["deploy_scale"])
 	var oor := float(sim.db.military["out_of_range_factor"])
@@ -256,6 +259,79 @@ static func move(sim, div_id: int, to: String) -> String:
 	return ""
 
 
+# ------------------------------------------------------------------ أمر الهجوم
+
+## هل الفرقة تنفذ أمر هجوم الآن: واقفة في منطقة تجاور هدفها، والهدف ما زال للعدو
+static func attacking(sim, d: Dictionary) -> bool:
+	var atk: String = d.get("attack", "")
+	return atk != "" and int(d["eta"]) < 0 and atk in sim.db.regions[d["region"]]["neighbors"] \
+		and sim.state["regions"][atk]["owner"] in sim.enemies_of(d["owner"])
+
+
+## أين تقف الفرقة لتهاجم الهدف: أقرب منطقة صديقة تجاوره (بعدد القفزات). "" إن لم يوجد طريق
+static func staging(sim, d: Dictionary, target: String) -> String:
+	if target in sim.db.regions[d["region"]]["neighbors"]:
+		return d["region"]
+	var reach := reachable(sim, d["owner"], d["region"])
+	var best := ""
+	var best_h := 1 << 30
+	for n in sim.db.regions[target]["neighbors"]:
+		if reach.has(n) and int(reach[n]) < best_h:
+			best_h = int(reach[n])
+			best = n
+	return best
+
+
+## توقع أمر الهجوم بلا آثار جانبية: لماذا لا يجوز، أو أين تقف الفرق ومتى تصل
+static func attack_preview(sim, ids: Array, target: String) -> Dictionary:
+	if ids.is_empty() or not sim.state["regions"].has(target):
+		return {"why": "منطقة غير معروفة."}
+	var d0 := find(sim, int(ids[0]))
+	if d0.is_empty():
+		return {"why": "فرقة غير موجودة."}
+	var owner: String = d0["owner"]
+	var t_owner: String = sim.state["regions"][target]["owner"]
+	if not (t_owner in sim.enemies_of(owner)):
+		return {"why": "لست في حرب مع %s. أعلن الحرب أولاً." % sim.country(t_owner)["name_ar"]}
+	var stage := staging(sim, d0, target)
+	if stage == "":
+		return {"why": "لا طريق بري إلى منطقة تجاور %s." % sim.db.regions[target]["name_ar"]}
+	var days := 0
+	if stage != d0["region"]:
+		days = maxi(1, (path(sim, owner, d0["region"], stage).size() - 1) * int(cfg(sim)["days_per_hop"]))
+	return {"why": "", "staging": stage, "days": days}
+
+
+## أمر الهجوم: كل فرقة تتحرك إلى منطقة الانطلاق ثم تهاجم الهدف في المعارك الأسبوعية
+static func order_attack(sim, ids: Array, target: String) -> String:
+	var pv := attack_preview(sim, ids, target)
+	if pv["why"] != "":
+		return pv["why"]
+	var n := 0
+	for did in ids:
+		var d := find(sim, int(did))
+		if d.is_empty():
+			continue
+		var stage := staging(sim, d, target)
+		if stage == "":
+			continue
+		if stage != d["region"]:
+			if move(sim, int(did), stage) != "":
+				continue
+		d["attack"] = target
+		n += 1
+	return "" if n > 0 else "تعذر توجيه الفرق إلى الهدف."
+
+
+## الأهداف التي يركز عليها طرف الآن: أوامر هجوم فرقه الواقفة عند أهدافها
+static func attack_targets(sim, side: Array) -> Array:
+	var out: Array = []
+	for d in sim.state.get("divisions", []):
+		if d["owner"] in side and attacking(sim, d) and not (d["attack"] in out):
+			out.append(d["attack"])
+	return out
+
+
 static func daily(sim) -> void:
 	var day := int(sim.state["day"])
 	var rec := float(cfg(sim)["recovery_per_day"])
@@ -269,6 +345,9 @@ static func daily(sim) -> void:
 			d["target"] = ""
 			d["eta"] = -1
 		d["strength"] = minf(1.0, float(d["strength"]) + rec)
+		var atk: String = d.get("attack", "")
+		if atk != "" and not (sim.state["regions"][atk]["owner"] in sim.enemies_of(d["owner"])):
+			d["attack"] = ""   # انتهت الحرب أو تغيّر صاحب الهدف
 
 
 ## بعد معركة: إرهاق للمشاركين وخبرة
@@ -277,7 +356,8 @@ static func after_battle(sim, side: Array, enemies: Array) -> void:
 	var conf := cfg(sim)
 	for d in sim.state["divisions"]:
 		if d["owner"] in side and d["region"] in front:
-			d["strength"] = maxf(0.3, float(d["strength"]) - float(conf["fatigue_per_battle"]))
+			var fat := float(conf["fatigue_per_battle"]) * (float(conf.get("attack_fatigue", 1.0)) if attacking(sim, d) else 1.0)
+			d["strength"] = maxf(0.3, float(d["strength"]) - fat)
 			d["exp"] = minf(1.0, float(d["exp"]) + float(conf["exp_per_battle"]))
 
 
@@ -287,6 +367,13 @@ static func on_capture(sim, rid: String, new_owner: String) -> void:
 	var advanced := false
 	for d in sim.state.get("divisions", []):
 		var owner: String = d["owner"]
+		if d.get("attack", "") == rid:
+			# الهدف سقط: المهاجم المجاور يدخله، وأي أمر هجوم عليه ينتهي
+			if owner in ok_new and int(d["eta"]) < 0 and rid in sim.db.regions[d["region"]]["neighbors"]:
+				d["region"] = rid
+				advanced = advanced or owner == new_owner
+			d["attack"] = ""
+			continue
 		if d["region"] == rid and not (owner in ok_new):
 			var dest := _retreat_spot(sim, d)
 			if dest == "":
@@ -347,6 +434,8 @@ static func auto_deploy(sim, id: String) -> void:
 	var covered := {}
 	var idle: Array = []
 	for d in divs:
+		if d.get("attack", "") != "":
+			continue   # أمر هجوم من اللاعب: التوزيع التلقائي لا يلمسه
 		var at: String = d["target"] if int(d["eta"]) >= 0 else d["region"]
 		# الفرقة الزائدة عن حصة موقعها تصبح متاحة للتحريك (مثل تكدس الفرق في العاصمة)
 		if at in targets and int(covered.get(at, 0)) < per:

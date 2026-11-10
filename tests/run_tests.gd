@@ -30,6 +30,7 @@ func _init() -> void:
 		test_regions_data()
 		test_regions_economy()
 		test_regional_war()
+		test_attack_order()
 		test_peace_returns_regions()
 		test_resources()
 		test_facilities()
@@ -286,6 +287,56 @@ func test_regional_war() -> void:
 	var syr := s.country("SYR")
 	if syr["overlord"] == "TUR" or syr.get("annexed", false):
 		check(Territory.owned(s, "TUR").size() > 81, "تركيا تحتفظ بالمناطق المحتلة بعد الاستسلام")
+
+
+## أمر الهجوم: لا يجوز بلا حرب، والفرقة تتقدم لمنطقة الانطلاق، والهدف يسقط قبل غيره
+func test_attack_order() -> void:
+	print("أمر الهجوم بالفرق")
+	var s := new_sim("TUR", 31)
+	s.country("TUR")["auto_deploy"] = false
+	var d0: Dictionary = Divisions.of(s, "TUR")[0]
+	# هدف في أقصى شمال شرق سوريا (الحسكة): ليس الطريق المعتاد نحو دمشق
+	var target := ""
+	for rid in s.db.regions_by_country["SYR"]:
+		if s.db.regions[rid]["name_en"] == "Hasaka (Al Haksa)":
+			target = rid
+	check(target != "", "الحسكة موجودة في البيانات")
+	if target == "":
+		return
+	var why: String = Divisions.attack_preview(s, [int(d0["id"])], target)["why"]
+	check(why != "", "لا هجوم بلا حرب: %s" % why)
+	var before := s.checksum()
+	s.declare_war("TUR", "SYR")
+	var ids: Array = []
+	for d in Divisions.of(s, "TUR"):
+		ids.append(int(d["id"]))
+	var pv: Dictionary = Divisions.attack_preview(s, ids, target)
+	check(pv["why"] == "" and pv["staging"] != "", "توقع الهجوم: منطقة الانطلاق %s بعد %d يوماً" % [s.db.regions.get(pv.get("staging", ""), {}).get("name_ar", "؟"), int(pv.get("days", -1))])
+	check(Divisions.order_attack(s, ids, target) == "", "الأمر قُبل")
+	# ترتيب سقوط المناطق السورية: الهدف البعيد عن طريق دمشق يجب أن يكون من أوائلها
+	var order: Array = []
+	var attacked := false
+	for day in 70:
+		s.battle_feed.clear()
+		run_days(s, 1)
+		for d in Divisions.of(s, "TUR"):
+			if Divisions.attacking(s, d):
+				attacked = true
+		# ترتيب السقوط الفعلي من تقرير المعركة
+		for r in s.battle_feed:
+			for rid in r["taken"]:
+				if s.db.regions[rid]["country"] == "SYR" and s.state["regions"][rid]["owner"] == "TUR":
+					order.append(rid)
+		if target in order:
+			break
+	check(attacked, "الفرق وصلت إلى منطقة الانطلاق وهاجمت")
+	var pos := order.find(target)
+	check(pos >= 0 and pos <= 1, "الحسكة سقطت ضمن أول منطقتين (الترتيب %d من %d)" % [pos + 1, order.size()])
+	var still := 0
+	for d in Divisions.of(s, "TUR"):
+		if d.get("attack", "") == target:
+			still += 1
+	check(still == 0, "أوامر الهجوم تنتهي بسقوط الهدف")
 
 
 func test_peace_returns_regions() -> void:

@@ -931,6 +931,9 @@ func _move_to(rid: String) -> void:
 	if rid == map.move_from:
 		_cancel_move()
 		return
+	if map.move_attack.has(rid):
+		_attack_with(ids, rid)
+		return
 	if not map.move_reach.has(rid):
 		var d0: Dictionary = Divisions.find(s, int(ids[0]))
 		var why: String = Divisions.can_move(s, d0, rid) if not d0.is_empty() else "فرقة غير موجودة."
@@ -957,6 +960,43 @@ func _move_to(rid: String) -> void:
 	ctx = {}
 	ctx_card.visible = false
 	_dirty = true
+
+
+## أمر الهجوم: الفرق تتقدم لأقرب منطقة تجاور الهدف ثم تهاجمه في المعارك الأسبوعية
+func _attack_with(ids: Array, rid: String) -> void:
+	var s = Game.sim
+	var pv: Dictionary = Divisions.attack_preview(s, ids, rid)
+	var err: String = Divisions.order_attack(s, ids, rid)
+	map.clear_move()
+	move_division = -1
+	if err != "":
+		_toast(err)
+	else:
+		var who := "فرقة" if ids.size() == 1 else "%d فرق" % ids.size()
+		var days := int(pv.get("days", 0))
+		if days > 0:
+			_toast("تم: %s تتقدم نحو %s وتهاجمها بعد %d يوماً" % [who, s.db.regions[rid]["name_ar"], days])
+		else:
+			_toast("تم: %s تهاجم %s الآن" % [who, s.db.regions[rid]["name_ar"]])
+		if Game.paused:
+			Game.set_paused(false)
+	ctx = {}
+	ctx_card.visible = false
+	_dirty = true
+
+
+## أقرب فرقك المتاحة لمهاجمة منطقة (حتى ثلاث)، مع مدة وصولها
+func _attackers_for(rid: String) -> Array:
+	var s = Game.sim
+	var cand: Array = []
+	for d in Divisions.of(s, s.state["player"]):
+		if int(d["eta"]) >= 0 or d.get("attack", "") != "":
+			continue
+		var pv: Dictionary = Divisions.attack_preview(s, [int(d["id"])], rid)
+		if pv["why"] == "":
+			cand.append([int(pv["days"]), int(d["id"])])
+	cand.sort_custom(func(a, b): return a[0] < b[0])
+	return cand.slice(0, 3)
 
 
 func _show_context() -> void:
@@ -1073,7 +1113,13 @@ func _ctx_region(rid: String) -> void:
 	_ctx_facilities(rid, fac, r, at_war)
 	var acts2: Array = []
 	if at_war:
-		acts2.append(["عرض السلام", func(): _do(s.propose_peace(pid, owner), "قُبل السلام."), "peace", "PrimaryButton"])
+		# الهجوم المباشر من البطاقة: أقرب فرقك المتاحة
+		var atk := _attackers_for(rid)
+		if not atk.is_empty():
+			var ids: Array = atk.map(func(x): return x[1])
+			var lbl := "هاجم (%s)" % ("فرقة" if ids.size() == 1 else "%d فرق" % ids.size())
+			acts2.append([lbl, _attack_with.bind(ids, rid), "target", "DangerButton"])
+		acts2.append(["عرض السلام", func(): _do(s.propose_peace(pid, owner), "قُبل السلام."), "peace"])
 	else:
 		acts2.append(["تحسين العلاقات", func(): _do(s.improve_relations(pid, owner), "تحسنت العلاقات."), "handshake", "PrimaryButton"])
 		if not Market.has_pact(s, pid, owner):
@@ -1145,6 +1191,8 @@ func _ctx_units(rid: String, owner: String, ids: Array) -> void:
 	var stats: Array = [["army", "جاهزية %d%%" % int(avg * 100.0), UI.C_GOOD if avg >= 0.7 else (UI.C_WARN if avg >= 0.45 else UI.C_BAD), "متوسط جاهزية الفرق"]]
 	if int(d0["eta"]) >= 0:
 		stats.append(["calendar", "تصل بعد %d يوماً" % maxi(1, int(d0["eta"]) - int(s.state["day"])), UI.C_TEXT])
+	if d0.get("attack", "") != "":
+		stats.append(["target", "تهاجم %s" % s.db.regions[d0["attack"]]["name_ar"], UI.C_BAD, "أمر هجوم جارٍ"])
 	_ctx_stats(stats)
 	var acts: Array = []
 	if owner == pid and int(d0["eta"]) < 0:
@@ -1165,7 +1213,7 @@ func _ctx_move(rid: String, ids: Array) -> void:
 	tv.add_theme_constant_override("separation", 0)
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.add_child(UI.title("حرّك %s من %s" % ["فرقة" if ids.size() == 1 else "%d فرق" % ids.size(), s.db.regions[rid]["name_ar"]], 17))
-	var hint := UI.label("المس منطقة مظللة بالأزرق لتتحرك إليها.", UI.C_MUTED, 13)
+	var hint := UI.label("أزرق: تحرّك إليها · أحمر: هاجمها." if not map.move_attack.is_empty() else "المس منطقة مظللة بالأزرق لتتحرك إليها.", UI.C_MUTED, 13)
 	hint.autowrap_mode = TextServer.AUTOWRAP_OFF
 	tv.add_child(hint)
 	h.add_child(tv)
@@ -2917,7 +2965,12 @@ func _divisions_section(box: VBoxContainer, p: Dictionary) -> void:
 		var where: String = s.db.regions[d["region"]]["name_ar"]
 		var status := "احتياط"
 		var col := UI.C_MUTED
-		if int(d["eta"]) >= 0:
+		if d.get("attack", "") != "":
+			status = "تهاجم ← %s" % s.db.regions[d["attack"]]["name_ar"]
+			if int(d["eta"]) >= 0:
+				status += " · تصل بعد %d يوماً" % (int(d["eta"]) - int(s.state["day"]))
+			col = UI.C_BAD
+		elif int(d["eta"]) >= 0:
 			status = "تتحرك ← %s · %d يوماً" % [s.db.regions[d["target"]]["name_ar"], int(d["eta"]) - int(s.state["day"])]
 			col = UI.C_WARN
 		elif d["region"] in front:

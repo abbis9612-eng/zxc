@@ -106,6 +106,7 @@ var selected_division: int = -1
 var move_ids: Array = []
 var move_from: String = ""
 var move_reach: Dictionary = {}
+var move_attack: Dictionary = {}   # مناطق العدو التي يمكن مهاجمتها من الوجهات الممكنة
 var preview_target: String = ""
 
 var _range_cache: Dictionary = {}     # منطقة -> 0 لا شيء، 1 طيران، 2 صواريخ، 3 كلاهما
@@ -394,10 +395,18 @@ func set_move(ids: Array, from_rid: String) -> void:
 	move_from = from_rid
 	preview_target = ""
 	move_reach = {}
+	move_attack = {}
 	if sim != null and not ids.is_empty():
 		var d: Dictionary = Divisions.find(sim, int(ids[0]))
 		if not d.is_empty():
 			move_reach = Divisions.reachable(sim, d["owner"], from_rid)
+			# الهجوم: كل منطقة عدو تجاور وجهة ممكنة
+			var enemies: Array = sim.enemies_of(d["owner"])
+			if not enemies.is_empty():
+				for rid in move_reach:
+					for nb in sim.db.regions[rid]["neighbors"]:
+						if sim.state["regions"][nb]["owner"] in enemies:
+							move_attack[nb] = true
 	_redraw_light()
 
 
@@ -405,6 +414,7 @@ func clear_move() -> void:
 	move_ids = []
 	move_from = ""
 	move_reach = {}
+	move_attack = {}
 	preview_target = ""
 	_redraw_light()
 
@@ -426,6 +436,11 @@ func _process(delta: float) -> void:
 	if not anim and Game.is_running() and not Game.paused:
 		for d in sim.state.get("divisions", []):
 			if int(d["eta"]) >= 0:
+				anim = true
+				break
+	if not anim:
+		for d in sim.state.get("divisions", []):
+			if d.get("attack", "") != "" and d["owner"] == sim.state["player"]:
 				anim = true
 				break
 	if anim:
@@ -550,6 +565,12 @@ func _draw_fx_layer() -> void:
 			var shape: Dictionary = _regions[_region_idx[rid]]
 			_fill_shape(ci, shape, Color(pal("REACH"), pulse))
 			_outline(shape, Color(pal("REACH"), 0.8), 1.5 / s)
+		# أهداف الهجوم: وميض فاتح فوق لون العدو وإطار أحمر عريض، حتى تتميز عن أرض العدو العادية
+		for rid in move_attack:
+			var shape2: Dictionary = _regions[_region_idx[rid]]
+			_fill_shape(ci, shape2, Color(1, 1, 1, pulse * 0.75))
+			_outline(shape2, pal("OUTLINE"), 4.5 / s)
+			_outline(shape2, pal("FRONT"), 2.5 / s)
 	_draw_fronts(s)
 	_bfx.draw_capture_fill(ci)
 	if selected_region != "" and _region_idx.has(selected_region):
@@ -571,8 +592,9 @@ func _draw_over_layer() -> void:
 		_vis_cache = {}
 		# الأهم يُرسم أولاً ويحجز مكانه: الوحدات، ثم العواصم، ثم المناطق
 		_draw_wars_markers()
-		_draw_move_preview()
+		_draw_attack_orders()
 		_draw_divisions()
+		_draw_move_preview()
 		_draw_capitals()
 		_bfx.draw_ground(_over)
 		_bfx.draw_fires(_over)
@@ -999,6 +1021,9 @@ func _draw_move_preview() -> void:
 		return
 	var p := region_screen(move_from)
 	_cv.draw_arc(p, 22.0 + 4.0 * sin(_time * 6.0), 0.0, TAU, 36, pal("REACH"), 2.0, true)
+	if preview_target != "" and move_attack.has(preview_target):
+		_draw_attack_preview(preview_target)
+		return
 	if preview_target == "" or preview_target == move_from or not move_reach.has(preview_target):
 		return
 	var d: Dictionary = Divisions.find(sim, int(move_ids[0]))
@@ -1028,6 +1053,79 @@ func _draw_move_preview() -> void:
 	_cv.draw_style_box(sb, box)
 	_cv.draw_string(_font_bold, Vector2(box.position.x + 10, box.position.y + fs + 3), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 	_labels.append(box)
+
+
+## معاينة الهجوم: الطريق إلى منطقة الانطلاق ثم سهم أحمر إلى الهدف، مع المدة
+func _draw_attack_preview(target: String) -> void:
+	var pv: Dictionary = Divisions.attack_preview(sim, move_ids, target)
+	if pv["why"] != "":
+		return
+	var stage: String = pv["staging"]
+	var d: Dictionary = Divisions.find(sim, int(move_ids[0]))
+	if stage != move_from and not d.is_empty():
+		var pts := PackedVector2Array()
+		for rid in Divisions.path(sim, d["owner"], move_from, stage):
+			pts.append(region_screen(rid))
+		_dashed(pts, pal("OUTLINE"), 6.0, 12.0, 6.0)
+		_dashed(pts, pal("REACH"), 3.5, 12.0, 6.0)
+	var a := region_screen(stage)
+	var b := region_screen(target)
+	_attack_arrow(a, b, pal("FRONT"), 1.0)
+	var days := int(pv["days"])
+	var lbl := "هجوم على %s · %s" % [sim.db.regions[target]["name_ar"], ("الآن" if days == 0 else "%d يوماً" % days)]
+	var fs := _fs(14)
+	var w := _font_bold.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var box := Rect2(b + Vector2(-w * 0.5 - 10, -fs - 34), Vector2(w + 20, fs + 14))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = pal("FRONT")
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	_cv.draw_style_box(sb, box)
+	_cv.draw_string(_font_bold, Vector2(box.position.x + 10, box.position.y + fs + 3), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+	_labels.append(box)
+
+
+## سهم هجوم بطول يُرى مهما صغرت المناطق، يعبر الحد من a نحو b
+func _attack_arrow(a0: Vector2, b0: Vector2, col: Color, alpha: float) -> void:
+	var d0 := (b0 - a0).normalized()
+	if d0 == Vector2.ZERO:
+		return
+	var mid := a0.lerp(b0, 0.5)
+	var L := maxf(a0.distance_to(b0) * 0.9, 70.0 * text_scale)
+	var base := mid - d0 * L * 0.55
+	var tip := mid + d0 * L * 0.45
+	var w := 7.0 * text_scale
+	var head := w * 2.2
+	var shaft_end := tip - d0 * head * 0.8
+	var n := d0.orthogonal()
+	_cv.draw_line(base, shaft_end, Color(pal("OUTLINE"), 0.85 * alpha), w + 4.0, true)
+	_cv.draw_line(base, shaft_end, Color(col, 0.95 * alpha), w, true)
+	_cv.draw_colored_polygon(PackedVector2Array([tip + d0 * 5.0, shaft_end + n * (head * 0.75 + 3.0) - d0 * 2.0, shaft_end - n * (head * 0.75 + 3.0) - d0 * 2.0]), Color(pal("OUTLINE"), 0.85 * alpha))
+	_cv.draw_colored_polygon(PackedVector2Array([tip + d0 * 2.0, shaft_end + n * head * 0.75, shaft_end - n * head * 0.75]), Color(col, alpha))
+
+
+## أوامر الهجوم الجارية لقواتك: سهم أحمر متقطع من موقع الفرق إلى هدفها
+func _draw_attack_orders() -> void:
+	var pid: String = sim.state["player"]
+	var seen := {}
+	for d in sim.state.get("divisions", []):
+		if d["owner"] != pid or d.get("attack", "") == "":
+			continue
+		var stage: String = d["target"] if int(d["eta"]) >= 0 else d["region"]
+		var key: String = stage + ">" + String(d["attack"])
+		if seen.has(key):
+			continue
+		seen[key] = true
+		var a := region_screen(stage)
+		var b := region_screen(d["attack"])
+		var pulse := 0.65 + 0.35 * sin(_time * 4.0)
+		_attack_arrow(a, b, pal("FRONT"), pulse if int(d["eta"]) < 0 else 0.55)
+		# علامة الهدف
+		var r := 9.0 * text_scale
+		_cv.draw_arc(b, r, 0.0, TAU, 24, pal("OUTLINE"), 4.0, true)
+		_cv.draw_arc(b, r, 0.0, TAU, 24, pal("FRONT"), 2.0, true)
+		_cv.draw_line(b + Vector2(-r - 4, 0), b + Vector2(r + 4, 0), pal("FRONT"), 2.0)
+		_cv.draw_line(b + Vector2(0, -r - 4), b + Vector2(0, r + 4), pal("FRONT"), 2.0)
 
 
 # ------------------------------------------------------------------ المنشآت والأسماء
