@@ -20,6 +20,8 @@ var _last_t := 0.0
 var _vel := 0.0
 var _fling: ScrollContainer = null
 var _fling_pos := 0.0
+## نافذة مفتوحة: السحب فوقها لا يمرّر القوائم التي تحتها
+var _modal: Control = null
 
 
 func add(sc: ScrollContainer) -> void:
@@ -28,12 +30,35 @@ func add(sc: ScrollContainer) -> void:
 	_scrolls.append(sc)
 
 
+func remove(sc: ScrollContainer) -> void:
+	_scrolls.erase(sc)
+	if _active == sc:
+		_active = null
+		_dragging = false
+	if _fling == sc:
+		_fling = null
+
+
+func set_modal(node: Control) -> void:
+	_modal = node
+
+
+func modal_is(node: Control) -> bool:
+	return _modal == node
+
+
 func _target_at(pos: Vector2) -> ScrollContainer:
+	if _modal != null and not is_instance_valid(_modal):
+		_modal = null
+	var modal_on := _modal != null and _modal.is_visible_in_tree()
 	for i in range(_scrolls.size() - 1, -1, -1):
 		var sc = _scrolls[i]
 		if not is_instance_valid(sc):
+			_scrolls.remove_at(i)
 			continue
 		var s: ScrollContainer = sc
+		if modal_on and not _modal.is_ancestor_of(s):
+			continue
 		if s.is_visible_in_tree() and s.get_global_rect().has_point(pos) and s.get_v_scroll_bar().max_value > s.size.y + 1.0:
 			return s
 	return null

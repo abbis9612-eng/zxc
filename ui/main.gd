@@ -113,6 +113,8 @@ var buy_types: Array = []
 var overlay: Control
 var dialog_queue: Array = []
 var dialog_open := false
+var _dialog_fit_gen := 0
+var _dialog_fit_cb := Callable()
 var start_screen: Control
 
 var touch_scroll: Node
@@ -3440,6 +3442,8 @@ func _dialog_icon(title: String) -> Array:
 func _next_dialog() -> void:
 	if dialog_queue.is_empty():
 		dialog_open = false
+		touch_scroll.set_modal(null)
+		_set_dialog_fit(Callable())
 		return
 	dialog_open = true
 	var d: Dictionary = dialog_queue.pop_front()
@@ -3450,12 +3454,14 @@ func _next_dialog() -> void:
 	overlay.add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.add_child(center)
 	var ic: Array = _dialog_icon(d["title"])
 	if d.get("icon", "") != "":
 		ic[0] = d["icon"]
 	var accent: Color = ic[1]
 	var panel := PanelContainer.new()
+	panel.name = "DialogPanel"
 	var ps := StyleBoxFlat.new()
 	ps.bg_color = UI.C_DIALOG
 	ps.border_color = Color(accent, 0.8)
@@ -3469,7 +3475,8 @@ func _next_dialog() -> void:
 	ps.shadow_color = UI.C_SHADOW
 	ps.shadow_size = 18
 	panel.add_theme_stylebox_override("panel", ps)
-	panel.custom_minimum_size = Vector2(minf(580.0, get_viewport_rect().size.x - 32.0), 0)
+	var limits := _dialog_limits()
+	panel.custom_minimum_size = Vector2(limits.x, 0)
 	center.add_child(panel)
 	var v := UI.col()
 	v.add_theme_constant_override("separation", 12)
@@ -3479,19 +3486,39 @@ func _next_dialog() -> void:
 	head.add_child(Icons.icon_rect(ic[0], accent, 30))
 	var t := UI.title(d["title"], 22)
 	t.add_theme_color_override("font_color", UI.C_TEXT)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	v.add_child(head)
 	var line := ColorRect.new()
 	line.color = Color(accent, 0.3)
 	line.custom_minimum_size = Vector2(0, 1)
 	v.add_child(line)
-	if d["text"] != "":
-		v.add_child(UI.label(d["text"]))
-	if d["content"] != null:
-		v.add_child(d["content"])
-	var h := UI.row()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_theme_constant_override("separation", 10)
+	var scroll: ScrollContainer = null
+	if d["text"] != "" or d["content"] != null:
+		# المتن يتمرّر، والعنوان والأزرار يبقيان ظاهرين مهما قصر ارتفاع الشاشة
+		scroll = ScrollContainer.new()
+		scroll.name = "DialogScroll"
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var body := UI.col()
+		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if d["text"] != "":
+			var msg := UI.label(d["text"])
+			msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			body.add_child(msg)
+		if d["content"] != null:
+			var content: Control = d["content"]
+			content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			body.add_child(content)
+		scroll.add_child(body)
+		v.add_child(scroll)
+		touch_scroll.add(scroll)
+	var h := HFlowContainer.new()
+	h.alignment = FlowContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("h_separation", 10)
+	h.add_theme_constant_override("v_separation", 8)
 	v.add_child(h)
 	var first := true
 	for b in d["buttons"]:
@@ -3510,6 +3537,106 @@ func _next_dialog() -> void:
 			_next_dialog(), "", variation)
 		btn.custom_minimum_size = Vector2(110, 0)
 		h.add_child(btn)
+	touch_scroll.set_modal(dim)
+	if scroll != null:
+		var fit_cb := func():
+			if is_instance_valid(panel) and is_instance_valid(scroll):
+				_fit_dialog(panel, scroll)
+		# نافذة جديدة قبل ما تُحذف السابقة: نفصل ربط القديمة أولاً حتى لا يتكرر
+		_set_dialog_fit(fit_cb)
+		dim.tree_exiting.connect(func():
+			if _dialog_fit_cb == fit_cb:
+				_set_dialog_fit(Callable())
+			touch_scroll.remove(scroll)
+			if touch_scroll.modal_is(dim):
+				touch_scroll.set_modal(null)
+		)
+		_apply_dialog_fit(panel, scroll, true)
+		_fit_dialog.call_deferred(panel, scroll)
+	else:
+		_set_dialog_fit(Callable())
+		dim.tree_exiting.connect(func():
+			if touch_scroll.modal_is(dim):
+				touch_scroll.set_modal(null)
+		)
+
+
+func _set_dialog_fit(cb: Callable) -> void:
+	if _dialog_fit_cb.is_valid() and resized.is_connected(_dialog_fit_cb):
+		resized.disconnect(_dialog_fit_cb)
+	_dialog_fit_cb = cb
+	if cb.is_valid():
+		resized.connect(cb)
+
+
+## عرض النافذة وارتفاعها الأقصى حتى تبقى داخل الشاشة مع هامش صغير
+func _dialog_limits() -> Vector2:
+	var vp := get_viewport_rect().size
+	var margin := 12.0
+	return Vector2(minf(580.0, maxf(220.0, vp.x - margin * 2.0)), maxf(120.0, vp.y - margin * 2.0))
+
+
+## يعطي التسميات الكتلية عرض النافذة حتى يُحسب ارتفاع الالتفاف قبل الرسم
+func _dialog_block_width(node: Node, width: float) -> void:
+	if node == null:
+		return
+	for c in node.get_children():
+		if c is Label:
+			var l := c as Label
+			if l.autowrap_mode != TextServer.AUTOWRAP_OFF:
+				l.custom_minimum_size.x = width
+		elif c is VBoxContainer or c is PanelContainer or c is MarginContainer:
+			_dialog_block_width(c, width)
+
+
+## يضبط ارتفاع منطقة التمرير: إن زاد المتن عن الشاشة يُمرَّر، والنافذة لا تخرج منها
+func _fit_dialog(panel: PanelContainer, scroll: ScrollContainer) -> void:
+	_dialog_fit_gen += 1
+	var gen := _dialog_fit_gen
+	if not _apply_dialog_fit(panel, scroll, true):
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if gen != _dialog_fit_gen or not is_instance_valid(panel) or not is_instance_valid(scroll):
+		return
+	_apply_dialog_fit(panel, scroll, false)
+	await get_tree().process_frame
+	if gen != _dialog_fit_gen or not is_instance_valid(panel) or not is_instance_valid(scroll):
+		return
+	# تصحيح أخير من المقاس المرسوم: النافذة لا تتجاوز الشاشة
+	var overflow := panel.size.y - _dialog_limits().y
+	if overflow > 1.0:
+		scroll.custom_minimum_size.y = maxf(36.0, scroll.size.y - overflow)
+
+
+func _apply_dialog_fit(panel: PanelContainer, scroll: ScrollContainer, estimate: bool) -> bool:
+	if not is_instance_valid(panel) or not is_instance_valid(scroll) or scroll.get_child_count() == 0:
+		return false
+	var limits := _dialog_limits()
+	panel.custom_minimum_size.x = limits.x
+	var sb := panel.get_theme_stylebox("panel")
+	var inner := limits.x - sb.get_content_margin(Side.SIDE_LEFT) - sb.get_content_margin(Side.SIDE_RIGHT)
+	var body := scroll.get_child(0) as Control
+	var text_w := maxf(40.0, inner - 14.0)
+	body.custom_minimum_size.x = text_w
+	_dialog_block_width(body, text_w)
+	var content_h: float
+	if estimate or scroll.size.y < 1.0:
+		content_h = body.get_combined_minimum_size().y
+	else:
+		content_h = scroll.get_v_scroll_bar().max_value
+		if content_h < 1.0:
+			content_h = body.get_combined_minimum_size().y
+	scroll.custom_minimum_size.y = 0.0
+	var chrome := panel.get_combined_minimum_size().y
+	var room := limits.y - chrome
+	if room < 48.0:
+		room = maxf(36.0, get_viewport_rect().size.y - chrome - 4.0)
+	var want := 0.0
+	if content_h > 1.0:
+		want = minf(content_h, room)
+	scroll.custom_minimum_size.y = maxf(0.0, want)
+	return true
 
 
 func _toast(text: String) -> void:
