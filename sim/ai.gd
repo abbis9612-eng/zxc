@@ -77,6 +77,9 @@ static func _armament(sim, c: Dictionary, difficulty: int) -> void:
 	var budget := (float(c["treasury"]) - reserve) * spend_share
 	if budget <= 0.05:
 		return
+	# لا طلبات جديدة والطابور أطول من خطوط الإنتاج
+	if c["production"].size() >= sim.production_lines(c) + 2:
+		return
 	for u in BUY_WEIGHTS:
 		var unit_c: float = sim.unit_cost(c, u)
 		var count := floorf(budget * float(BUY_WEIGHTS[u]) / unit_c)

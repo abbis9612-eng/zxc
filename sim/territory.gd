@@ -162,6 +162,11 @@ static func _apply_acc(sim, id: String, a: Dictionary) -> void:
 	c["gdp"] = maxf(0.5, float(a["gdp"]))
 	c["population"] = maxf(0.05, float(a["pop"]))
 	c["occupied_regions"] = a["occ"]
+	# مشاريع الاستثمار الداخلي تضيف إلى موارد الدولة (حتى 100)
+	var bonus: Dictionary = c.get("res_bonus", {})
+	for k in bonus:
+		if a["res"].has(k):
+			a["res"][k] = minf(100.0, float(a["res"][k]) + float(bonus[k]))
 	for k in a["res"]:
 		a["res"][k] = snappedf(float(a["res"][k]), 0.01)
 	c["resources"] = a["res"]

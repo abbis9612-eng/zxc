@@ -16,6 +16,7 @@ const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Front := preload("res://sim/front.gd")
 const Operations := preload("res://sim/operations.gd")
+const Investment := preload("res://sim/investment.gd")
 const Straits := preload("res://sim/straits.gd")
 const Development := preload("res://sim/development.gd")
 const Icons := preload("res://ui/icons.gd")
@@ -2208,11 +2209,60 @@ func _fill_economy() -> void:
 	# 2) الميزانية جدولاً: الداخل والطالع بأشرطة متناسبة
 	if not b.is_empty():
 		eco_info.add_child(_budget_table(b))
+	_investment_section(eco_info, p)
 	# 3) البقية بعد التحكم بالضرائب
 	_resources_section(eco_more, p)
 	_market_section(eco_more, p)
 	_straits_section(eco_more, p)
 	_logistics_section(eco_more, p)
+
+
+const FACILITY_EFFECTS := {"factory": "+1 خط إنتاج للسلاح ومصانع أسرع", "refinery": "وقود للجيش", "power_plant": "كهرباء: نمو أعلى",
+	"airbase": "مدى أوسع للطيران", "port": "إمداد بحري وإنزال"}
+
+
+## الاستثمار الداخلي والمنشآت: كل مشروع بأثره وكلفته ومدته، يبدأ بضغطة
+func _investment_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	var pid: String = p["id"]
+	box.add_child(UI.section("الاستثمار الداخلي", "invest"))
+	var conf: Dictionary = s.db.development["domestic"]
+	for k in Investment.ids(s):
+		var info: Dictionary = conf[k]
+		var why: String = Investment.can_start(s, pid, k)
+		var run: Dictionary = Investment.in_progress(p, k)
+		var chips: Array = [[info["desc_ar"], UI.C_MUTED]]
+		if info.has("max"):
+			chips.append(["المستوى %d من %d" % [Investment.level(p, k), int(info["max"])], UI.C_MUTED])
+		if info.has("res"):
+			chips.append(["الآن %d" % int(float(p["resources"].get(info["res"], 0.0))), UI.C_MUTED])
+		if not run.is_empty():
+			chips.append(["يكتمل بعد %d يوماً" % int(ceilf(float(run["days_left"]))), UI.C_GOOD])
+		elif why != "":
+			chips.append([why, UI.C_BAD])
+		else:
+			chips.append(["المدة %s" % _human_months(int(ceilf(float(Investment.days(s, p, k)) / 30.0))), UI.C_MUTED])
+		var kk: String = k
+		box.add_child(_choice(String(info.get("icon", "invest")), String(info["name_ar"]), chips, UI.money_short(Investment.cost(s, p, k)),
+			func(): _do(Investment.start(s, pid, kk), "تم: بدأ مشروع %s." % info["name_ar"]), not run.is_empty(), why != "" and run.is_empty()))
+	# المنشآت في المحافظات: المكان يُختار تلقائياً (الأغنى والأقل منها)
+	box.add_child(UI.section("بناء المنشآت", "factory"))
+	for ft in ["factory", "refinery", "power_plant", "airbase", "port"]:
+		var rules: Dictionary = s.db.development["projects"][ft]
+		var site: String = Development.best_site(s, pid, ft)
+		var why2: String = "لا محافظة مناسبة" if site == "" else Development.can_build(s, pid, site, ft)
+		var have := int(p.get("facilities", {}).get(ft, {}).get("working", 0))
+		var chips2: Array = [[FACILITY_EFFECTS[ft], UI.C_MUTED], ["لديك %d" % have, UI.C_MUTED]]
+		if site != "":
+			chips2.append(["في %s · %s" % [s.db.regions[site]["name_ar"], _human_months(int(ceilf(float(Development.project_days(s, pid, ft)) / 30.0)))], UI.C_MUTED])
+		if why2 != "":
+			chips2.append([why2, UI.C_BAD])
+		var name: String = "مصنع حربي" if ft == "factory" else String(rules["name_ar"])
+		var ft2: String = ft
+		box.add_child(_choice(ft, name, chips2, UI.money_short(Development.project_cost(s, pid, ft)),
+			func(): _do(Development.start_build(s, pid, site, ft2), "تم: بدأ بناء %s في %s." % [name, s.db.regions[site]["name_ar"]]), false, why2 != ""))
+	for o in p.get("projects", []):
+		box.add_child(UI.kv("%s في %s" % [s.db.development["projects"][o["type"]]["name_ar"], s.db.regions[o["region"]]["name_ar"]], "%d يوماً" % int(ceilf(float(o["days_left"]))), UI.C_GOOD, "factory"))
 
 
 ## جدول الميزانية: كل بند بسطر، اسمه ومبلغه وشريط بحجمه من أكبر بند. الداخل أخضر والطالع أحمر
@@ -2502,40 +2552,241 @@ func _buy_import(seller: String, utype: String, count: int, days: int) -> void:
 	_do(Development.import_units(s, s.state["player"], seller, utype, count), "تم: الشحنة تصل بعد %d يوماً." % days)
 
 
+const UNIT_ICONS := {"infantry": "soldier", "armor": "tank", "atgm": "target", "ashm": "ship", "ew": "radar",
+	"artillery": "target", "fighters": "airbase", "bombers": "airbase", "helicopters": "heli", "drones": "radar",
+	"air_defense": "radar", "ships": "ship", "submarines": "ship", "missiles": "target", "nukes": "nuke"}
+
+
+## كمية الطلب المقترحة: نحو عُشر المخزون، مقربة لرقم سهل
+func _pack(u: String, have: float) -> int:
+	var base := maxf(1.0, have * 0.1)
+	for step in [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]:
+		if float(step) >= base:
+			return step
+	return 1000
+
+
 func _fill_army() -> void:
-	_update_buy_cost()
+	army_controls.visible = false
 	UI.clear(army_info)
 	var s = Game.sim
+	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
-	army_info.add_child(UI.section("القوات المسلحة", "army"))
-	army_info.add_child(UI.kv("القوة الكلية", s.fmt_num(s.military_power(p)), UI.C_ACCENT))
+	army_info.add_theme_constant_override("separation", 8)
+	# 1) الجواب أولاً: القوة وترتيبها، وما يكلفه الجيش، وطاقة المصانع
+	var mine: float = s.military_power(p)
+	var rank := 1
+	var alive: Array = s.alive_ids()
+	for id in alive:
+		if id != pid and s.military_power(s.country(id)) > mine:
+			rank += 1
+	var lines: int = s.production_lines(p)
+	var busy := mini(p["production"].size(), lines)
+	army_info.add_child(_answer_card("army", "القوات المسلحة", "القوة %s · المرتبة %d من %d" % [s.fmt_num(mine), rank, alive.size()],
+		[["صيانة %s سنوياً" % UI.money_short(Economy.military_upkeep(s, p)), UI.C_MUTED],
+		["خطوط الإنتاج %d من %d" % [busy, lines], UI.C_BAD if busy >= lines else UI.C_GOOD],
+		["سرعة المصانع ×%s" % String.num(s.production_speed(p), 2), UI.C_MUTED]]))
 	_divisions_section(army_info, p)
+	# 2) خط الإنتاج: كل طلب بشريط تقدم
+	_production_section(army_info, p)
+	# 3) بطاقة لكل سلاح: العدد والفئة والمدى، وتصنيع أو استيراد بكلفته ومدته
+	army_info.add_child(UI.section("الأسلحة", "factory"))
+	for u in s.db.units:
+		if u == "nukes":
+			continue
+		army_info.add_child(_unit_card(p, String(u)))
+	# 4) الردع النووي
+	_nuclear_card(army_info, p)
+	# 5) المنشآت العسكرية
 	var fac: Dictionary = p.get("facilities", {})
+	var fchips: Array = []
 	for t in Territory.FACILITY_TYPES:
 		var f: Dictionary = fac.get(t, {"total": 0, "working": 0})
 		if int(f["total"]) > 0:
 			var bad := int(f["working"]) < int(f["total"])
-			army_info.add_child(UI.kv(Territory.FACILITY_NAMES[t], "%d عاملة من %d" % [int(f["working"]), int(f["total"])], UI.C_BAD if bad else UI.C_TEXT))
-	army_info.add_child(UI.kv("الصيانة السنوية", UI.money(Economy.military_upkeep(s, p))))
-	for u in s.db.units:
-		var info: Dictionary = s.db.units[u]
-		var gen := int(p["tech"][info["branch"]])
-		var n := float(p["military"][u])
-		var batches: Array = p.get("stocks", {}).get(u, [])
-		var shown := "%s  ·  %s" % [s.fmt_num(n), info["gens"][gen - 1]]
-		if batches.size() > 1:
-			var parts := PackedStringArray()
-			for b in batches:
-				parts.append("%s · جيل %d" % [s.fmt_num(b["n"]), int(b["gen"])])
-			shown = "، ".join(parts)
-		army_info.add_child(UI.kv("%s" % info["name_ar"], shown))
+			fchips.append(["%s %d/%d" % [Territory.FACILITY_NAMES[t], int(f["working"]), int(f["total"])], UI.C_BAD if bad else UI.C_MUTED])
+	if not fchips.is_empty():
+		army_info.add_child(UI.section("المنشآت (عاملة/الكل)", "airbase"))
+		army_info.add_child(_chips(fchips))
+
+
+func _unit_card(p: Dictionary, u: String) -> Control:
+	var s = Game.sim
+	var info: Dictionary = s.db.units[u]
+	var gen := int(p["tech"][info["branch"]])
+	var have := float(p["military"][u])
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _tint_box(UI.C_TEXT, 0.03, 0.15))
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+	var head := UI.row()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(Icons.icon_rect(UNIT_ICONS.get(u, "army"), UI.C_TEXT if have >= 1.0 else UI.C_MUTED, 26))
+	var nm := _nowrap(_big(String(info["name_ar"]).trim_suffix(" (ألف)").trim_suffix(" (بطارية)"), 16))
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(nm)
+	head.add_child(_nowrap(_big(s.fmt_num(have), 18)))
+	head.add_child(_nowrap(UI.label(info.get("unit_ar", ""), UI.C_MUTED, 13)))
+	v.add_child(head)
+	var chips: Array = [[String(info["gens"][clampi(gen, 1, 5) - 1]), UI.C_ACCENT_TEXT]]
+	var rng: float = Divisions.range_km(s, u, gen)
+	if rng > 0.0:
+		chips.append(["المدى %s كم" % s.fmt_num(rng), UI.C_MUTED])
+	chips.append([info.get("role_ar", ""), UI.C_MUTED])
+	if have < 1.0:
+		chips.append(["لا تملك هذه القدرة", UI.C_BAD])
+	v.add_child(_chips(chips))
+	# التصنيع والاستيراد: سطر النتيجة تحت كل زر
+	var pack := _pack(u, have)
+	var pv: Dictionary = s.order_preview(p["id"], u, float(pack))
+	var offers: Array = Development.suppliers(s, p["id"], u)
+	var acts := HBoxContainer.new()
+	acts.add_theme_constant_override("separation", 6)
+	var b1 := _action_cell("صنّع %s" % s.fmt_num(pack), _open_build.bind(u), "factory", "PrimaryButton",
+		pv["why"] if pv["why"] != "" else "%s · %d يوماً%s" % [UI.money_short(float(pv["cost"])), int(pv["days"]), " (ينتظر خطاً)" if int(pv["wait"]) > 0 else ""],
+		UI.C_BAD if pv["why"] != "" else UI.C_MUTED)
+	acts.add_child(b1)
+	var imp_sub := "لا دولة تبيعك" if offers.is_empty() else "%d بائع · أحدث جيل %d" % [offers.size(), int(offers[0]["gen"])]
+	acts.add_child(_action_cell("استورد", _open_import.bind(u), "trade", "", imp_sub, UI.C_MUTED if not offers.is_empty() else UI.C_BAD))
+	v.add_child(acts)
+	return card
+
+
+## زر مع سطر صغير تحته (الكلفة أو الشرط أو الفرصة)
+func _action_cell(text: String, cb: Callable, icon: String, variation: String, sub: String, sub_col: Color = UI.C_MUTED) -> Control:
+	var cell := VBoxContainer.new()
+	cell.add_theme_constant_override("separation", 2)
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var b := UI.button(text, cb, icon, variation)
+	b.custom_minimum_size = Vector2(0, TOUCH)
+	b.add_theme_constant_override("icon_max_width", 20)
+	b.clip_text = true
+	cell.add_child(b)
+	if sub != "":
+		var sl := UI.label(sub, sub_col, 12)
+		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		sl.clip_text = true
+		cell.add_child(sl)
+	return cell
+
+
+func _production_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
 	var q: Array = p["production"]
-	if not q.is_empty():
-		army_info.add_child(UI.sep())
-		army_info.add_child(UI.section("خطوط الإنتاج", "factory"))
-		for o in q:
-			army_info.add_child(UI.kv("%s × %s" % [s.db.units[o["type"]]["name_ar"], s.fmt_num(o["count"])], "%d يوماً" % int(ceilf(float(o["days_left"]))), UI.C_MUTED))
-	_import_section(army_info, p)
+	var lines: int = s.production_lines(p)
+	box.add_child(UI.section("خط الإنتاج", "factory"))
+	if q.is_empty():
+		box.add_child(UI.label("لا تصنيع جارٍ. لديك %d خطوط فارغة؛ كل مصنع حربي جديد يضيف خطاً." % lines, UI.C_MUTED, 13))
+		return
+	var speed: float = s.production_speed(p)
+	for i in q.size():
+		var o: Dictionary = q[i]
+		var total := float(o.get("total", s.db.units[o["type"]]["build_days"]))
+		var frac := clampf(1.0 - float(o["days_left"]) / maxf(1.0, total), 0.0, 1.0)
+		var r := UI.row()
+		r.add_theme_constant_override("separation", 8)
+		r.add_child(Icons.icon_rect(UNIT_ICONS.get(o["type"], "army"), UI.C_TEXT, 20))
+		var nm := _nowrap(UI.label("%s %s" % [s.fmt_num(o["count"]), String(s.db.units[o["type"]]["name_ar"]).trim_suffix(" (ألف)")], UI.C_TEXT, 14))
+		nm.custom_minimum_size = Vector2(130, 0)
+		r.add_child(nm)
+		var bar := UI.bar(frac * 100.0, 100.0, UI.C_ACCENT if i < lines else UI.C_MUTED)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		r.add_child(bar)
+		var left := "%d يوماً" % int(ceilf(float(o["days_left"]) / speed)) if i < lines else "ينتظر خطاً"
+		r.add_child(_nowrap(UI.label(left, UI.C_MUTED if i < lines else UI.C_WARN, 13)))
+		box.add_child(r)
+	var ships: Array = p.get("imports", [])
+	for o in ships:
+		box.add_child(UI.kv("%s %s من %s" % [s.fmt_num(o["count"]), String(s.db.units[o["type"]]["name_ar"]).trim_suffix(" (ألف)"), s.country(o["from"])["name_ar"]], "يصل بعد %d يوماً" % int(ceilf(float(o["days_left"]))), UI.C_MUTED, "trade"))
+
+
+func _nuclear_card(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	box.add_child(UI.section("الردع النووي", "nuke"))
+	var n := float(p["military"].get("nukes", 0.0))
+	var lvl := int(p["tech"].get("nuclear", 1))
+	var need := int(s.db.development["nuclear_order_level"])
+	var has_site: bool = not Territory.working_facilities(s, [p["id"]], "nuclear").is_empty()
+	var uran := float(p["resources"].get("uranium", 0.0))
+	var chips: Array = [["البرنامج النووي %d/%d" % [lvl, need], UI.C_GOOD if lvl >= need or has_site else UI.C_MUTED],
+		["يورانيوم %s" % s.fmt_num(uran), UI.C_GOOD if uran >= 5.0 else UI.C_BAD]]
+	var col: Color = UI.C_BAD if n >= 1.0 else UI.C_MUTED
+	box.add_child(_answer_card("nuke", "رؤوس نووية", s.fmt_num(n) if n >= 1.0 else "لا تملك", chips, "", "", col))
+	var pv: Dictionary = s.order_preview(p["id"], "nukes", 1.0)
+	var why := ""
+	if not (has_site or lvl >= need):
+		why = "تحتاج البرنامج النووي مستوى %d من البحث" % need
+	elif uran < 5.0:
+		why = "تحتاج يورانيوم 5 على الأقل"
+	elif pv["why"] != "":
+		why = pv["why"]
+	box.add_child(_action_cell("صنّع رأساً نووياً", func(): _do(s.order_units(p["id"], "nukes", 1.0), "تم: بدأ تصنيع رأس نووي."), "nuke", "DangerButton" if why == "" else "",
+		why if why != "" else "%s · %d يوماً" % [UI.money_short(float(pv["cost"])), int(pv["days"])], UI.C_BAD if why != "" else UI.C_MUTED))
+
+
+## نافذة التصنيع: ثلاث كميات، كل واحدة بكلفتها وموعد تسليمها
+func _open_build(u: String) -> void:
+	var s = Game.sim
+	var p: Dictionary = s.player()
+	var info: Dictionary = s.db.units[u]
+	var pack := _pack(u, float(p["military"][u]))
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 8)
+	var gen := int(p["tech"][info["branch"]])
+	v.add_child(UI.label("تُصنع بجيلك الحالي: %s. المصانع: %d خطوط، السرعة ×%s." % [info["gens"][clampi(gen, 1, 5) - 1], s.production_lines(p), String.num(s.production_speed(p), 2)], UI.C_MUTED, 13))
+	for mult in [1, 2, 5]:
+		var n: int = pack * int(mult)
+		var pv: Dictionary = s.order_preview(p["id"], u, float(n))
+		var chips: Array = [["يُسلَّم بعد %d يوماً" % int(pv["days"]), UI.C_TEXT]]
+		if int(pv["wait"]) > 0:
+			chips.append(["منها %d انتظار خط" % int(pv["wait"]), UI.C_WARN])
+		if pv["why"] != "":
+			chips.append([pv["why"], UI.C_BAD])
+		v.add_child(_choice(UNIT_ICONS.get(u, "army"), "%s %s" % [s.fmt_num(n), info.get("unit_ar", "")], chips, UI.money_short(float(pv["cost"])),
+			func():
+				_close_top_dialog()
+				_do(s.order_units(p["id"], u, float(n)), "تم: بدأ التصنيع."), false, pv["why"] != ""))
+	_show_dialog("تصنيع %s" % String(info["name_ar"]).trim_suffix(" (ألف)"), "", [{"text": "تراجع"}], v, "factory")
+
+
+## نافذة الاستيراد: البائعون بجيلهم وسعرهم ومدة الشحن
+func _open_import(u: String) -> void:
+	var s = Game.sim
+	var p: Dictionary = s.player()
+	var pid: String = p["id"]
+	var info: Dictionary = s.db.units[u]
+	var count := _pack(u, float(p["military"][u]))
+	var mine := int(p["tech"][info["branch"]])
+	var offers: Array = Development.suppliers(s, pid, u)
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 8)
+	if offers.is_empty():
+		v.add_child(UI.label("لا دولة تبيعك هذا السلاح الآن: تحتاج حليفاً أو علاقة 20 على الأقل، ولا يبيعك حليف لعدوك.", UI.C_MUTED, 14))
+	for o in offers.slice(0, 5):
+		var c: Dictionary = s.country(o["id"])
+		var g := int(o["gen"])
+		var chips: Array = []
+		if g > mine:
+			chips.append(["الجيل %d · أحدث من جيلك" % g, UI.C_GOOD])
+		elif g == mine:
+			chips.append(["الجيل %d · مثل جيلك" % g, UI.C_MUTED])
+		else:
+			chips.append(["الجيل %d · أقدم" % g, UI.C_BAD])
+		chips.append(["يصل بعد %d يوماً" % int(o["days"]), UI.C_MUTED])
+		var total := float(o["cost"]) * float(count)
+		var poor: bool = total > float(p["treasury"])
+		if poor:
+			chips.append(["الخزينة لا تكفي", UI.C_BAD])
+		var seller: String = o["id"]
+		var days := int(o["days"])
+		v.add_child(_choice("", c["name_ar"], chips, "%s %s · %s" % [s.fmt_num(count), info.get("unit_ar", ""), UI.money_short(total)],
+			func():
+				_close_top_dialog()
+				_buy_import(seller, u, count, days), false, poor, c.get("flag", "")))
+	_show_dialog("استيراد %s" % String(info["name_ar"]).trim_suffix(" (ألف)"), "", [{"text": "تراجع"}], v, "trade")
 
 
 # ------------------------------------------------------------------ تبويب البحث
@@ -2589,6 +2840,14 @@ func _fill_research() -> void:
 		hv.add_child(pr)
 	box.add_child(hero)
 	box.add_theme_constant_override("separation", 8)
+	# البحث في كل الفروع معاً: نصف المال للأولوية والباقي بالتساوي، وتغيير الأولوية لا يضيّع التقدم
+	var par: bool = p.get("research_parallel", false)
+	var n_open: int = Economy.research_shares(s, p).size()
+	box.add_child(_choice("research", "ابحث في كل الفروع معاً" if not par else "تبحث الآن في كل الفروع معاً",
+		[["%d فرعاً في وقت واحد · الأولوية تأخذ النصف" % n_open, UI.C_MUTED] if par else ["الآن فرع واحد فقط · تغيير الفرع يضيّع نصف التقدم", UI.C_MUTED]],
+		"إيقاف" if par else "تشغيل", func():
+			s.set_research_parallel(pid, not par)
+			_dirty = true, par))
 
 	# 2) توصية المستشار: جملة واحدة وفعل واحد
 	_research_advice(box, p, rival, rival_known, months)
@@ -2609,6 +2868,10 @@ func _fill_research() -> void:
 	box.add_child(legend)
 
 
+func gen_open(p: Dictionary, br: String) -> bool:
+	return int(p["tech"].get(br, 1)) < 5
+
+
 ## صف فرع: اسمه وأيقونته، وسلّم الأجيال، وحالته. الصف كله زر يغيّر التركيز.
 func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	var s = Game.sim
@@ -2616,6 +2879,7 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	btn.theme_type_variation = "FlatButton"
 	btn.custom_minimum_size = Vector2(0, 58)
 	var focus: bool = p["research_focus"] == br
+	var par: bool = p.get("research_parallel", false)
 	if focus:
 		btn.add_theme_stylebox_override("normal", _tint_box(UI.C_ACCENT, 0.08, 0.0))
 	var h := UI.row()
@@ -2633,10 +2897,10 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	lad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lad.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lad.gen = int(p["tech"][br])
-	lad.researching = focus
+	lad.researching = focus or (par and gen_open(p, br))
 	var gen := int(p["tech"][br])
 	if gen < 5:
-		lad.progress = float(p["research_progress"]) / Economy.research_cost(gen + 1) if focus else 0.0
+		lad.progress = Economy.research_prog(p, br) / Economy.research_cost(gen + 1) if (focus or par) else 0.0
 	lad.names = _focus_gens(br)
 	if not rc.is_empty():
 		lad.rival_gen = int(rc["tech"][br])
@@ -2649,6 +2913,13 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	if gen >= 5:
 		st.text = "مكتمل"
 		st.add_theme_color_override("font_color", UI.C_GOOD)
+	elif par:
+		# البحث المتوازي: كل فرع يتقدم، ونعرض متى يكتمل جيله التالي
+		var m := Economy.research_months(s, p, br, float(p["research_ratio"]))
+		st.text = ("أولوية · " if focus else "") + (_human_months(m) if m >= 0 else "يحتاج اقتصاداً أكبر")
+		st.custom_minimum_size = Vector2(96, 0)
+		if not focus:
+			st.add_theme_color_override("font_color", UI.C_MUTED)
 	elif focus:
 		st.text = "قيد البحث"
 	else:
@@ -2658,7 +2929,14 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	for c in h.get_children():
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not focus and gen < 5:
-		btn.pressed.connect(_confirm_research.bind(br))
+		if par:
+			# الأولوية تتغير بلا خسارة في البحث المتوازي
+			btn.pressed.connect(func():
+				s.set_research(p["id"], float(p["research_ratio"]), br)
+				_toast("تم: الأولوية الآن %s" % _focus_title(br))
+				_dirty = true)
+		else:
+			btn.pressed.connect(_confirm_research.bind(br))
 	return btn
 
 

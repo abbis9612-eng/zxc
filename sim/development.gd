@@ -2,6 +2,7 @@
 ## الأرقام في data/development.json.
 extends RefCounted
 
+const Investment := preload("res://sim/investment.gd")
 const Arsenal := preload("res://sim/arsenal.gd")
 const Territory := preload("res://sim/territory.gd")
 
@@ -185,6 +186,30 @@ static func can_build(sim, id: String, rid: String, ftype: String) -> String:
 	return ""
 
 
+## أفضل محافظة لبناء منشأة: من مناطقك الأصلية الأقل منها ثم الأغنى (الميناء على الساحل فقط)
+static func best_site(sim, id: String, ftype: String) -> String:
+	var best := ""
+	var best_score := -INF
+	for rid in Territory.core_regions(id, sim.db):
+		var r: Dictionary = sim.state["regions"][rid]
+		if r["owner"] != id:
+			continue
+		if cfg(sim)["projects"][ftype].get("coastal", false) and not sim.db.regions[rid].get("coastal", false):
+			continue
+		var score := float(sim.db.regions[rid]["gdp_share"]) - float(Territory.facility_count(sim, rid, ftype)) * 0.5
+		if score > best_score:
+			best_score = score
+			best = rid
+	return best
+
+
+## أيام البناء الفعلية بسرعة المصانع الحالية
+static func project_days(sim, id: String, ftype: String) -> int:
+	var c: Dictionary = sim.country(id)
+	var speed := float(c.get("logistics", {}).get("production", 1.0)) * (1.0 + num(sim, c, "production"))
+	return int(ceilf(float(cfg(sim)["projects"][ftype]["days"]) / maxf(0.05, speed)))
+
+
 static func project_cost(sim, id: String, ftype: String) -> float:
 	return float(sim.country(id)["gdp"]) * float(cfg(sim)["projects"][ftype]["cost_gdp"])
 
@@ -223,6 +248,7 @@ static func daily(sim) -> void:
 		var c: Dictionary = sim.country(id)
 		_tick_imports(sim, c)
 		_tick_projects(sim, c)
+		Investment.daily(sim, c)
 
 
 # ------------------------------------------------------------------ السكان

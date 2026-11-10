@@ -384,19 +384,21 @@ func _daily_production() -> void:
 		var queue: Array = c["production"]
 		if queue.is_empty() or c.get("annexed", false):
 			continue
-		var speed := float(c.get("logistics", {}).get("production", 1.0)) * (1.0 + Development.num(self, c, "production"))
-		if "war_economy" in c["policies"]:
-			speed *= float(db.policies["war_economy"].get("production_speed", 1.0))
-		var i := queue.size() - 1
-		while i >= 0:
+		var speed := production_speed(c)
+		# الطلبات الأولى بعدد الخطوط تعمل، والباقي ينتظر
+		var active := mini(queue.size(), production_lines(c))
+		var done: Array = []
+		for i in active:
 			var o: Dictionary = queue[i]
 			o["days_left"] = float(o["days_left"]) - speed
 			if float(o["days_left"]) <= 0.0:
-				queue.remove_at(i)
-				Arsenal.add(c, o["type"], float(o["count"]), int(c["tech"][db.units[o["type"]]["branch"]]))
-				if is_player(id):
-					add_news("اكتمل تصنيع %s %s." % [fmt_num(o["count"]), db.units[o["type"]]["name_ar"]], "good")
-			i -= 1
+				done.append(i)
+		for j in range(done.size() - 1, -1, -1):
+			var o: Dictionary = queue[done[j]]
+			queue.remove_at(done[j])
+			Arsenal.add(c, o["type"], float(o["count"]), int(c["tech"][db.units[o["type"]]["branch"]]))
+			if is_player(id):
+				add_news("اكتمل تصنيع %s %s." % [fmt_num(o["count"]), db.units[o["type"]]["name_ar"]], "good")
 
 
 func _global_modifiers_tick() -> void:
@@ -751,8 +753,22 @@ func set_research(id: String, ratio: float, focus: String) -> void:
 	c["research_ratio"] = clampf(ratio, 0.0, 0.05)
 	if db.branches.has(focus) or db.development["tracks"].has(focus):
 		if focus != c["research_focus"]:
-			c["research_progress"] = float(c["research_progress"]) * 0.5
+			if c.get("research_parallel", false):
+				# البحث المتوازي: لكل فرع تقدمه، وتغيير الأولوية لا يضيّع شيئاً
+				if not c.has("research_prog"):
+					c["research_prog"] = {}
+				c["research_prog"][c["research_focus"]] = float(c["research_progress"])
+				c["research_progress"] = float(c["research_prog"].get(focus, 0.0))
+				c["research_prog"].erase(focus)
+			else:
+				c["research_progress"] = float(c["research_progress"]) * 0.5
 		c["research_focus"] = focus
+
+
+## البحث المتوازي في كل الفروع (أو التركيز على فرع واحد)
+func set_research_parallel(id: String, on: bool) -> void:
+	var c := country(id)
+	c["research_parallel"] = on
 
 
 func toggle_policy(id: String, policy: String) -> void:
@@ -801,6 +817,41 @@ func unit_cost(c: Dictionary, utype: String) -> float:
 	return cost
 
 
+## خطوط الإنتاج المتوازية: خطان أساسيان + خط لكل مصنع عامل. الطلبات الزائدة تنتظر دورها
+func production_lines(c: Dictionary) -> int:
+	return 2 + int(c.get("facilities", {}).get("factory", {}).get("working", 0))
+
+
+## سرعة الإنتاج اليومية (أيام بناء في اليوم) من الصلب والمصانع والعقيدة واقتصاد الحرب
+func production_speed(c: Dictionary) -> float:
+	var speed := float(c.get("logistics", {}).get("production", 1.0)) * (1.0 + Development.num(self, c, "production"))
+	if "war_economy" in c["policies"]:
+		speed *= float(db.policies["war_economy"].get("production_speed", 1.0))
+	return maxf(0.05, speed)
+
+
+## توقع طلب تصنيع بلا آثار جانبية: الكلفة، والأيام حتى التسليم (مع انتظار خط فارغ)، وسبب المنع إن وُجد
+func order_preview(id: String, utype: String, count: float) -> Dictionary:
+	var c := country(id)
+	var total := unit_cost(c, utype) * count
+	var speed := production_speed(c)
+	var q: Array = c["production"]
+	var lines := production_lines(c)
+	var wait := 0.0
+	if q.size() >= lines:
+		# ينتظر أن يفرغ خط: أقرب طلب نشط ينتهي، ثم ما قبله في الطابور
+		var lefts: Array = []
+		for o in q:
+			lefts.append(float(o["days_left"]))
+		lefts.sort()
+		wait = float(lefts[mini(q.size() - lines, lefts.size() - 1)]) / speed
+	var days := int(ceilf(wait + float(db.units[utype]["build_days"]) / speed))
+	var why := ""
+	if total > float(c["treasury"]):
+		why = "الخزينة لا تكفي: تحتاج %s مليار." % fmt_num(total)
+	return {"cost": total, "days": days, "wait": int(ceilf(wait)), "why": why, "lines": lines, "busy": mini(q.size(), lines)}
+
+
 func order_units(id: String, utype: String, count: float) -> String:
 	var c := country(id)
 	if not db.units.has(utype) or count <= 0.0:
@@ -816,7 +867,7 @@ func order_units(id: String, utype: String, count: float) -> String:
 	if total > float(c["treasury"]):
 		return "الخزينة لا تكفي. الكلفة %s مليار." % fmt_num(total)
 	c["treasury"] = float(c["treasury"]) - total
-	c["production"].append({"type": utype, "count": count, "days_left": float(db.units[utype]["build_days"])})
+	c["production"].append({"type": utype, "count": count, "days_left": float(db.units[utype]["build_days"]), "total": float(db.units[utype]["build_days"])})
 	return ""
 
 

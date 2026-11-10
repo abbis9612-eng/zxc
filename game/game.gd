@@ -80,6 +80,8 @@ func start_new(player_id: String, difficulty: int = 1, seed_value: int = -1) -> 
 		seed_value = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
 	sim = Simulation.new(db)
 	sim.new_game(player_id, seed_value, difficulty)
+	# اللاعب يبحث في كل الفروع معاً من البداية (يستطيع إيقافه من تبويب البحث)
+	sim.set_research_parallel(player_id, true)
 	set_paused(true)
 	game_started.emit()
 

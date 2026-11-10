@@ -55,6 +55,73 @@ static func tax_tolerance(sim, c: Dictionary) -> float:
 	return maxf(0.30, float(c.get("tax_base", 0.30))) + float(gov["tax_tolerance"])
 
 
+const PARALLEL_FOCUS_SHARE := 0.5
+
+
+## كل ما يمكن بحثه: فروع الأسلحة ثم المسارات الإضافية
+static func research_targets(sim) -> Array:
+	return sim.db.branches.keys() + sim.db.development["tracks"].keys()
+
+
+## حصة كل فرع من مال البحث: التركيز وحده، أو (في البحث المتوازي) نصف للأولوية والباقي بالتساوي
+static func research_shares(sim, c: Dictionary) -> Dictionary:
+	var focus: String = c["research_focus"]
+	var open: Array = research_targets(sim).filter(func(b): return int(c["tech"].get(b, 1)) < 5)
+	var out := {}
+	if not c.get("research_parallel", false) or open.size() <= 1:
+		if focus in open:
+			out[focus] = 1.0
+		return out
+	var others: Array = open.filter(func(b): return b != focus)
+	var fshare := PARALLEL_FOCUS_SHARE if focus in open else 0.0
+	if fshare > 0.0:
+		out[focus] = fshare
+	for b in others:
+		out[b] = (1.0 - fshare) / float(others.size())
+	return out
+
+
+static func research_prog(c: Dictionary, br: String) -> float:
+	if br == c["research_focus"]:
+		return float(c["research_progress"])
+	return float(c.get("research_prog", {}).get(br, 0.0))
+
+
+static func _set_prog(c: Dictionary, br: String, v: float) -> void:
+	if br == c["research_focus"]:
+		c["research_progress"] = v
+	else:
+		if not c.has("research_prog"):
+			c["research_prog"] = {}
+		c["research_prog"][br] = v
+
+
+static func _research_add(sim, c: Dictionary, br: String, amount: float, gdp: float) -> void:
+	var track_name: String = sim.db.branches.get(br, Development.track(sim, br).get("name_ar", ""))
+	if track_name == "":
+		return
+	var gen := int(c["tech"].get(br, 1))
+	if gen >= 5:
+		return
+	var prog := research_prog(c, br) + amount
+	var need := research_cost(gen + 1)
+	var industry_ok := gen + 1 < 5 or gdp >= 500.0
+	var blocked := Development.gate_block(sim, c, br, gen + 1)
+	if prog >= need and industry_ok and blocked == "":
+		c["tech"][br] = gen + 1
+		prog = 0.0
+		sim.add_news("%s تصل إلى الجيل %d في %s." % [c["name_ar"], gen + 1, track_name], "good" if sim.is_player(c["id"]) else "info")
+	elif blocked != "" and prog >= need and sim.is_player(c["id"]) and not c.get("gate_told", false):
+		c["gate_told"] = true
+		sim.add_news(blocked, "info")
+	_set_prog(c, br, prog)
+
+
+## الجامعات: كل مستوى يسرّع البحث
+static func research_bonus(sim, c: Dictionary) -> float:
+	return float(c.get("dom_levels", {}).get("universities", 0)) * float(sim.db.development["domestic"]["universities"]["research"])
+
+
 static func research_cost(next_gen: int) -> float:
 	return RESEARCH_BASE_COST * next_gen * next_gen
 
@@ -69,11 +136,14 @@ static func research_months(sim, c: Dictionary, branch: String, ratio: float) ->
 	if gen + 1 >= 5 and float(c["gdp"]) < 500.0:
 		return -2
 	var gov: Dictionary = sim.db.governments[c["government"]]
-	var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research"))
+	var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research") + research_bonus(sim, c))
 	var per_month := float(c["gdp"]) * ratio / 12.0 * mult
-	var prog := float(c["research_progress"])
-	if branch != c["research_focus"]:
-		prog *= 0.5
+	var prog := research_prog(c, branch)
+	if c.get("research_parallel", false):
+		var sh: Dictionary = research_shares(sim, c)
+		per_month *= float(sh.get(branch, 0.0))
+	elif branch != c["research_focus"]:
+		prog = float(c["research_progress"]) * 0.5
 	var left := maxf(0.0, research_cost(gen + 1) - prog)
 	if per_month <= 0.0:
 		return 9999
@@ -110,6 +180,7 @@ static func growth_rate(sim, c: Dictionary) -> float:
 	growth += Market.pact_growth(sim, c["id"])
 	growth += float(c["resources"].get("oil", 0.0)) / 100.0 * (float(g["oil_price"]) - 1.0) * 6.0
 	growth += Development.num(sim, c, "growth")
+	growth += float(c.get("growth_bonus", 0.0))
 	return growth
 
 
@@ -165,23 +236,12 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	inflation += (2.5 - inflation) * 0.08
 	c["inflation"] = clampf(inflation, -2.0, 200.0)
 
-	# البحث
-	var focus: String = c["research_focus"]
-	var track_name: String = sim.db.branches.get(focus, Development.track(sim, focus).get("name_ar", ""))
-	if track_name != "" and int(c["tech"].get(focus, 1)) < 5 and not dry:
-		var gen := int(c["tech"][focus])
-		var mult := 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research")
-		c["research_progress"] = float(c["research_progress"]) + research * maxf(0.2, mult)
-		var need := research_cost(gen + 1)
-		var industry_ok := gen + 1 < 5 or gdp >= 500.0
-		var blocked := Development.gate_block(sim, c, focus, gen + 1)
-		if float(c["research_progress"]) >= need and industry_ok and blocked == "":
-			c["tech"][focus] = gen + 1
-			c["research_progress"] = 0.0
-			sim.add_news("%s تصل إلى الجيل %d في %s." % [c["name_ar"], gen + 1, track_name], "good" if sim.is_player(c["id"]) else "info")
-		elif blocked != "" and float(c["research_progress"]) >= need and sim.is_player(c["id"]) and not c.get("gate_told", false):
-			c["gate_told"] = true
-			sim.add_news(blocked, "info")
+	# البحث: التركيز وحده، أو كل الفروع معاً (نصف المال للأولوية والباقي بالتساوي)
+	if not dry:
+		var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research") + research_bonus(sim, c))
+		var shares := research_shares(sim, c)
+		for br in shares:
+			_research_add(sim, c, String(br), research * mult * float(shares[br]), gdp)
 
 	# الاستقرار
 	var tol := tax_tolerance(sim, c)
