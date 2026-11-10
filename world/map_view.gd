@@ -19,6 +19,8 @@ signal hovered(rid: String, pos: Vector2)
 signal units_tapped(rid: String, owner: String, ids: Array)
 ## لمس خارج أي منطقة أو دولة
 signal empty_tapped
+## حدث قتال يومي (طلعة جوية أو رشقة صواريخ أو سقوط منطقة) لشريط الأخبار المباشر
+signal combat_event(e: Dictionary)
 ## لمس نقطة مضيق على الخريطة
 signal strait_selected(sid: String)
 
@@ -163,6 +165,10 @@ var _world_t := -10.0
 var _by_area: Array = []        # المناطق مرتبة بالمساحة (للأسماء)
 var _tw_cache := {}             # عرض النصوص المحسوب
 var _aff_cache := {}
+var _look_cache := {}
+var _look_day := -1
+var _contested: Array = []
+var _ctl_day := -1
 var _vis_cache := {}
 
 
@@ -429,7 +435,14 @@ func _process(delta: float) -> void:
 	if not sim.battle_feed.is_empty():
 		for r in sim.battle_feed:
 			_bfx.spawn(r)
+			if r.get("daily", false):
+				combat_event.emit({"kind": "capture", "report": r})
 		sim.battle_feed.clear()
+	if not sim.combat_feed.is_empty():
+		for e in sim.combat_feed:
+			_bfx.spawn_event(e)
+			combat_event.emit(e)
+		sim.combat_feed.clear()
 	_bfx.cleanup()
 	# إعادة الرسم للحركة فقط: الجبهات تنبض، والفرق تنزلق، والمعارك، ونبضة اللمس. حتى 30 مرة في الثانية.
 	var anim: bool = not sim.state.get("wars", []).is_empty() or not move_ids.is_empty() or _ping_t >= 0.0 or _bfx.active() or _bfx.has_fires()
@@ -572,6 +585,14 @@ func _draw_fx_layer() -> void:
 			_outline(shape2, pal("OUTLINE"), 4.5 / s)
 			_outline(shape2, pal("FRONT"), 2.5 / s)
 	_draw_fronts(s)
+	# المناطق التي يجري فيها القتال: وميض أحمر يشتد كلما نقصت السيطرة
+	if sim != null:
+		for rid in _contested:
+			if not _region_idx.has(rid):
+				continue
+			var ctl := clampf(float(sim.state["regions"][rid].get("control", 100.0)) / 100.0, 0.0, 1.0)
+			var a := (1.0 - ctl) * (0.18 + 0.10 * sin(_time * 4.0 + float(_region_idx[rid])))
+			_fill_shape(ci, _regions[_region_idx[rid]], Color(pal("FRONT"), a))
 	_bfx.draw_capture_fill(ci)
 	if selected_region != "" and _region_idx.has(selected_region):
 		var sh: Dictionary = _regions[_region_idx[selected_region]]
@@ -589,11 +610,15 @@ func _draw_over_layer() -> void:
 		_chip_hits = []
 		_strait_hits = []
 		_aff_cache = {}
+		if int(sim.state["day"]) != _look_day:
+			_look_day = int(sim.state["day"])
+			_look_cache = {}
 		_vis_cache = {}
 		# الأهم يُرسم أولاً ويحجز مكانه: الوحدات، ثم العواصم، ثم المناطق
 		_draw_wars_markers()
 		_draw_attack_orders()
 		_draw_divisions()
+		_draw_control_bars()
 		_draw_move_preview()
 		_draw_capitals()
 		_bfx.draw_ground(_over)
@@ -811,7 +836,7 @@ func _aff_calc(owner: String) -> String:
 
 
 ## رقاقة وحدات: لون الانتماء، رمز المشاة القياسي، العدد بخط كبير، وشريط الجاهزية في أسفلها
-func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool, moving: bool) -> Rect2:
+func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool, moving: bool, icon: String = "unit", gen: int = 0) -> Rect2:
 	var fs := _fs(14)
 	var txt := str(n)
 	var tw := _tw(_font_bold, txt, fs)
@@ -834,7 +859,13 @@ func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool
 	if moving:
 		sb.bg_color = fill.lerp(Color.WHITE, 0.12)
 	_cv.draw_style_box(sb, r)
-	_cv.draw_texture_rect(Icons.tex("unit", ink, 48), Rect2(r.position + Vector2(8, (h - icon_w) * 0.5), Vector2(icon_w, icon_w)), false)
+	_cv.draw_texture_rect(Icons.tex(icon, ink, 48), Rect2(r.position + Vector2(8, (h - icon_w) * 0.5), Vector2(icon_w, icon_w)), false)
+	# الجيل: نقاط صغيرة فوق الرقاقة (جيل 1 إلى 5)
+	if gen > 0:
+		var dr := maxf(1.6, float(_fs(3)) * 0.6)
+		for gi in gen:
+			_cv.draw_circle(Vector2(r.position.x + 9 + gi * dr * 2.6, r.position.y - dr - 1), dr + 0.8, pal("OUTLINE"))
+			_cv.draw_circle(Vector2(r.position.x + 9 + gi * dr * 2.6, r.position.y - dr - 1), dr, fill.lightened(0.35))
 	_cv.draw_string(_font_bold, Vector2(r.position.x + 8 + icon_w + 4, r.position.y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
 	# الجاهزية: خط في قاعدة الرقاقة
 	var bw := w - h * 0.6
@@ -911,6 +942,57 @@ func _visible_owner(owner: String, rid: String, mine_regions: Dictionary) -> boo
 	return _vis_cache[owner]
 
 
+## شكل فرق الدولة: دبابة إن غلبت المدرعات على قوتها البرية، ومروحية إن غلبت المروحيات، وإلا جندي؛ مع جيل البر
+func _unit_look(owner: String) -> Array:
+	if _look_cache.has(owner):
+		return _look_cache[owner]
+	var c: Dictionary = sim.country(owner)
+	var arm: float = sim.unit_power(c, "armor")
+	var inf: float = sim.unit_power(c, "infantry")
+	var hel: float = sim.unit_power(c, "helicopters")
+	var icon := "soldier"
+	if arm >= inf and arm >= hel:
+		icon = "tank"
+	elif hel > inf:
+		icon = "heli"
+	var out := [icon, clampi(int(c["tech"].get("land", 1)), 1, 5)]
+	_look_cache[owner] = out
+	return out
+
+
+## شريط السيطرة فوق كل منطقة يجري فيها القتال: لون صاحبها بقدر سيطرته، والباقي بلون المهاجم
+func _draw_control_bars() -> void:
+	var day := int(sim.state["day"])
+	if day != _ctl_day:
+		_ctl_day = day
+		_contested = []
+		var regs: Dictionary = sim.state["regions"]
+		for rid in sim.db.region_ids:
+			if float(regs[rid].get("control", 100.0)) < 99.5:
+				_contested.append(rid)
+	if _contested.is_empty():
+		return
+	var screen := Rect2(Vector2.ZERO, size)
+	var w := 46.0 * text_scale
+	var h := maxf(5.0, 6.0 * text_scale)
+	for rid in _contested:
+		var p := region_screen(rid) + Vector2(0, -float(_fs(14)) - float(_fs(24)) * 0.5 - 12.0 * text_scale)
+		if not screen.has_point(p):
+			continue
+		var owner: String = sim.state["regions"][rid]["owner"]
+		var ctl := clampf(float(sim.state["regions"][rid].get("control", 100.0)) / 100.0, 0.0, 1.0)
+		var r := Rect2(p - Vector2(w * 0.5, h * 0.5), Vector2(w, h))
+		var own_col: Color = pal({"mine": "U_MINE", "friend": "U_FRIEND", "hostile": "U_HOSTILE"}.get(_aff(owner), "U_NEUTRAL"))
+		var atk_col: Color = pal("U_HOSTILE") if _aff(owner) != "hostile" else pal("U_MINE")
+		_cv.draw_rect(r.grow(1.5), pal("OUTLINE"))
+		_cv.draw_rect(r, atk_col)
+		_cv.draw_rect(Rect2(r.position, Vector2(w * ctl, h)), own_col)
+		# نبضة على طرف الخط حين تكون المنطقة على وشك السقوط
+		if ctl < 0.3:
+			_cv.draw_rect(r.grow(2.5 + sin(_time * 8.0) * 1.5), Color(pal("FRONT"), 0.8), false, 1.5)
+		_labels.append(r.grow(3))
+
+
 func _draw_divisions() -> void:
 	var pid: String = sim.state["player"]
 	var screen := Rect2(Vector2(-40, -40), size + Vector2(80, 80))
@@ -957,7 +1039,8 @@ func _draw_divisions() -> void:
 		if not screen.has_point(p):
 			continue
 		var n := int(g["n"])
-		var r := _draw_chip(p, aff, n, float(g["str"]) / float(n), g["sel"], g["moving"])
+		var look := _unit_look(g["owner"])
+		var r := _draw_chip(p, aff, n, float(g["str"]) / float(n), g["sel"], g["moving"], look[0], look[1])
 		_labels.append(r.grow(2))
 		_chip_hits.append([r.grow(6), g["rid"], g["owner"], g["ids"] if g["moving"] else []])
 

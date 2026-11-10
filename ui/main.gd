@@ -89,6 +89,13 @@ var sheet_full := false
 var expand_btn: Button
 # الخريطة
 var layer_btn: Button
+var cam_btn: Button
+var _cam_i := 0
+## شريط الأخبار المباشر للقتال (فوق بطاقة السياق)
+var ticker: PanelContainer
+var ticker_lbl: Label
+var _tick_queue: Array = []
+var _tick_t := 0.0
 var layers_pop: PanelContainer
 var legend_panel: PanelContainer
 var legend_box: VBoxContainer
@@ -172,6 +179,7 @@ func _build_layout() -> void:
 	map.empty_tapped.connect(_on_empty_tapped)
 	map.strait_selected.connect(_on_strait_selected)
 	map.hovered.connect(_on_map_hover)
+	map.combat_event.connect(_on_combat_event)
 	add_child(map)
 
 	hud = Control.new()
@@ -497,6 +505,10 @@ func _build_map_tools() -> void:
 	var home := _pill_button("capital", "", _go_home, "العودة إلى دولتك")
 	home.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	v.add_child(home)
+	cam_btn = _pill_button("camera", "", _watch_battle, "كاميرا المعركة: انتقل إلى أسخن نقطة على جبهتك وأبطئ الوقت")
+	cam_btn.custom_minimum_size = Vector2(TOUCH, TOUCH)
+	cam_btn.visible = false
+	v.add_child(cam_btn)
 	_pin(p, Control.PRESET_CENTER_RIGHT, Vector2(EDGE, -40))
 	hud.add_child(p)
 
@@ -558,6 +570,15 @@ func _build_context_card() -> void:
 	ctx_box = UI.col()
 	ctx_box.add_theme_constant_override("separation", 8)
 	ctx_card.add_child(ctx_box)
+	ticker = PanelContainer.new()
+	ticker.add_theme_stylebox_override("panel", UI.float_box(12, 6))
+	ticker.visible = false
+	ticker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ticker_lbl = UI.label("", UI.C_TEXT, 14)
+	ticker_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	ticker_lbl.clip_text = true
+	ticker.add_child(ticker_lbl)
+	bottom.add_child(ticker)
 	bottom.add_child(ctx_card)
 
 
@@ -1569,12 +1590,113 @@ func _on_game_started() -> void:
 
 func _on_day() -> void:
 	_update_top()
+	var at_war: bool = not Game.sim.wars_of(Game.sim.state["player"]).is_empty()
+	if cam_btn.visible != at_war:
+		cam_btn.visible = at_war
+
+
+# ------------------------------------------------------------------ كاميرا المعركة والأخبار المباشرة
+
+## مناطق القتال في حروب اللاعب، الأضعف سيطرة أولاً
+func _player_battles() -> Array:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var side: Array = [pid] + s.allies(pid)
+	var enemies: Array = s.enemies_of(pid)
+	var out: Array = []
+	for rid in s.db.region_ids:
+		var r: Dictionary = s.state["regions"][rid]
+		if float(r.get("control", 100.0)) < 99.5 and (r["owner"] in side or r["owner"] in enemies):
+			out.append(rid)
+	out.sort_custom(func(a, b): return float(s.state["regions"][a]["control"]) < float(s.state["regions"][b]["control"]))
+	if out.is_empty():
+		out = Divisions.front_regions(s, enemies, side)
+	return out
+
+
+## كل ضغطة تنتقل إلى المعركة التالية، وتبطئ الوقت حتى تتابعها
+func _watch_battle() -> void:
+	var list := _player_battles()
+	if list.is_empty():
+		_ticker_push("لا معارك على جبهتك الآن.")
+		return
+	var rid: String = list[_cam_i % list.size()]
+	_cam_i += 1
+	var info: Dictionary = Game.sim.db.regions[rid]
+	map.focus_point(float(info["lon"]), float(info["lat"]))
+	var slowed := Game.speed > 1
+	if slowed:
+		_set_speed(1)
+	var ctl := int(float(Game.sim.state["regions"][rid].get("control", 100.0)))
+	_ticker_push("كاميرا المعركة: %s · السيطرة %d%%%s" % [info["name_ar"], ctl, " · خففنا السرعة للمتابعة" if slowed else ""], true)
+
+
+func _on_combat_event(e: Dictionary) -> void:
+	var s = Game.sim
+	if s == null:
+		return
+	var pid: String = s.state["player"]
+	var mine: Array = [pid] + s.allies(pid)
+	var nm := func(rid: String) -> String: return String(s.db.regions.get(rid, {}).get("name_ar", "؟"))
+	var txt := ""
+	match String(e.get("kind", "")):
+		"capture":
+			var r: Dictionary = e["report"]
+			if not (pid in r.get("attackers", []) or pid in r.get("defenders", [])):
+				return
+			for rid in r.get("taken", []):
+				var owner: String = s.state["regions"][rid]["owner"]
+				txt = ("قواتنا تسيطر على %s" if owner in mine else "سقطت %s بيد العدو") % nm.call(rid)
+		"sortie", "salvo":
+			var w: Dictionary = s.war_between(pid, s.state["regions"][e["to"]]["owner"]) if s.state["regions"].has(e["to"]) else {}
+			if w.is_empty() or w["id"] != e.get("war_id", -1):
+				return
+			var ours: bool = String(e["side"]) in mine
+			if e["kind"] == "sortie":
+				var lost := int(e.get("lost", 0))
+				txt = ("%d طلعة لطيراننا من %s على %s" if ours else "%d طلعة معادية من %s على %s") % [int(e["n"]), nm.call(e["from"]), nm.call(e["to"])]
+				if lost > 0:
+					txt += (" · خسرنا %d" if ours else " · أسقطنا %d") % lost
+			else:
+				var icpt := int(e.get("intercepted", 0))
+				if ours:
+					txt = "رشقة من %d صاروخاً على %s · اعترض العدو %d" % [int(e["fired"]), nm.call(e["to"]), icpt]
+				else:
+					txt = "العدو يطلق %d صاروخاً على %s · اعترضنا %d" % [int(e["fired"]), nm.call(e["to"]), icpt]
+	if txt != "":
+		_ticker_push(txt)
+
+
+func _ticker_push(txt: String, now: bool = false) -> void:
+	if now:
+		_tick_queue.clear()
+		_tick_t = 0.0
+	_tick_queue.append(txt)
+	while _tick_queue.size() > 4:
+		_tick_queue.pop_front()
+
+
+func _ticker_step(delta: float) -> void:
+	_tick_t -= delta
+	if _tick_t > 0.0:
+		return
+	if _tick_queue.is_empty():
+		if ticker.visible:
+			ticker.visible = false
+			bottom.queue_sort()
+		return
+	ticker_lbl.text = _tick_queue.pop_front()
+	_tick_t = 2.4
+	if not ticker.visible:
+		ticker.visible = true
+		bottom.queue_sort()
 
 
 func _process(delta: float) -> void:
 	if not Game.is_running():
 		return
 	_refresh_acc += delta
+	_ticker_step(delta)
 	if _dirty and _refresh_acc > 0.25:
 		_refresh_acc = 0.0
 		_refresh()

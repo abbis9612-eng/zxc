@@ -115,6 +115,48 @@ func spawn(r: Dictionary) -> void:
 		_add({"kind": "capture", "t0": t + 1.0, "dur": 2.4, "rid": String(rid), "col": col, "name": String(sim.db.regions[rid]["name_ar"])})
 
 
+## حدث قتال يومي من المحاكاة: طلعة جوية من قاعدة حقيقية، أو رشقة صواريخ يُعترض منها العدد المحسوب
+func spawn_event(e: Dictionary) -> void:
+	var sim = map.sim
+	if sim == null or fx.size() > MAX_FX - 12:
+		return
+	var from := String(e.get("from", ""))
+	var to := String(e.get("to", ""))
+	if from == "" or to == "" or from == to or not sim.db.regions.has(from) or not sim.db.regions.has(to):
+		return
+	var a := _center(from)
+	var b := _center(to)
+	var col := _side_color(String(e.get("side", "")))
+	var t := _now()
+	var dur := clampf(a.distance_to(b) / 9.0, 0.8, 1.8)
+	match String(e.get("kind", "")):
+		"sortie":
+			# تشكيل من طائرة إلى ثلاث بحسب عدد الطلعات، وتسقط واحدة إن أُسقط منها شيء
+			var n := clampi(1 + int(e.get("n", 1)) / 10, 1, 3)
+			var lost := int(e.get("lost", 0))
+			for i in n:
+				var off := Vector2(0, (float(i) - float(n - 1) * 0.5) * 0.25)
+				var shot := i == n - 1 and lost > 0
+				_add({"kind": "plane", "t0": t + 0.1 * i, "dur": dur, "a": a + off, "b": b + off, "col": col, "cut": 0.7 if shot else 1.0})
+				if shot:
+					_add({"kind": "flak", "t0": t + 0.1 * i + dur * 0.7, "dur": 0.5, "p": _arc_point(a + off, b + off, 0.7, false)})
+				else:
+					_add({"kind": "boom", "t0": t + 0.1 * i + dur, "dur": 0.7, "p": b + off * 0.5, "small": true})
+		"salvo":
+			# حتى ستة صواريخ مرئية بنسبة الاعتراض الفعلية
+			var fired := int(e.get("fired", 1))
+			var shown := clampi(fired, 1, 6)
+			var icpt := int(roundf(float(shown) * float(e.get("intercepted", 0)) / maxf(1.0, float(fired))))
+			for i in shown:
+				var jitter := Vector2(sin(i * 2.3), cos(i * 1.7)) * 0.15
+				var cut := i < icpt
+				_add({"kind": "missile", "t0": t + 0.12 * i, "dur": dur, "a": a, "b": b + jitter, "col": col, "cut": 0.6 if cut else 1.0})
+				if cut:
+					_add({"kind": "flak", "t0": t + 0.12 * i + dur * 0.6, "dur": 0.5, "p": _arc_point(a, b + jitter, 0.6, true)})
+				else:
+					_add({"kind": "boom", "t0": t + 0.12 * i + dur, "dur": 0.8, "p": b + jitter})
+
+
 ## ضربة واحدة: طائرة من قاعدة عاملة، أو صاروخ بقوس من أرض المطلق. intercepted: تنفجر في الجو
 func _strike(side: Array, target: String, t0: float, prefer_air: bool, intercepted: bool) -> void:
 	var sim = map.sim
