@@ -138,7 +138,7 @@ func _run() -> void:
 	await _shot("09_divisions")
 	map.set_layer(5)
 	map.focus_point(44.0, 33.0)
-	map.queue_redraw()
+	map.refresh()
 	await _shot("10_range_layer")
 	# تبديل الثيم أثناء اللعب: الشاشة تُبنى من جديد واللعبة مستمرة
 	var light_before: bool = game.light_theme

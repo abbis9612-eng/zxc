@@ -129,7 +129,7 @@ func _ready() -> void:
 	Game.speed_changed.connect(func(_s): _update_top())
 	Game.game_started.connect(_on_game_started)
 	Game.theme_changed.connect(func(): get_tree().reload_current_scene())
-	Game.day_passed.connect(func(): map.queue_redraw())
+	Game.day_passed.connect(func(): map.refresh())
 	# بعد تبديل الثيم يُعاد بناء الشاشة واللعبة مستمرة
 	if Game.is_running():
 		_on_game_started.call_deferred()
@@ -1429,7 +1429,7 @@ func _refresh() -> void:
 		_show_context()
 	if sheet.visible:
 		_fill_current_tab()
-	map.queue_redraw()
+	map.refresh()
 
 
 func _fill_current_tab() -> void:
@@ -1441,7 +1441,7 @@ func _fill_current_tab() -> void:
 		Tab.DIPLOMACY: _fill_diplomacy()
 		Tab.INTEL: _fill_intel()
 		Tab.NEWS: _fill_news()
-	map.queue_redraw()
+	map.refresh()
 
 
 func _update_advisor() -> void:

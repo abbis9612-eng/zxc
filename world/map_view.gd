@@ -83,10 +83,18 @@ static func pal(k: String) -> Color:
 		apply_palette(true)
 	return P[k]
 
-var sim = null
+var sim = null:
+	set(v):
+		sim = v
+		_last_sig = ""
+		_world_dirty = true
 var layer: int = Layer.POLITICAL
 var selected: String = ""
-var selected_region: String = ""
+var selected_region: String = "":
+	set(v):
+		selected_region = v
+		if _fx != null:
+			_redraw_light()
 var selected_division: int = -1
 ## وضع التحريك: الفرق المختارة والمناطق التي تصلها (منطقة -> عدد القفزات)
 var move_ids: Array = []
@@ -100,6 +108,8 @@ var _hover_rid := ""
 var _anim_acc := 0.0
 var _front_cache := {}     # حرب -> [مقاطع الجبهة الحقيقية]، تُحسب مرة كل يوم
 var _front_day := -1
+var _marker_cache := {}
+var _marker_day := -1
 var _hover_pos := Vector2.ZERO
 var _path_cache := {}      # فرقة|وصول -> مسار المراكز
 var _chip_hits: Array = [] # [Rect2, منطقة، مالك، أرقام الفرق]
@@ -125,6 +135,27 @@ var _time := 0.0
 var _font: Font
 var _font_bold: Font
 
+## الأداء: الخريطة ثلاث طبقات. التحريك والتكبير لا يعيدان رسم الأرض، بل يحركانها فقط.
+## _world: الأرض والحدود بإحداثيات الخريطة، تُرسم مرة وتُعاد فقط عند تغير الألوان أو تغير التكبير كثيراً.
+## _fx: ما ينبض (الجبهات، الوجهات الممكنة، التحديد)، صغير وسريع.
+## _over: النصوص والرقائق بإحداثيات الشاشة.
+var _world: Node2D
+var _grid_node: Node2D
+var _chunks: Array = []
+const CHUNK_DEG := 30.0
+var _fx: Node2D
+var _over: Control
+var _cv: CanvasItem = self
+var _world_dirty := true
+var _last_sig := ""
+var _world_scale := 0.0
+var _world_internal := false
+var _world_t := -10.0
+var _by_area: Array = []        # المناطق مرتبة بالمساحة (للأسماء)
+var _tw_cache := {}             # عرض النصوص المحسوب
+var _aff_cache := {}
+var _vis_cache := {}
+
 
 func _ready() -> void:
 	clip_contents = true
@@ -137,8 +168,70 @@ func _ready() -> void:
 	_load_world()
 	_load_regions()
 	_load_edges()
+	_by_area = _regions.duplicate()
+	_by_area.sort_custom(func(a, b): return float(a["area"]) > float(b["area"]))
+	_world = Node2D.new()
+	add_child(_world)
+	_grid_node = Node2D.new()
+	_grid_node.draw.connect(_draw_grid_layer)
+	_world.add_child(_grid_node)
+	_build_chunks()
+	_fx = Node2D.new()
+	_fx.draw.connect(_draw_fx_layer)
+	add_child(_fx)
+	_over = Control.new()
+	_over.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_over.draw.connect(_draw_over_layer)
+	add_child(_over)
 	_zoom = 2.2
-	resized.connect(queue_redraw)
+	resized.connect(func():
+		_world_dirty = true
+		_apply_view())
+
+
+## مرّ يوم أو تغيّر شيء: تُعاد ألوان الأرض فقط إن تغيّر ما يؤثر فيها
+## (انتقال منطقة، حرب أو سلام، تحالف، أو شهر جديد تتغير فيه العلاقات)
+func refresh() -> void:
+	var sig := _world_sig()
+	if sig != _last_sig:
+		_last_sig = sig
+		_world_dirty = true
+	_fx.queue_redraw()
+	_over.queue_redraw()
+
+
+func _world_sig() -> String:
+	if sim == null or sim.state.is_empty():
+		return ""
+	var w := PackedStringArray()
+	for war in sim.state["wars"]:
+		w.append(str(int(war["id"])))
+	var al := 0
+	for aid in sim.state["alliances"]:
+		al += sim.state["alliances"][aid]["members"].size() * 31 + aid.length()
+	return "%d|%s|%d|%d|%d|%s" % [sim.map_version, ",".join(w), al, int(sim.state["date"]["m"]), layer, sim.state["player"]]
+
+
+## تغيّر التحديد أو وضع التحريك: الطبقات الخفيفة فقط
+func _redraw_light() -> void:
+	_fx.queue_redraw()
+	_over.queue_redraw()
+
+
+## تحريك الخريطة أو تكبيرها: نحرك طبقة الأرض المرسومة مسبقاً بدل إعادة رسمها
+func _apply_view() -> void:
+	if _world == null:
+		return
+	var s := _scale()
+	var offset := size * 0.5 - _center * s
+	for n in [_world, _fx]:
+		(n as Node2D).position = offset
+		(n as Node2D).scale = Vector2(s, s)
+	# سماكة الخطوط محسوبة لتكبير معين: إن ابتعدنا عنه كثيراً نعيد رسم الأرض
+	if _world_scale <= 0.0 or s / _world_scale > 1.45 or s / _world_scale < 0.7 or (s >= 4.0) != _world_internal:
+		_world_dirty = true
+	_redraw_light()
 
 
 func _load_world() -> void:
@@ -270,19 +363,20 @@ func focus_country(id: String) -> void:
 	_center = to_map(float(c["lon"]), float(c["lat"]))
 	_zoom = maxf(_zoom, 3.0)
 	_clamp_view()
-	queue_redraw()
+	_apply_view()
 
 
 func focus_point(lon: float, lat: float) -> void:
 	_center = to_map(lon, lat)
 	_zoom = maxf(_zoom, 6.0)
 	_clamp_view()
-	queue_redraw()
+	_apply_view()
 
 
 func set_layer(l: int) -> void:
 	layer = l
-	queue_redraw()
+	_world_dirty = true
+	_redraw_light()
 
 
 ## بدء وضع التحريك لفرق في منطقة: نظلل كل وجهة ممكنة
@@ -295,7 +389,7 @@ func set_move(ids: Array, from_rid: String) -> void:
 		var d: Dictionary = Divisions.find(sim, int(ids[0]))
 		if not d.is_empty():
 			move_reach = Divisions.reachable(sim, d["owner"], from_rid)
-	queue_redraw()
+	_redraw_light()
 
 
 func clear_move() -> void:
@@ -303,12 +397,14 @@ func clear_move() -> void:
 	move_from = ""
 	move_reach = {}
 	preview_target = ""
-	queue_redraw()
+	_redraw_light()
 
 
 func _process(delta: float) -> void:
 	_time += delta
 	if sim == null:
+		if _world_dirty:
+			_rebake()
 		return
 	# إعادة الرسم للحركة فقط: الجبهات تنبض، والفرق تنزلق، ونبضة اللمس. حتى 30 مرة في الثانية.
 	var anim: bool = not sim.state.get("wars", []).is_empty() or not move_ids.is_empty() or _ping_t >= 0.0
@@ -321,52 +417,141 @@ func _process(delta: float) -> void:
 		_anim_acc += delta
 		if _anim_acc >= 0.033:
 			_anim_acc = 0.0
-			queue_redraw()
+			_redraw_light()
+	# الأرض: حين تتغير، وبحد أقصى 4 مرات في الثانية أثناء جريان الوقت
+	if _world_dirty and _time - _world_t >= 0.25:
+		_world_t = _time
+		_rebake()
 
 
 # ------------------------------------------------------------------ الرسم
 
 func _draw() -> void:
+	_cv = self
 	draw_rect(Rect2(Vector2.ZERO, size), C_BG)
+
+
+## طبقة الأرض بإحداثيات الخريطة: كل العالم دفعة واحدة (بلا قص) حتى يُحرَّك بلا إعادة رسم
+## إعادة رسم الأرض: كل مربع يرسم نفسه في الإطار التالي
+func _rebake() -> void:
+	_world_scale = _scale()
+	_world_internal = _world_scale >= 4.0
+	_world_dirty = false
+	_apply_view()
+	_grid_node.queue_redraw()
+	for ch in _chunks:
+		(ch["node"] as Node2D).queue_redraw()
+
+
+func _draw_grid_layer() -> void:
+	_cv = _grid_node
 	_draw_grid()
-	var s := _scale()
-	var offset := size * 0.5 - _center * s
-	draw_set_transform(offset, 0.0, Vector2(s, s))
-	var view := Rect2(screen_to_map(Vector2.ZERO), size / s)
-	var ci := get_canvas_item()
-	# 1) الدول غير المقسمة
+	_cv = self
+
+
+## مربع من الأرض (30×30 درجة): الدول والمناطق التي يقع مركزها فيه، دفعة واحدة.
+## التقسيم يسمح للمحرك بتجاهل ما خارج الشاشة تلقائياً.
+func _draw_chunk(i: int) -> void:
+	var ch: Dictionary = _chunks[i]
+	var node: Node2D = ch["node"]
+	_cv = node
+	var s := _world_scale
+	var bp := PackedVector2Array()
+	var bc := PackedColorArray()
+	var bi := PackedInt32Array()
+	for shape in ch["shapes"]:
+		_batch_shape(bp, bc, bi, shape, _fill_color(shape["id"]))
+	for shape in ch["regions"]:
+		_batch_shape(bp, bc, bi, shape, _region_color(shape))
+	if not bi.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(node.get_canvas_item(), bi, bp, bc)
+	var outl := PackedVector2Array()
+	for shape in ch["shapes"]:
+		for pts in shape["rings"]:
+			_add_segments(outl, pts, true)
+	if outl.size() >= 2:
+		_cv.draw_multiline(outl, C_BORDER, 1.0 / s)
+	_draw_edges(s, ch["edges"])
+	_cv = self
+
+
+func _build_chunks() -> void:
+	var cols := int(MAP_W / CHUNK_DEG)
+	var rows := int(MAP_H / CHUNK_DEG)
+	var idx_of := func(c: Vector2) -> int:
+		return clampi(int(c.y / CHUNK_DEG), 0, rows - 1) * cols + clampi(int(c.x / CHUNK_DEG), 0, cols - 1)
+	_chunks = []
+	for i in cols * rows:
+		var node := Node2D.new()
+		node.draw.connect(_draw_chunk.bind(i))
+		_world.add_child(node)
+		_chunks.append({"node": node, "shapes": [], "regions": [], "edges": []})
 	for shape in _shapes:
-		if _playable.has(shape["id"]) or not view.intersects(shape["rect"]):
-			continue
-		_fill_shape(ci, shape, _fill_color(shape["id"]))
-	# 2) المناطق بلون من يسيطر عليها
+		if not _playable.has(shape["id"]):
+			_chunks[idx_of.call((shape["rect"] as Rect2).get_center())]["shapes"].append(shape)
 	for shape in _regions:
-		if not view.intersects(shape["rect"]):
+		_chunks[idx_of.call((shape["rect"] as Rect2).get_center())]["regions"].append(shape)
+	for e in _edges:
+		_chunks[idx_of.call((e["rect"] as Rect2).get_center())]["edges"].append(e)
+
+
+func _batch_shape(bp: PackedVector2Array, bc: PackedColorArray, bi: PackedInt32Array, shape: Dictionary, col: Color) -> void:
+	for i in shape["rings"].size():
+		var pts: PackedVector2Array = shape["rings"][i]
+		var tris: PackedInt32Array = shape["tris"][i]
+		if tris.size() < 3:
 			continue
-		_fill_shape(ci, shape, _region_color(shape))
-	# 3) الوجهات الممكنة في وضع التحريك
+		var base := bp.size()
+		bp.append_array(pts)
+		var cols := PackedColorArray()
+		cols.resize(pts.size())
+		cols.fill(col)
+		bc.append_array(cols)
+		for t in tris:
+			bi.append(base + t)
+
+
+## يحول خطاً متصلاً إلى أزواج نقاط حتى تُرسم كل الخطوط المتشابهة بأمر واحد
+static func _add_segments(out: PackedVector2Array, pts: PackedVector2Array, closed: bool) -> void:
+	var n := pts.size()
+	for i in n - 1:
+		out.append(pts[i])
+		out.append(pts[i + 1])
+	if closed and n > 2:
+		out.append(pts[n - 1])
+		out.append(pts[0])
+
+
+## الطبقة النابضة بإحداثيات الخريطة: الوجهات الممكنة، وخطوط الجبهة، والتحديد
+func _draw_fx_layer() -> void:
+	_cv = _fx
+	var s := _scale()
+	var ci := _fx.get_canvas_item()
 	if not move_reach.is_empty():
 		var pulse := 0.30 + 0.10 * sin(_time * 5.0)
 		for rid in move_reach:
+			if rid == move_from:
+				continue
 			var shape: Dictionary = _regions[_region_idx[rid]]
-			if view.intersects(shape["rect"]) and rid != move_from:
-				_fill_shape(ci, shape, Color(pal("REACH"), pulse))
-				_outline(shape, Color(pal("REACH"), 0.8), 1.5 / s)
-	# 4) حدود الدول غير المقسمة
-	for shape in _shapes:
-		if not _playable.has(shape["id"]) and view.intersects(shape["rect"]):
-			_outline(shape, C_BORDER, 1.0 / s)
-	# 5) الحدود المشتركة: داخلية رفيعة، دولية واضحة، والجبهة حمراء نابضة فوقها
-	_draw_edges(view, s)
-	# 6) التحديد
+			_fill_shape(ci, shape, Color(pal("REACH"), pulse))
+			_outline(shape, Color(pal("REACH"), 0.8), 1.5 / s)
+	_draw_fronts(s)
 	if selected_region != "" and _region_idx.has(selected_region):
 		var sh: Dictionary = _regions[_region_idx[selected_region]]
+		_fill_shape(ci, sh, Color(1, 1, 1, 0.14))
 		_outline(sh, pal("OUTLINE"), 5.0 / s)
 		_outline(sh, C_SELECT, 2.5 / s)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_cv = self
+
+
+## طبقة النصوص والرقائق بإحداثيات الشاشة
+func _draw_over_layer() -> void:
+	_cv = _over
 	if sim != null:
 		_labels = []
 		_chip_hits = []
+		_aff_cache = {}
+		_vis_cache = {}
 		# الأهم يُرسم أولاً ويحجز مكانه: الوحدات، ثم العواصم، ثم المناطق
 		_draw_wars_markers()
 		_draw_move_preview()
@@ -376,9 +561,10 @@ func _draw() -> void:
 		_draw_region_labels()
 	_draw_ping()
 	_draw_scale_bar()
+	_cv = self
 
 
-func _draw_edges(view: Rect2, s: float) -> void:
+func _war_pairs() -> Dictionary:
 	var at_war := {}
 	if sim != null:
 		for w in sim.state["wars"]:
@@ -386,34 +572,58 @@ func _draw_edges(view: Rect2, s: float) -> void:
 				for d in w["defenders"]:
 					at_war[a + "|" + d] = true
 					at_war[d + "|" + a] = true
-	var pulse := 0.6 + 0.4 * sin(_time * 4.0)
+	return at_war
+
+
+func _draw_edges(s: float, edges: Array) -> void:
+	var at_war := _war_pairs()
 	var show_internal := s >= 4.0
 	var intl_w := clampf(s * 0.09, 1.3, 2.4)
-	var fronts: Array = []
-	for e in _edges:
-		if not view.intersects(e["rect"]):
-			continue
+	var internal := PackedVector2Array()
+	var former := PackedVector2Array()
+	var intl := PackedVector2Array()
+	for e in edges:
 		var oa: String = _owner_rid(e["a"])
 		var ob: String = _owner_rid(e["b"])
 		if oa == ob:
 			if not show_internal:
 				continue
-			var ca: String = _region_info[e["a"]]["country"]
-			var cb: String = _region_info[e["b"]]["country"]
 			# حد دولي سابق داخل أرض محتلة يبقى ظاهراً خفيفاً
-			var col := C_REGION_BORDER if ca == cb else Color(C_BORDER, 0.45)
+			var same: bool = _region_info[e["a"]]["country"] == _region_info[e["b"]]["country"]
 			for pts in e["lines"]:
-				draw_polyline(pts, col, 1.0 / s)
-		elif at_war.has(oa + "|" + ob):
-			fronts.append(e)
-		else:
+				_add_segments(internal if same else former, pts, false)
+		elif not at_war.has(oa + "|" + ob):
 			for pts in e["lines"]:
-				draw_polyline(pts, C_BORDER, intl_w / s)
-	# خطوط الجبهة فوق كل شيء: هالة داكنة ثم أحمر نابض
-	for e in fronts:
+				_add_segments(intl, pts, false)
+	if internal.size() >= 2:
+		_cv.draw_multiline(internal, C_REGION_BORDER, 1.0 / s)
+	if former.size() >= 2:
+		_cv.draw_multiline(former, Color(C_BORDER, 0.45), 1.0 / s)
+	if intl.size() >= 2:
+		_cv.draw_multiline(intl, C_BORDER, intl_w / s)
+
+
+## خطوط الجبهة: الحدود بين متحاربين، تُحسب مرة كل يوم وتنبض بلا إعادة رسم الأرض
+func _draw_fronts(s: float) -> void:
+	if sim == null or sim.state["wars"].is_empty():
+		return
+	if _front_day != int(sim.state["day"]) or not _front_cache.has("edges"):
+		_front_day = int(sim.state["day"])
+		_front_cache = {}
+		var at_war := _war_pairs()
+		var fe: Array = []
+		for e in _edges:
+			var oa: String = _owner_rid(e["a"])
+			var ob: String = _owner_rid(e["b"])
+			if oa != ob and at_war.has(oa + "|" + ob):
+				fe.append(e)
+		_front_cache["edges"] = fe
+	var pulse := 0.6 + 0.4 * sin(_time * 4.0)
+	var intl_w := clampf(s * 0.09, 1.3, 2.4)
+	for e in _front_cache["edges"]:
 		for pts in e["lines"]:
-			draw_polyline(pts, Color(pal("OUTLINE"), 0.9), (intl_w + 4.0) / s)
-			draw_polyline(pts, Color(pal("FRONT"), 0.65 + 0.35 * pulse), (intl_w + 2.0) / s)
+			_cv.draw_polyline(pts, Color(pal("OUTLINE"), 0.9), (intl_w + 4.0) / s)
+			_cv.draw_polyline(pts, Color(pal("FRONT"), 0.65 + 0.35 * pulse), (intl_w + 2.0) / s)
 
 
 func _fill_shape(ci: RID, shape: Dictionary, col: Color) -> void:
@@ -431,7 +641,7 @@ func _outline(shape: Dictionary, col: Color, width: float) -> void:
 	for pts in shape["rings"]:
 		var closed: PackedVector2Array = pts.duplicate()
 		closed.append(pts[0])
-		draw_polyline(closed, col, width)
+		_cv.draw_polyline(closed, col, width)
 
 
 func _owner_of(shape: Dictionary) -> String:
@@ -456,8 +666,6 @@ func _region_color(shape: Dictionary) -> Color:
 	if own != shape["country"]:
 		# منطقة محتلة: لون المحتل ممزوج بلون صاحبها الأصلي
 		col = col.lerp(_fill_color(shape["country"]), 0.3).darkened(0.08)
-	if shape["id"] == selected_region:
-		col = col.lightened(0.1)
 	return col
 
 
@@ -468,8 +676,6 @@ func _resource_color(shape: Dictionary) -> Color:
 	var col := pal("RES_NONE")
 	col = col.lerp(pal("RES_ENERGY"), clampf(energy / 25.0, 0.0, 1.0))
 	col = col.lerp(pal("RES_MINERAL"), clampf(other / 40.0, 0.0, 0.6))
-	if shape["id"] == selected_region:
-		col = col.lightened(0.25)
 	return col
 
 
@@ -524,17 +730,33 @@ func _claim(r: Rect2) -> bool:
 	return true
 
 
+## عرض نص بالبكسل، محفوظ حتى لا يُقاس الاسم نفسه كل إطار
+func _tw(f: Font, txt: String, fs: int) -> float:
+	var key := "%s|%d|%d" % [txt, fs, f.get_instance_id()]
+	if not _tw_cache.has(key):
+		_tw_cache[key] = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	return _tw_cache[key]
+
+
 func _text(pos_center: Vector2, txt: String, fs: int, col: Color, outline: int = 4, bold: bool = false) -> void:
 	var f: Font = _font_bold if bold else _font
-	var w := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w := _tw(f, txt, fs)
 	var p := pos_center + Vector2(-w * 0.5, fs * 0.35)
-	draw_string_outline(f, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline, pal("OUTLINE"))
-	draw_string(f, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	_cv.draw_string_outline(f, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline, pal("OUTLINE"))
+	_cv.draw_string(f, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
 # ------------------------------------------------------------------ الوحدات
 
 func _aff(owner: String) -> String:
+	if _aff_cache.has(owner):
+		return _aff_cache[owner]
+	var a := _aff_calc(owner)
+	_aff_cache[owner] = a
+	return a
+
+
+func _aff_calc(owner: String) -> String:
 	var pid: String = sim.state["player"]
 	if owner == pid:
 		return "mine"
@@ -549,7 +771,7 @@ func _aff(owner: String) -> String:
 func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool, moving: bool) -> Rect2:
 	var fs := _fs(14)
 	var txt := str(n)
-	var tw := _font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var tw := _tw(_font_bold, txt, fs)
 	var icon_w := float(_fs(18))
 	var h := float(_fs(24))
 	var w := 8.0 + icon_w + 4.0 + tw + 8.0
@@ -568,18 +790,18 @@ func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool
 	sb.anti_aliasing = true
 	if moving:
 		sb.bg_color = fill.lerp(Color.WHITE, 0.12)
-	draw_style_box(sb, r)
-	draw_texture_rect(Icons.tex("unit", ink, 48), Rect2(r.position + Vector2(8, (h - icon_w) * 0.5), Vector2(icon_w, icon_w)), false)
-	draw_string(_font_bold, Vector2(r.position.x + 8 + icon_w + 4, r.position.y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
+	_cv.draw_style_box(sb, r)
+	_cv.draw_texture_rect(Icons.tex("unit", ink, 48), Rect2(r.position + Vector2(8, (h - icon_w) * 0.5), Vector2(icon_w, icon_w)), false)
+	_cv.draw_string(_font_bold, Vector2(r.position.x + 8 + icon_w + 4, r.position.y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
 	# الجاهزية: خط في قاعدة الرقاقة
 	var bw := w - h * 0.6
 	var bp := Vector2(r.position.x + h * 0.3, r.end.y - 3)
-	draw_line(bp, bp + Vector2(bw, 0), Color(0, 0, 0, 0.35), 3.0)
+	_cv.draw_line(bp, bp + Vector2(bw, 0), Color(0, 0, 0, 0.35), 3.0)
 	var sc: Color = UI.C_GOOD if strength >= 0.7 else (UI.C_WARN if strength >= 0.45 else UI.C_BAD)
-	draw_line(bp, bp + Vector2(bw * clampf(strength, 0.0, 1.0), 0), sc.lightened(0.15), 3.0)
+	_cv.draw_line(bp, bp + Vector2(bw * clampf(strength, 0.0, 1.0), 0), sc.lightened(0.15), 3.0)
 	if sel:
 		var ring := 0.5 + 0.5 * sin(_time * 6.0)
-		draw_style_box(_ring_box(h, ring), r.grow(3 + ring * 2))
+		_cv.draw_style_box(_ring_box(h, ring), r.grow(3 + ring * 2))
 	return r
 
 
@@ -632,8 +854,8 @@ static func _along(pts: PackedVector2Array, t: float) -> Vector2:
 
 
 func _visible_owner(owner: String, rid: String, mine_regions: Dictionary) -> bool:
-	var pid: String = sim.state["player"]
-	if owner == pid or owner in sim.allies(pid):
+	var aff := _aff(owner)
+	if aff == "mine" or aff == "friend":
 		return true
 	# ضباب الحرب: فرق الآخرين تظهر برؤية 40 أو إن كانت ملاصقة لقواتك
 	if mine_regions.has(rid):
@@ -641,7 +863,9 @@ func _visible_owner(owner: String, rid: String, mine_regions: Dictionary) -> boo
 	for n in sim.db.regions[rid]["neighbors"]:
 		if mine_regions.has(n):
 			return true
-	return Intel.visibility(sim, pid, owner) >= 40.0
+	if not _vis_cache.has(owner):
+		_vis_cache[owner] = Intel.visibility(sim, sim.state["player"], owner) >= 40.0
+	return _vis_cache[owner]
 
 
 func _draw_divisions() -> void:
@@ -715,9 +939,9 @@ func _draw_route(mp: PackedVector2Array, t: float, aff: String, days_left: int) 
 	_dashed(rest, pal("OUTLINE"), 5.0, 10.0, 6.0)
 	_dashed(rest, col, 3.0, 10.0, 6.0)
 	var dest := pts[pts.size() - 1]
-	draw_circle(dest, 9.0, pal("OUTLINE"))
-	draw_circle(dest, 7.0, col)
-	draw_circle(dest, 3.0, pal("OUTLINE"))
+	_cv.draw_circle(dest, 9.0, pal("OUTLINE"))
+	_cv.draw_circle(dest, 7.0, col)
+	_cv.draw_circle(dest, 3.0, pal("OUTLINE"))
 	if days_left >= 0:
 		var lbl := "%d ي" % maxi(1, days_left)
 		var fs := _fs(12)
@@ -741,7 +965,7 @@ func _dashed(pts: PackedVector2Array, col: Color, w: float, dash: float, gap: fl
 			var ph := fmod(base + x + off, period)
 			if ph < dash:
 				var e := minf(L, x + dash - ph)
-				draw_line(a + dir * x, a + dir * e, col, w, true)
+				_cv.draw_line(a + dir * x, a + dir * e, col, w, true)
 				x = e + 0.01
 			else:
 				x += period - ph
@@ -753,7 +977,7 @@ func _draw_move_preview() -> void:
 	if move_ids.is_empty() or move_from == "":
 		return
 	var p := region_screen(move_from)
-	draw_arc(p, 22.0 + 4.0 * sin(_time * 6.0), 0.0, TAU, 36, pal("REACH"), 2.0, true)
+	_cv.draw_arc(p, 22.0 + 4.0 * sin(_time * 6.0), 0.0, TAU, 36, pal("REACH"), 2.0, true)
 	if preview_target == "" or preview_target == move_from or not move_reach.has(preview_target):
 		return
 	var d: Dictionary = Divisions.find(sim, int(move_ids[0]))
@@ -770,18 +994,18 @@ func _draw_move_preview() -> void:
 	var dest := pts[pts.size() - 1]
 	var dir := (dest - pts[pts.size() - 2]).normalized()
 	var head := PackedVector2Array([dest, dest - dir * 14.0 + dir.orthogonal() * 8.0, dest - dir * 14.0 - dir.orthogonal() * 8.0])
-	draw_colored_polygon(head, pal("REACH"))
+	_cv.draw_colored_polygon(head, pal("REACH"))
 	var days := maxi(1, (path.size() - 1) * int(Divisions.cfg(sim)["days_per_hop"]))
 	var fs := _fs(14)
 	var lbl := "%s · %d يوماً" % [sim.db.regions[preview_target]["name_ar"], days]
-	var w := _font_bold.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w := _tw(_font_bold, lbl, fs)
 	var box := Rect2(dest + Vector2(-w * 0.5 - 10, -fs - 34), Vector2(w + 20, fs + 14))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = pal("REACH")
 	sb.set_corner_radius_all(8)
 	sb.anti_aliasing = true
-	draw_style_box(sb, box)
-	draw_string(_font_bold, Vector2(box.position.x + 10, box.position.y + fs + 3), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+	_cv.draw_style_box(sb, box)
+	_cv.draw_string(_font_bold, Vector2(box.position.x + 10, box.position.y + fs + 3), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 	_labels.append(box)
 
 
@@ -814,9 +1038,9 @@ func _draw_facilities() -> void:
 		for t in fac:
 			var p := Vector2(x, base.y)
 			var col: Color = UI.C_BAD if dmg.has(t) else UI.C_TEXT
-			draw_circle(p, px * 0.5, pal("CHIP"))
-			draw_arc(p, px * 0.5, 0.0, TAU, 20, Color(col, 0.6), 1.2, true)
-			draw_texture_rect(Icons.tex(t, col, 32), Rect2(p - Vector2(px, px) * 0.33, Vector2(px, px) * 0.66), false)
+			_cv.draw_circle(p, px * 0.5, pal("CHIP"))
+			_cv.draw_arc(p, px * 0.5, 0.0, TAU, 20, Color(col, 0.6), 1.2, true)
+			_cv.draw_texture_rect(Icons.tex(t, col, 32), Rect2(p - Vector2(px, px) * 0.33, Vector2(px, px) * 0.66), false)
 			x += px + 4.0
 
 
@@ -828,17 +1052,16 @@ func _draw_region_labels() -> void:
 	var screen := Rect2(Vector2(-40, -20), size + Vector2(80, 40))
 	# الأكبر مساحة أولاً
 	var cand: Array = []
-	for shape in _regions:
+	for shape in _by_area:
 		var p := map_to_screen(shape["center"])
 		if not screen.has_point(p):
 			continue
 		if sim.db.capitals.get(shape["country"], "") == shape["id"]:
 			continue   # العاصمة تُكتب باسم الدولة
 		cand.append(shape)
-	cand.sort_custom(func(a, b): return float(a["area"]) > float(b["area"]))
 	for shape in cand:
 		var label: String = shape["name_ar"]
-		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var w := _tw(_font, label, fs)
 		var rect: Rect2 = shape["rect"]
 		# لا نكتب الاسم إن كانت المنطقة أصغر من النص على الشاشة (إلا المختارة)
 		if shape["id"] != selected_region and rect.size.x * s < w * 0.8:
@@ -850,11 +1073,12 @@ func _draw_region_labels() -> void:
 		_text(p, label, fs, pal("LABEL_SOFT"), 3)
 
 
+## خطوط الطول والعرض بإحداثيات الخريطة (داخل طبقة الأرض)
 func _draw_grid() -> void:
 	for lon in range(-180, 181, 30):
-		draw_line(map_to_screen(to_map(lon, 90)), map_to_screen(to_map(lon, -90)), C_GRID, 1.0)
+		_cv.draw_line(to_map(lon, 90), to_map(lon, -90), C_GRID, -1.0)
 	for lat in range(-90, 91, 30):
-		draw_line(map_to_screen(to_map(-180, lat)), map_to_screen(to_map(180, lat)), C_GRID, 1.0)
+		_cv.draw_line(to_map(-180, lat), to_map(180, lat), C_GRID, -1.0)
 
 
 func _fill_color(id: String) -> Color:
@@ -892,8 +1116,6 @@ func _fill_color(id: String) -> Color:
 					base = pal("REL_NEUTRAL").lerp(pal("REL_GOOD"), r / 100.0)
 				else:
 					base = pal("REL_NEUTRAL").lerp(pal("REL_BAD"), -r / 100.0)
-	if id == selected and id != pid:
-		base = base.lightened(0.06)
 	return base
 
 
@@ -916,22 +1138,22 @@ func _draw_capitals() -> void:
 		var col := pal("LABEL")
 		var fs := _fs(13 if s < 6.0 else (15 if s < 14.0 else 17))
 		var label: String = c["name_ar"]
-		var w := _font_bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var w := _tw(_font_bold, label, fs)
 		var fw := fs * 1.25
 		var total := w + fw + 6.0
 		var lp := p + Vector2(0, -float(fs) - 4.0)
 		var r := Rect2(lp - Vector2(total * 0.5, fs * 0.7), Vector2(total, fs * 1.4))
 		# النجمة دائماً، والاسم إن وجد مكاناً
-		draw_circle(p, 5.5, pal("OUTLINE"))
-		draw_texture_rect(Icons.tex("capital", C_ENEMY if fallen else (UI.C_ACCENT if id == pid else pal("LABEL")), 32), Rect2(p - Vector2(5, 5), Vector2(10, 10)), false)
+		_cv.draw_circle(p, 5.5, pal("OUTLINE"))
+		_cv.draw_texture_rect(Icons.tex("capital", C_ENEMY if fallen else (UI.C_ACCENT if id == pid else pal("LABEL")), 32), Rect2(p - Vector2(5, 5), Vector2(10, 10)), false)
 		if not _claim(r):
 			continue
 		var ft: Texture2D = Flags.tex(c.get("flag", ""))
 		var x0 := lp.x + total * 0.5
 		if ft != null:
 			var fr := Rect2(Vector2(x0 - fw, lp.y - fw * 0.375), Vector2(fw, fw * 0.75))
-			draw_rect(fr.grow(1), pal("OUTLINE"))
-			draw_texture_rect(ft, fr, false)
+			_cv.draw_rect(fr.grow(1), pal("OUTLINE"))
+			_cv.draw_texture_rect(ft, fr, false)
 		_text(Vector2(x0 - fw - 6.0 - w * 0.5, lp.y), label, fs, col, 5, true)
 
 
@@ -948,24 +1170,24 @@ func _draw_scale_bar() -> void:
 	var w := km * px_per_km
 	var o := Vector2(size.x - w - 18.0, size.y * 0.5)
 	var fs := _fs(11)
-	draw_line(o, o + Vector2(w, 0), pal("OUTLINE"), 4.0)
-	draw_line(o, o + Vector2(w, 0), pal("LABEL"), 2.0)
-	draw_line(o + Vector2(0, -4), o + Vector2(0, 4), pal("LABEL"), 2.0)
-	draw_line(o + Vector2(w, -4), o + Vector2(w, 4), pal("LABEL"), 2.0)
+	_cv.draw_line(o, o + Vector2(w, 0), pal("OUTLINE"), 4.0)
+	_cv.draw_line(o, o + Vector2(w, 0), pal("LABEL"), 2.0)
+	_cv.draw_line(o + Vector2(0, -4), o + Vector2(0, 4), pal("LABEL"), 2.0)
+	_cv.draw_line(o + Vector2(w, -4), o + Vector2(w, 4), pal("LABEL"), 2.0)
 	_text(o + Vector2(w * 0.5, -fs), "%d كم" % int(km), fs, pal("LABEL"), 3)
 
 
 ## علامة كل حرب عند منتصف جبهتها الحقيقية
 func _draw_wars_markers() -> void:
 	var pulse := 0.55 + 0.45 * sin(_time * 3.0)
-	if _front_day != int(sim.state["day"]):
-		_front_day = int(sim.state["day"])
-		_front_cache = {}
+	if _marker_day != int(sim.state["day"]):
+		_marker_day = int(sim.state["day"])
+		_marker_cache = {}
 	for w in sim.state["wars"]:
 		var A: Array = w["attackers"]
 		var D: Array = w["defenders"]
 		var wkey := int(w["id"])
-		if not _front_cache.has(wkey):
+		if not _marker_cache.has(wkey):
 			var sum := Vector2.ZERO
 			var n := 0
 			for rid in Divisions.front_regions(sim, A, D):
@@ -974,19 +1196,19 @@ func _draw_wars_markers() -> void:
 						sum += (_region_info_center(rid) + _region_info_center(nb)) * 0.5
 						n += 1
 			if n > 0:
-				_front_cache[wkey] = sum / float(n)
+				_marker_cache[wkey] = sum / float(n)
 			else:
 				# بلا جبهة برية (حرب بحرية): بين العاصمتين
 				var ca: Dictionary = sim.country(A[0])
 				var cd: Dictionary = sim.country(D[0])
-				_front_cache[wkey] = to_map(float(ca["lon"]), float(ca["lat"])).lerp(to_map(float(cd["lon"]), float(cd["lat"])), 0.5)
-		var marker := map_to_screen(_front_cache[wkey])
+				_marker_cache[wkey] = to_map(float(ca["lon"]), float(ca["lat"])).lerp(to_map(float(cd["lon"]), float(cd["lat"])), 0.5)
+		var marker := map_to_screen(_marker_cache[wkey])
 		if Rect2(Vector2(-30, -30), size + Vector2(60, 60)).has_point(marker):
 			var rr := float(_fs(14))
-			draw_circle(marker, rr + 2.0, pal("OUTLINE"))
-			draw_circle(marker, rr, pal("FRONT"))
-			draw_arc(marker, rr + 4.0 + pulse * 4.0, 0.0, TAU, 32, Color(pal("FRONT"), 0.6 * (1.0 - pulse)), 2.0, true)
-			draw_texture_rect(Icons.tex("war", Color.WHITE, 40), Rect2(marker - Vector2(rr, rr) * 0.65, Vector2(rr, rr) * 1.3), false)
+			_cv.draw_circle(marker, rr + 2.0, pal("OUTLINE"))
+			_cv.draw_circle(marker, rr, pal("FRONT"))
+			_cv.draw_arc(marker, rr + 4.0 + pulse * 4.0, 0.0, TAU, 32, Color(pal("FRONT"), 0.6 * (1.0 - pulse)), 2.0, true)
+			_cv.draw_texture_rect(Icons.tex("war", Color.WHITE, 40), Rect2(marker - Vector2(rr, rr) * 0.65, Vector2(rr, rr) * 1.3), false)
 			_labels.append(Rect2(marker - Vector2(rr, rr), Vector2(rr, rr) * 2.0))
 
 
@@ -998,7 +1220,7 @@ func _draw_ping() -> void:
 	if k >= 1.0:
 		_ping_t = -1.0
 		return
-	draw_arc(_ping_pos, 8.0 + 22.0 * k, 0.0, TAU, 32, Color(C_SELECT, 0.6 * (1.0 - k)), 2.0, true)
+	_cv.draw_arc(_ping_pos, 8.0 + 22.0 * k, 0.0, TAU, 32, Color(C_SELECT, 0.6 * (1.0 - k)), 2.0, true)
 
 
 func _region_info_center(rid: String) -> Vector2:
@@ -1036,7 +1258,7 @@ func _gui_input(event: InputEvent) -> void:
 		_drag_moved += mm.relative.length()
 		_center -= mm.relative / _scale()
 		_clamp_view()
-		queue_redraw()
+		_apply_view()
 		if _hover_rid != "":
 			_hover_rid = ""
 			hovered.emit("", Vector2.ZERO)
@@ -1047,7 +1269,7 @@ func _gui_input(event: InputEvent) -> void:
 			var rid := region_at(mv.position)
 			if not move_ids.is_empty() and rid != preview_target:
 				preview_target = rid
-				queue_redraw()
+				_redraw_light()
 			_hover_rid = rid
 			hovered.emit(rid, mv.position)
 	elif event is InputEventMagnifyGesture:
@@ -1057,7 +1279,7 @@ func _gui_input(event: InputEvent) -> void:
 		var pg := event as InputEventPanGesture
 		_center += pg.delta * 8.0 / _scale()
 		_clamp_view()
-		queue_redraw()
+		_apply_view()
 	elif event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
@@ -1109,7 +1331,7 @@ func _zoom_at(screen_pos: Vector2, factor: float) -> void:
 	var after := screen_to_map(screen_pos)
 	_center += before - after
 	_clamp_view()
-	queue_redraw()
+	_apply_view()
 
 
 func zoom_by(factor: float) -> void:
@@ -1124,7 +1346,7 @@ func _clamp_view() -> void:
 func _click(screen_pos: Vector2) -> void:
 	_ping_pos = screen_pos
 	_ping_t = _time
-	queue_redraw()
+	_redraw_light()
 	# الوحدات أولاً: هي أصغر هدف وأهمه
 	if move_ids.is_empty():
 		for i in range(_chip_hits.size() - 1, -1, -1):

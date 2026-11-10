@@ -33,6 +33,8 @@ var state: Dictionary = {}
 var pending: Array = []
 ## ذاكرة مؤقتة للحدود (مشتقة من الحالة ولا تُحفظ): تُبنى من جديد عند تغير ملكية منطقة
 var _borders_dirty := true
+## يزيد مع كل انتقال منطقة: الخريطة تعيد ألوانها فقط حين يتغير (ليس جزءاً من الحالة المحفوظة)
+var map_version := 0
 var _owned_regions: Dictionary = {}     # دولة -> مناطقها
 var _region_border_owners: Dictionary = {}   # منطقة -> مالكو المناطق المجاورة (غير مالكها)
 
@@ -554,6 +556,7 @@ func border_info() -> Array:
 ## تستدعيها Territory عند انتقال منطقة: الفرق تنسحب أو تتقدم
 func on_region_captured(rid: String, new_owner: String) -> void:
 	_borders_dirty = true
+	map_version += 1
 	if state.has("divisions"):
 		Divisions.on_capture(self, rid, new_owner)
 
