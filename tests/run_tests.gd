@@ -7,6 +7,7 @@ const DataDB := preload("res://sim/data_db.gd")
 const Simulation := preload("res://sim/simulation.gd")
 const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
+const Territory := preload("res://sim/territory.gd")
 
 var db: DataDB
 var failures := 0
@@ -18,6 +19,10 @@ func _init() -> void:
 	check(db.load_all(), "تحميل ملفات البيانات")
 	if failures == 0:
 		test_data_integrity()
+		test_regions_data()
+		test_regions_economy()
+		test_regional_war()
+		test_peace_returns_regions()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -161,3 +166,79 @@ func test_twenty_years() -> void:
 			growth_ok = false
 			print("    نمو غير واقعي: " + id)
 	check(growth_ok, "لا نمو انفجاري غير واقعي")
+
+
+func test_regions_data() -> void:
+	print("المناطق")
+	var iraq: Array = db.regions_by_country.get("IRQ", [])
+	check(iraq.size() == 18, "العراق 18 محافظة (%d)" % iraq.size())
+	var arabic := true
+	for rid in iraq:
+		var n: String = db.regions[rid]["name_ar"]
+		if n == "" or n == db.regions[rid]["name_en"]:
+			arabic = false
+	check(arabic, "كل محافظات العراق بأسماء عربية")
+	check(db.regions[db.capitals["IRQ"]]["name_ar"] == "بغداد", "عاصمة العراق في منطقة بغداد")
+	var ok := true
+	for c in db.countries:
+		if not db.capitals.has(c["id"]) or db.regions_by_country.get(c["id"], []).is_empty():
+			ok = false
+			print("    دولة بلا مناطق أو عاصمة: " + c["id"])
+	check(ok, "كل دولة لها مناطق ومنطقة عاصمة")
+	var sym := true
+	for rid in db.region_ids:
+		for n in db.regions[rid]["neighbors"]:
+			if not db.regions.has(n) or not (rid in db.regions[n]["neighbors"]):
+				sym = false
+	check(sym, "الجوار بين المناطق متماثل")
+	var cross := false
+	for rid in iraq:
+		for n in db.regions[rid]["neighbors"]:
+			if db.regions[n]["country"] == "SYR":
+				cross = true
+	check(cross, "مناطق العراق تجاور مناطق سوريا (جبهة برية)")
+
+
+func test_regions_economy() -> void:
+	print("اقتصاد المناطق")
+	var s := new_sim("IRQ", 3)
+	var c := s.country("IRQ")
+	check(absf(float(c["gdp"]) - 270.0) < 1.0, "ناتج العراق = مجموع محافظاته (%.1f)" % float(c["gdp"]))
+	check(Territory.owned(s, "IRQ").size() == 18, "العراق يملك محافظاته الـ18")
+	var syr_before := float(s.country("SYR")["gdp"])
+	var rid: String = db.regions_by_country["SYR"][0]
+	Territory.capture(s, rid, "IRQ")
+	check(float(s.country("SYR")["gdp"]) < syr_before, "خسارة منطقة تخفض ناتج صاحبها")
+	check(Territory.owned(s, "IRQ").size() == 19, "المنطقة المحتلة تنتقل للمحتل")
+
+
+func test_regional_war() -> void:
+	print("الحرب منطقة بمنطقة")
+	var s := new_sim("JOR", 21)
+	var w := s.declare_war("TUR", "SYR")
+	var captured := false
+	var capital_fell := false
+	for week in 52:
+		run_days(s, 7)
+		if Territory.occupied_share(s, "SYR", ["TUR"]) > 0.0:
+			captured = true
+		if s.country("SYR").get("capital_fallen", false):
+			capital_fell = true
+		if not w.get("active", true):
+			break
+	check(captured, "تركيا تحتل مناطق سورية")
+	check(capital_fell or s.country("SYR")["overlord"] == "TUR", "التقدم يصل إلى دمشق أو استسلام سوريا")
+	var syr := s.country("SYR")
+	if syr["overlord"] == "TUR" or syr.get("annexed", false):
+		check(Territory.owned(s, "TUR").size() > 81, "تركيا تحتفظ بالمناطق المحتلة بعد الاستسلام")
+
+
+func test_peace_returns_regions() -> void:
+	print("السلام يعيد المناطق")
+	var s := new_sim("JOR", 4)
+	var w := s.declare_war("IRQ", "SYR")
+	var rid: String = db.regions_by_country["SYR"][0]
+	Territory.capture(s, rid, "IRQ")
+	s.make_peace(w)
+	check(Territory.region(s, rid)["owner"] == "SYR", "بعد السلام تعود المنطقة لسوريا")
+	check(Territory.owned(s, "IRQ").size() == 18, "العراق يعود لمحافظاته")

@@ -105,7 +105,9 @@ static func _war(sim, c: Dictionary, difficulty: int) -> void:
 		var lead: String = w["defenders"][0] if id in w["attackers"] else w["attackers"][0]
 		if id != w["attackers"][0] and id != w["defenders"][0]:
 			continue
-		if my_score < -30.0 or (float(c["stability"]) < 20.0 and my_score < 10.0):
+		var days := int(sim.state["day"]) - int(w["start_day"])
+		var stalemate := days > 365 and absf(my_score) < 10.0
+		if my_score < -30.0 or (float(c["stability"]) < 20.0 and my_score < 10.0) or stalemate:
 			if sim.is_player(lead):
 				if not w.get("offer_sent", false):
 					w["offer_sent"] = true

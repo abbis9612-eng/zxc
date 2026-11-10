@@ -46,6 +46,13 @@ func _run() -> void:
 	main.dialog_open = false
 	main._dirty = true
 	await _shot("03_state")
+	# الضغط على بغداد في الخريطة يُظهر المنطقة ومحافظات العراق الـ18
+	var map: Control = main.map
+	map.focus_point(44.0, 33.0)
+	await _wait(3)
+	map._click(map.map_to_screen(map.to_map(44.4, 33.3)))
+	main._refresh()
+	await _shot("03b_iraq_regions")
 	var names := ["state", "economy", "army", "research", "diplomacy", "news"]
 	for t in names.size():
 		main.tabs.current_tab = t
@@ -70,4 +77,11 @@ func _run() -> void:
 	main.dialog_open = false
 	main._show_battle_report()
 	await _shot("07_battle_report")
+	main.dialog_queue.clear()
+	for ch in main.overlay.get_children():
+		ch.queue_free()
+	main.dialog_open = false
+	map.focus_point(39.0, 34.5)
+	main._refresh()
+	await _shot("08_front")
 	quit()

@@ -2,6 +2,8 @@
 ## كل الدوال ثابتة وتأخذ المحاكاة sim والدولة c.
 extends RefCounted
 
+const Territory := preload("res://sim/territory.gd")
+
 const RESEARCH_BASE_COST := 4.0   # مليار × (الجيل التالي)²
 const EQUIPMENT_FACTOR := 3.0
 
@@ -83,8 +85,13 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 
 	# النمو
 	var growth := growth_rate(sim, c)
-	gdp = maxf(1.0, gdp * (1.0 + growth / 1200.0))
-	c["gdp"] = gdp
+	if dry:
+		gdp = maxf(1.0, gdp * (1.0 + growth / 1200.0))
+		c["gdp"] = gdp
+	else:
+		# النمو يُطبق على كل منطقة تملكها الدولة، والناتج = مجموع المناطق
+		Territory.grow(sim, c["id"], growth)
+		gdp = float(c["gdp"])
 
 	# الميزانية الشهرية بالمليار
 	var revenue := gdp * float(c["tax_rate"]) / 12.0
@@ -144,6 +151,8 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 		target -= 5.0
 	if c.get("overlord", "") != "":
 		target -= 5.0
+	# المناطق المحتلة تحتاج قوات وتثير الاحتجاج
+	target -= minf(10.0, Territory.occupied_count(sim, c["id"]) * 0.4)
 	target = clampf(target, 0.0, 100.0)
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 

@@ -8,6 +8,7 @@ const SimRng := preload("res://sim/rng.gd")
 const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const AI := preload("res://sim/ai.gd")
+const Territory := preload("res://sim/territory.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -78,6 +79,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 			c["military"][k] = float(c["military"].get(k, 0))
 		state["countries"][c["id"]] = c
 		state["order"].append(c["id"])
+	Territory.init_state(self)
 	for r in db.relations:
 		set_relation(r[0], r[1], float(r[2]))
 	for aid in state["alliances"]:
@@ -214,6 +216,7 @@ func _monthly() -> void:
 	_global_modifiers_tick()
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
+	Territory.monthly(self)
 	for id in alive_ids():
 		if not is_player(id):
 			AI.monthly(self, country(id))
@@ -299,7 +302,7 @@ func _apply_event(e: Dictionary, target: String) -> void:
 	else:
 		var c := country(target)
 		if e.has("gdp"):
-			c["gdp"] = float(c["gdp"]) * (1.0 + float(e["gdp"]))
+			Territory.scale_gdp(self, target, 1.0 + float(e["gdp"]))
 		if e.has("stability"):
 			c["stability"] = clampf(float(c["stability"]) + float(e["stability"]), 0.0, 100.0)
 		if e.has("oil"):
@@ -357,6 +360,8 @@ func enemies_of(id: String) -> Array:
 func can_declare_war(a: String, b: String) -> String:
 	if a == b:
 		return "لا يمكن إعلان الحرب على نفسك."
+	if country(a).get("annexed", false) or country(b).get("annexed", false):
+		return "هذه الدولة لم تعد قائمة."
 	if not war_between(a, b).is_empty():
 		return "أنتما في حرب بالفعل."
 	if b in allies(a):
@@ -394,7 +399,11 @@ func declare_war(a: String, b: String) -> Dictionary:
 	return w
 
 
-func make_peace(w: Dictionary, text: String = "") -> void:
+## السلام يعيد المناطق المحتلة لأصحابها، إلا أرض keep_loser التي يحتلها keep_side (عند الاستسلام)
+func make_peace(w: Dictionary, text: String = "", keep_loser: String = "", keep_side: Array = []) -> void:
+	if not w.get("active", true):
+		return
+	Territory.revert_war_regions(self, w, keep_loser, keep_side)
 	w["active"] = false
 	var msg := text
 	if msg == "":
@@ -415,12 +424,40 @@ func capitulate(w: Dictionary, loser: String, winner: String) -> void:
 	# الخروج من التحالفات
 	for aid in alliance_of(loser):
 		state["alliances"][aid]["members"].erase(loser)
-	var text := "%s تستسلم وتصبح تابعة لـ%s." % [l["name_ar"], country(winner)["name_ar"]]
-	make_peace(w, text)
+	var winner_side: Array = w["attackers"] if winner in w["attackers"] else w["defenders"]
+	var text := "%s تستسلم وتصبح تابعة لـ%s، وتبقى المناطق المحتلة بيد المنتصر." % [l["name_ar"], country(winner)["name_ar"]]
+	make_peace(w, text, loser, winner_side)
+	if Territory.owned(self, loser).is_empty():
+		annex(loser, winner)
+		return
 	if is_player(loser):
 		push_event("defeat", "الاستسلام", text, true)
 	elif is_player(winner):
 		push_event("victory", "انتصار!", text, true)
+
+
+## ضم دولة لم يبق لها أي منطقة
+func annex(id: String, by: String) -> void:
+	var c := country(id)
+	c["annexed"] = true
+	c["overlord"] = ""
+	for v in vassals(id):
+		country(v)["overlord"] = ""
+	for aid in alliance_of(id):
+		state["alliances"][aid]["members"].erase(id)
+	for w in state["wars"]:
+		w["attackers"].erase(id)
+		w["defenders"].erase(id)
+		if w["attackers"].is_empty() or w["defenders"].is_empty():
+			w["active"] = false
+	_cleanup_wars()
+	var text := "%s تُضم بالكامل إلى %s." % [c["name_ar"], country(by)["name_ar"]]
+	add_news(text, "war")
+	if is_player(id):
+		state["game_over"] = "occupied"
+		push_event("game_over", "خسارة بالاحتلال", text, true)
+	elif is_player(by):
+		push_event("victory", "ضم كامل", text, true)
 
 
 func _cleanup_wars() -> void:
@@ -452,8 +489,8 @@ func nuclear_strike(a: String, b: String) -> Dictionary:
 	var hit := not rng.chance(intercept)
 	var result := {"hit": hit}
 	if hit:
-		cb["gdp"] = float(cb["gdp"]) * 0.88
-		cb["population"] = float(cb["population"]) * 0.97
+		Territory.scale_gdp(self, b, 0.88)
+		Territory.scale_pop(self, b, 0.97)
 		cb["stability"] = maxf(0.0, float(cb["stability"]) - 20.0)
 		for k in ["infantry", "armor", "artillery"]:
 			cb["military"][k] = float(cb["military"][k]) * 0.85
@@ -568,7 +605,7 @@ func invest(a: String, b: String) -> String:
 	if not war_between(a, b).is_empty():
 		return "لا يمكن الاستثمار في دولة عدوة."
 	ca["treasury"] = float(ca["treasury"]) - cost
-	cb["gdp"] = float(cb["gdp"]) + cost * 0.5
+	Territory.add_gdp(self, b, cost * 0.5)
 	var inf: Dictionary = cb["influence"]
 	var ratio := float(ca["gdp"]) / maxf(1.0, float(cb["gdp"]))
 	inf[a] = minf(100.0, float(inf.get(a, 0.0)) + clampf(ratio, 2.0, 12.0))

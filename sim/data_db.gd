@@ -12,6 +12,10 @@ var policies: Dictionary = {}
 var alliances: Dictionary = {}
 var relations: Array = []
 var events: Array = []
+var regions: Dictionary = {}          # id -> بيانات المنطقة الثابتة
+var region_ids: Array = []            # ترتيب ثابت للمناطق (للحتمية)
+var regions_by_country: Dictionary = {}
+var capitals: Dictionary = {}         # دولة -> منطقة العاصمة
 
 
 static func read_json(path: String) -> Variant:
@@ -31,7 +35,8 @@ func load_all() -> bool:
 	var g: Variant = read_json(DATA_DIR + "governments.json")
 	var a: Variant = read_json(DATA_DIR + "alliances.json")
 	var e: Variant = read_json(DATA_DIR + "events.json")
-	if c == null or u == null or g == null or a == null or e == null:
+	var r: Variant = read_json(DATA_DIR + "regions.json")
+	if c == null or u == null or g == null or a == null or e == null or r == null:
 		return false
 	countries = c["countries"]
 	units = u["units"]
@@ -42,6 +47,16 @@ func load_all() -> bool:
 	alliances = a["alliances"]
 	relations = a["relations"]
 	events = e["events"]
+	for reg in r["regions"]:
+		var rid: String = reg["id"]
+		regions[rid] = reg
+		region_ids.append(rid)
+		var cc: String = reg["country"]
+		if not regions_by_country.has(cc):
+			regions_by_country[cc] = []
+		regions_by_country[cc].append(rid)
+		if reg["capital"]:
+			capitals[cc] = rid
 	return true
 
 

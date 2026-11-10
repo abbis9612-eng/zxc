@@ -4,7 +4,11 @@ extends RefCounted
 
 const FRONT_SHARE := 0.35      # نسبة الجيش المشاركة في جبهة واحدة
 const DEFENDER_BONUS := 1.25
-const FAR_SUPPLY := 0.6        # قوات بلا حدود مشتركة مع العدو تضعف بالإمداد
+const FAR_SUPPLY := 0.6        # قوات بلا جبهة برية مع العدو تضعف بالإمداد
+const MAX_GAINS := 2           # أقصى عدد مناطق تسقط في معركة أسبوعية
+const GAIN_RATE := 3.0         # مناطق إضافية لكل وحدة تفوق
+
+const Territory := preload("res://sim/territory.gd")
 
 const PHASE_UNITS := {
 	"air": ["fighters"],
@@ -18,16 +22,12 @@ static func _share(sim, id: String) -> float:
 	return FRONT_SHARE / maxf(1.0, float(sim.wars_of(id).size()))
 
 
+## الإمداد: جبهة برية مباشرة مع مناطق العدو، أو عبر أرض حليف أو تابع
 static func _supply(sim, id: String, enemies: Array) -> float:
-	var n: Array = sim.country(id)["neighbors"]
-	for e in enemies:
-		if e in n:
-			return 1.0
-	# دولة تابعة أو حليف مجاور للعدو يفتح ممراً للإمداد
-	for a in sim.allies(id) + sim.vassals(id):
-		for e in enemies:
-			if e in sim.country(a)["neighbors"]:
-				return 0.85
+	if Territory.has_land_front(sim, [id], enemies):
+		return 1.0
+	if Territory.has_land_front(sim, sim.allies(id) + sim.vassals(id), enemies):
+		return 0.85
 	return FAR_SUPPLY
 
 
@@ -125,8 +125,17 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	_apply_losses(sim, A, ["artillery"], 0.02 * (1.0 - ratio), loss_a)
 	phases.append({"id": "land", "name_ar": "المعركة البرية", "a": total_a, "d": total_d, "result": ratio * 2.0 - 1.0})
 
-	var delta: float = (ratio - 0.5) * 30.0
-	w["score"] = clampf(float(w["score"]) + delta, -100.0, 100.0)
+	# التقدم على الجبهة: منطقة أو أكثر حسب تفوق الرابح
+	var old_score := float(w["score"])
+	var a_wins := ratio >= 0.5
+	var gains := mini(MAX_GAINS, floori(absf(ratio - 0.5) * GAIN_RATE + rng.next_float()))
+	var winners: Array = A if a_wins else D
+	var losers: Array = D if a_wins else A
+	var naval_w := naval_a if a_wins else 1.0 - naval_a
+	var dominance := absf(ratio - 0.5) * 2.0
+	var taken: Array = Territory.advance(sim, w, winners, losers, gains, naval_w, dominance)
+	w["score"] = Territory.war_score(sim, w)
+	var delta: float = float(w["score"]) - old_score
 	w["battles"] = int(w["battles"]) + 1
 
 	# إرهاق الحرب
@@ -138,6 +147,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 		"war_id": w["id"], "date": sim.date_text(), "attackers": A, "defenders": D,
 		"phases": phases, "ratio": ratio, "delta": delta, "score": w["score"],
 		"losses_a": loss_a, "losses_d": loss_d,
+		"taken": taken, "taken_by_attacker": a_wins,
 	}
 	var pid: String = sim.state["player"]
 	if pid in A or pid in D:
@@ -147,41 +157,22 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	return report
 
 
+## الاستسلام عند انهيار الدولة: سقوط العاصمة مع خسارة أرض كبيرة، أو خسارة معظم الأرض
 static func _check_outcome(sim, w: Dictionary, A: Array, D: Array) -> void:
-	var score := float(w["score"])
-	var pid: String = sim.state["player"]
-	# سقوط العاصمة
-	if score >= 60.0:
-		_capital_falls(sim, D[0], A[0])
-	elif score <= -60.0 and D[0] in sim.country(A[0])["neighbors"]:
-		_capital_falls(sim, A[0], D[0])
-	# الاستسلام عند انهيار الدولة لا عند رقم ثابت فقط
-	var d_lead: Dictionary = sim.country(D[0])
-	var a_lead: Dictionary = sim.country(A[0])
-	if score >= 100.0 or (score >= 60.0 and float(d_lead["stability"]) < 12.0):
-		sim.capitulate(w, D[0], A[0])
-	elif score <= -100.0 or (score <= -60.0 and float(a_lead["stability"]) < 12.0):
-		# المهاجم الخاسر يُجبر على السلام، ويصبح تابعاً فقط إن كان جاراً
-		if D[0] in a_lead["neighbors"]:
-			sim.capitulate(w, A[0], D[0])
-		else:
-			a_lead["stability"] = maxf(0.0, float(a_lead["stability"]) - 10.0)
-			sim.make_peace(w, "%s تنسحب مهزومة من الحرب على %s." % [a_lead["name_ar"], d_lead["name_ar"]])
-			if pid == A[0]:
-				sim.push_event("defeat", "هزيمة", "قواتك هُزمت واضطرت للانسحاب.", true)
-
-
-static func _capital_falls(sim, loser: String, winner: String) -> void:
-	var c: Dictionary = sim.country(loser)
-	if c.get("capital_fallen", false):
+	if not w.get("active", true):
 		return
-	c["capital_fallen"] = true
-	c["stability"] = maxf(0.0, float(c["stability"]) - 15.0)
-	c["gdp"] = float(c["gdp"]) * 0.93
-	var text := "سقوط %s! قوات %s تدخل عاصمة %s." % [c["capital_ar"], sim.country(winner)["name_ar"], c["name_ar"]]
-	sim.add_news(text, "war")
-	if sim.is_player(loser) or sim.is_player(winner):
-		sim.push_event("capital", "سقوط عاصمة", text, true)
+	var pid: String = sim.state["player"]
+	if Territory.collapsed(sim, D[0], A):
+		sim.capitulate(w, D[0], A[0])
+	elif Territory.collapsed(sim, A[0], D):
+		sim.capitulate(w, A[0], D[0])
+	elif float(w["score"]) <= 0.0 and int(w["battles"]) >= 26 and not Territory.has_land_front(sim, A, D):
+		# مهاجم بعيد بلا جبهة برية لم يحقق شيئاً خلال نصف سنة: ينسحب
+		var a_lead: Dictionary = sim.country(A[0])
+		a_lead["stability"] = maxf(0.0, float(a_lead["stability"]) - 10.0)
+		sim.make_peace(w, "%s تنسحب مهزومة من الحرب على %s." % [a_lead["name_ar"], sim.country(D[0])["name_ar"]])
+		if pid == A[0]:
+			sim.push_event("defeat", "هزيمة", "قواتك هُزمت واضطرت للانسحاب.", true)
 
 
 ## توقع قبل الهجوم: نسب القوة في كل مرحلة بلا عشوائية وبلا تعديل على الحالة
@@ -224,5 +215,15 @@ static func forecast(sim, attacker: String, defender: String) -> Dictionary:
 		"strike": eff_a / maxf(0.001, eff_a + eff_d),
 		"sea": sea_a / maxf(0.001, sea_a + sea_d) if sea_a + sea_d > 0.001 else -1.0,
 		"land": ratio,
-		"weeks_to_win": ceili(100.0 / maxf(0.1, (ratio - 0.5) * 30.0)) if ratio > 0.5 else -1,
+		"weeks_to_win": _weeks_to_win(sim, defender, ratio),
+		"land_front": Territory.has_land_front(sim, A, D),
 	}
+
+
+## تقدير زمن النصر: نحتاج احتلال نحو نصف أرض العدو مع عاصمته
+static func _weeks_to_win(sim, defender: String, ratio: float) -> int:
+	if ratio <= 0.55:
+		return -1
+	var regions: int = Territory.core_regions(defender, sim.db).size()
+	var per_week := minf(float(MAX_GAINS), (ratio - 0.5) * GAIN_RATE + 0.5)
+	return ceili(maxf(1.0, regions * 0.45) / maxf(0.2, per_week))

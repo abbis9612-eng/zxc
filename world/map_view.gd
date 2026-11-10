@@ -3,8 +3,13 @@
 extends Control
 
 signal country_selected(id: String)
+signal region_selected(rid: String)
 
 const WORLD_FILE := "res://data/world_110m.json"
+const REGIONS_FILE := "res://data/regions.json"
+const REGIONS_GEO_FILE := "res://data/regions_geo.json"
+const C_REGION_BORDER := Color(0.55, 0.8, 0.95, 0.16)
+const C_OCCUPIED_LINE := Color(0, 0, 0, 0.35)
 const MAP_W := 360.0
 const MAP_H := 180.0
 
@@ -23,9 +28,13 @@ const C_SELECT := Color(1, 1, 1, 0.95)
 var sim = null
 var layer: int = Layer.POLITICAL
 var selected: String = ""
+var selected_region: String = ""
 
 var _shapes: Array = []          # [{id, name_ar, rings:[PackedVector2Array], tris:[PackedInt32Array], rect:Rect2}]
 var _by_id: Dictionary = {}       # id -> index في _shapes
+var _regions: Array = []         # أشكال المناطق: {id, country, name_ar, center, rings, tris, rect}
+var _region_info: Dictionary = {}
+var _playable: Dictionary = {}    # الدول المقسمة إلى مناطق
 var _zoom: float = 1.0
 var _center := Vector2(MAP_W * 0.5 + 30.0, MAP_H * 0.5 - 50.0)   # نبدأ فوق الشرق الأوسط وأوروبا
 var _dragging := false
@@ -40,6 +49,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_font = get_theme_default_font()
 	_load_world()
+	_load_regions()
 	_zoom = 2.2
 	resized.connect(queue_redraw)
 
@@ -51,21 +61,48 @@ func _load_world() -> void:
 		return
 	var data: Dictionary = JSON.parse_string(f.get_as_text())
 	for c in data["countries"]:
-		var shape := {"id": c["id"], "name_ar": c["name_ar"], "rings": [], "tris": [], "rect": Rect2()}
-		var first := true
-		for flat in c["polys"]:
-			var pts := PackedVector2Array()
-			for i in range(0, flat.size(), 2):
-				pts.append(to_map(float(flat[i]), float(flat[i + 1])))
-			if pts.size() < 3:
-				continue
-			shape["rings"].append(pts)
-			shape["tris"].append(Geometry2D.triangulate_polygon(pts))
-			var r := _bounds(pts)
-			shape["rect"] = r if first else (shape["rect"] as Rect2).merge(r)
-			first = false
+		var shape := _make_shape(c["polys"])
+		shape["id"] = c["id"]
+		shape["name_ar"] = c["name_ar"]
 		_by_id[c["id"]] = _shapes.size()
 		_shapes.append(shape)
+
+
+func _load_regions() -> void:
+	var fi := FileAccess.open(REGIONS_FILE, FileAccess.READ)
+	var fg := FileAccess.open(REGIONS_GEO_FILE, FileAccess.READ)
+	if fi == null or fg == null:
+		push_error("تعذر فتح ملفات المناطق")
+		return
+	var info: Dictionary = JSON.parse_string(fi.get_as_text())
+	var geo: Dictionary = JSON.parse_string(fg.get_as_text())["shapes"]
+	for r in info["regions"]:
+		var rid: String = r["id"]
+		_region_info[rid] = r
+		_playable[r["country"]] = true
+		var shape := _make_shape(geo.get(rid, []))
+		shape["id"] = rid
+		shape["country"] = r["country"]
+		shape["name_ar"] = r["name_ar"]
+		shape["center"] = to_map(float(r["lon"]), float(r["lat"]))
+		_regions.append(shape)
+
+
+func _make_shape(polys: Array) -> Dictionary:
+	var shape := {"rings": [], "tris": [], "rect": Rect2()}
+	var first := true
+	for flat in polys:
+		var pts := PackedVector2Array()
+		for i in range(0, flat.size(), 2):
+			pts.append(to_map(float(flat[i]), float(flat[i + 1])))
+		if pts.size() < 3:
+			continue
+		shape["rings"].append(pts)
+		shape["tris"].append(Geometry2D.triangulate_polygon(pts))
+		var r := _bounds(pts)
+		shape["rect"] = r if first else (shape["rect"] as Rect2).merge(r)
+		first = false
+	return shape
 
 
 static func to_map(lon: float, lat: float) -> Vector2:
@@ -104,6 +141,13 @@ func focus_country(id: String) -> void:
 	queue_redraw()
 
 
+func focus_point(lon: float, lat: float) -> void:
+	_center = to_map(lon, lat)
+	_zoom = maxf(_zoom, 6.0)
+	_clamp_view()
+	queue_redraw()
+
+
 func set_layer(l: int) -> void:
 	layer = l
 	queue_redraw()
@@ -125,35 +169,109 @@ func _draw() -> void:
 	draw_set_transform(offset, 0.0, Vector2(s, s))
 	var view := Rect2(screen_to_map(Vector2.ZERO), size / s)
 	var ci := get_canvas_item()
+	# 1) الدول غير المقسمة بعد
+	for shape in _shapes:
+		if _playable.has(shape["id"]) or not view.intersects(shape["rect"]):
+			continue
+		_fill_shape(ci, shape, _fill_color(shape["id"]))
+	# 2) المناطق بلون من يسيطر عليها
+	for shape in _regions:
+		if not view.intersects(shape["rect"]):
+			continue
+		_fill_shape(ci, shape, _region_color(shape))
+	# 3) الحدود
 	for shape in _shapes:
 		if not view.intersects(shape["rect"]):
 			continue
-		var col := _fill_color(shape["id"])
-		for i in shape["rings"].size():
-			var pts: PackedVector2Array = shape["rings"][i]
-			var tris: PackedInt32Array = shape["tris"][i]
-			if tris.size() >= 3:
-				var cols := PackedColorArray()
-				cols.resize(pts.size())
-				cols.fill(col)
-				RenderingServer.canvas_item_add_triangle_array(ci, tris, pts, cols)
-	# الحدود فوق التعبئة
-	for shape in _shapes:
+		if _playable.has(shape["id"]):
+			continue
+		_outline(shape, C_BORDER, -1.0)
+	for shape in _regions:
 		if not view.intersects(shape["rect"]):
 			continue
-		var border := C_BORDER
-		var width := -1.0
-		if shape["id"] == selected:
-			border = C_SELECT
-			width = 2.0 / s
-		for pts in shape["rings"]:
-			var closed: PackedVector2Array = pts.duplicate()
-			closed.append(pts[0])
-			draw_polyline(closed, border, width)
+		var own := _owner_of(shape)
+		var border := C_REGION_BORDER
+		if own != shape["country"]:
+			border = Color(C_ENEMY, 0.55)
+		_outline(shape, border, -1.0)
+	# حدود الدول المقسمة (تقريبية) عند الابتعاد فقط
+	if s < 14.0:
+		for shape in _shapes:
+			if _playable.has(shape["id"]) and view.intersects(shape["rect"]):
+				_outline(shape, C_BORDER, -1.0)
+	# 4) التحديد
+	for shape in _regions:
+		if shape["id"] == selected_region:
+			_outline(shape, C_SELECT, 2.5 / s)
+		elif _owner_of(shape) == selected and view.intersects(shape["rect"]):
+			_outline(shape, Color(1, 1, 1, 0.35), 1.2 / s)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if sim != null:
+		_draw_region_labels()
 		_draw_wars()
 		_draw_capitals()
+
+
+func _fill_shape(ci: RID, shape: Dictionary, col: Color) -> void:
+	for i in shape["rings"].size():
+		var pts: PackedVector2Array = shape["rings"][i]
+		var tris: PackedInt32Array = shape["tris"][i]
+		if tris.size() >= 3:
+			var cols := PackedColorArray()
+			cols.resize(pts.size())
+			cols.fill(col)
+			RenderingServer.canvas_item_add_triangle_array(ci, tris, pts, cols)
+
+
+func _outline(shape: Dictionary, col: Color, width: float) -> void:
+	for pts in shape["rings"]:
+		var closed: PackedVector2Array = pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, col, width)
+
+
+func _owner_of(shape: Dictionary) -> String:
+	if sim == null:
+		return shape["country"]
+	return sim.state["regions"][shape["id"]]["owner"]
+
+
+func _region_color(shape: Dictionary) -> Color:
+	var own := _owner_of(shape)
+	var col := _fill_color(own)
+	if own != shape["country"]:
+		# منطقة محتلة: لون المحتل ممزوج بلون صاحبها الأصلي
+		col = col.lerp(_fill_color(shape["country"]), 0.35).darkened(0.15)
+	if shape["id"] == selected_region:
+		col = col.lightened(0.2)
+	return col
+
+
+func _draw_region_labels() -> void:
+	var s := _scale()
+	if s < 8.0:
+		return
+	var fs := 11 if s < 20.0 else 13
+	var screen := Rect2(Vector2(-40, -20), size + Vector2(80, 40))
+	for shape in _regions:
+		var own := _owner_of(shape)
+		# عند الاقتراب المتوسط: مناطق الدولة المختارة فقط، وعند الاقتراب الكبير: كل المناطق
+		if s < 22.0 and own != selected and shape["country"] != selected:
+			continue
+		var p := map_to_screen(shape["center"])
+		if not screen.has_point(p):
+			continue
+		var label: String = shape["name_ar"]
+		if sim != null and sim.db.capitals.get(shape["country"], "") == shape["id"]:
+			continue   # العاصمة تُكتب باسم الدولة
+		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		# لا نكتب الاسم إن كانت المنطقة أصغر من النص على الشاشة (إلا المختارة)
+		var rect: Rect2 = shape["rect"]
+		if shape["id"] != selected_region and rect.size.x * s < w * 0.9:
+			continue
+		var pos := p + Vector2(-w * 0.5, 4)
+		draw_string_outline(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.75))
+		draw_string(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.85, 0.92, 1.0, 0.85))
 
 
 func _draw_grid() -> void:
@@ -308,6 +426,18 @@ func _clamp_view() -> void:
 
 func _click(screen_pos: Vector2) -> void:
 	var m := screen_to_map(screen_pos)
+	for shape in _regions:
+		if not (shape["rect"] as Rect2).has_point(m):
+			continue
+		for pts in shape["rings"]:
+			if Geometry2D.is_point_in_polygon(m, pts):
+				selected_region = shape["id"]
+				selected = _owner_of(shape)
+				region_selected.emit(selected_region)
+				country_selected.emit(selected)
+				queue_redraw()
+				return
+	selected_region = ""
 	var hit := ""
 	for shape in _shapes:
 		if not (shape["rect"] as Rect2).has_point(m):

@@ -7,6 +7,7 @@ const MapView := preload("res://world/map_view.gd")
 const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const Simulation := preload("res://sim/simulation.gd")
+const Territory := preload("res://sim/territory.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الأخبار"]
@@ -18,6 +19,7 @@ var map: MapView
 var tabs: TabContainer
 var tab_boxes: Array = []        # VBox لكل تبويب
 var selected: String = ""
+var selected_region: String = ""
 
 # الشريط العلوي
 var lbl_country: Label
@@ -182,6 +184,7 @@ func _build_map_area() -> Control:
 	map.set_anchors_preset(Control.PRESET_FULL_RECT)
 	map.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	map.country_selected.connect(_on_country_selected)
+	map.region_selected.connect(func(rid): selected_region = rid)
 	area.add_child(map)
 
 	var margin := MarginContainer.new()
@@ -371,6 +374,8 @@ func _step_one_day() -> void:
 
 
 func _on_country_selected(id: String) -> void:
+	if map.selected_region == "":
+		selected_region = ""
 	selected = id
 	tabs.current_tab = Tab.STATE if id == Game.sim.state["player"] else Tab.DIPLOMACY
 	_dirty = true
@@ -492,6 +497,7 @@ func _fill_state() -> void:
 	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
 	box.add_child(UI.title(p["name_ar"]))
+	_region_card(box, pid)
 	box.add_child(UI.kv("العاصمة", p["capital_ar"]))
 	box.add_child(UI.kv("نظام الحكم", s.db.governments[p["government"]]["name_ar"]))
 	box.add_child(UI.kv("السكان", "%s مليون" % s.fmt_num(p["population"])))
@@ -503,6 +509,7 @@ func _fill_state() -> void:
 	var vs: Array = s.vassals(pid)
 	if not vs.is_empty():
 		box.add_child(UI.kv("الدول التابعة", "، ".join(PackedStringArray(vs.map(func(x): return s.country(x)["name_ar"])))))
+	_regions_section(box, pid)
 	box.add_child(UI.sep())
 
 	box.add_child(UI.title("نظام الحكم", 18))
@@ -743,6 +750,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	var c: Dictionary = s.country(id)
 	var rel: float = s.relation(pid, id)
 	box.add_child(UI.title(c["name_ar"]))
+	_region_card(box, id)
 	box.add_child(UI.kv("نظام الحكم", s.db.governments[c["government"]]["name_ar"]))
 	box.add_child(UI.kv("الناتج", UI.money(float(c["gdp"]))))
 	box.add_child(UI.kv("القوة العسكرية", "%s (قوتك %s)" % [s.fmt_num(s.military_power(c)), s.fmt_num(s.military_power(s.player()))]))
@@ -758,6 +766,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	if inf > 0.0:
 		box.add_child(UI.kv("نفوذك فيها", "%d / 100" % int(inf), UI.C_ACCENT))
 	box.add_child(UI.label("الأسلحة: جو الجيل %d، بر الجيل %d، دفاع جوي الجيل %d" % [int(c["tech"]["air"]), int(c["tech"]["land"]), int(c["tech"]["air_defense"])], UI.C_MUTED, 14))
+	_regions_section(box, id)
 
 	var at_war: bool = not s.war_between(pid, id).is_empty()
 	var actions := GridContainer.new()
@@ -783,6 +792,79 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 		act.call("☢ ضربة نووية", func(): _confirm_nuke(id))
 
 
+## بطاقة المنطقة المختارة على الخريطة (إن كانت تخص هذه الدولة)
+func _region_card(box: VBoxContainer, id: String) -> void:
+	var s = Game.sim
+	if selected_region == "" or not s.state["regions"].has(selected_region):
+		return
+	var r: Dictionary = s.state["regions"][selected_region]
+	if r["owner"] != id and r["core"] != id:
+		return
+	var info: Dictionary = s.db.regions[selected_region]
+	var panel := PanelContainer.new()
+	var v := UI.col()
+	panel.add_child(v)
+	var title: String = info["name_ar"]
+	if info["capital"]:
+		title += " (العاصمة)"
+	v.add_child(UI.title(title, 18))
+	if r["owner"] != r["core"]:
+		v.add_child(UI.kv("الحالة", "تحتلها %s" % s.country(r["owner"])["name_ar"], UI.C_BAD))
+		v.add_child(UI.kv("الولاء للمحتل", "%d" % int(r["loyalty"])))
+		v.add_child(UI.kv("الاندماج", "%d%%" % int(Territory.efficiency(r) * 100.0)))
+	v.add_child(UI.kv("السكان", "%s مليون" % String.num(float(r["pop"]), 2)))
+	v.add_child(UI.kv("الناتج", UI.money(float(r["gdp"]) * Territory.efficiency(r))))
+	var nb := PackedStringArray()
+	for n in info["neighbors"]:
+		var ninfo: Dictionary = s.db.regions[n]
+		var nm: String = ninfo["name_ar"]
+		if ninfo["country"] != info["country"]:
+			nm += " (%s)" % s.country(ninfo["country"])["name_ar"]
+		nb.append(nm)
+	v.add_child(UI.label("تجاورها: " + ("، ".join(nb) if not nb.is_empty() else "لا جيران برّيين (جزيرة)"), UI.C_MUTED, 14))
+	box.add_child(panel)
+
+
+## قائمة مناطق الدولة بأسمائها، مع العاصمة والمناطق المحتلة
+func _regions_section(box: VBoxContainer, id: String) -> void:
+	var s = Game.sim
+	var core: Array = s.db.regions_by_country.get(id, [])
+	box.add_child(UI.sep())
+	box.add_child(UI.title("مناطق %s (%d)" % [s.country(id)["name_ar"], core.size()], 18))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	box.add_child(grid)
+	for rid in core:
+		var r: Dictionary = s.state["regions"][rid]
+		var info: Dictionary = s.db.regions[rid]
+		var text: String = info["name_ar"]
+		if info["capital"]:
+			text = "★ " + text
+		var col := UI.C_TEXT
+		if r["owner"] != id:
+			text += " (محتلة)"
+			col = UI.C_BAD
+		var b := UI.button(text, _select_region.bind(rid))
+		b.add_theme_color_override("font_color", col)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(b)
+	var occ := PackedStringArray()
+	for rid in Territory.owned(s, id):
+		if s.state["regions"][rid]["core"] != id:
+			occ.append("%s (%s)" % [s.db.regions[rid]["name_ar"], s.country(s.state["regions"][rid]["core"])["name_ar"]])
+	if not occ.is_empty():
+		box.add_child(UI.label("مناطق تحتلها: " + "، ".join(occ), UI.C_ACCENT, 14))
+
+
+func _select_region(rid: String) -> void:
+	selected_region = rid
+	map.selected_region = rid
+	var info: Dictionary = Game.sim.db.regions[rid]
+	map.focus_point(float(info["lon"]), float(info["lat"]))
+	_dirty = true
+
+
 func _do(err: String, ok_text: String) -> void:
 	_toast(err if err != "" else ok_text)
 	_dirty = true
@@ -805,7 +887,9 @@ func _confirm_war(id: String) -> void:
 		text += "التقدير: نصر خلال %d أسبوعاً تقريباً." % int(f["weeks_to_win"])
 	else:
 		text += "التقدير: الحرب لن تكون في صالحك."
-	text += "\nالحرب تخفض النمو والاستقرار، وتغضب حلفاء العدو."
+	if not f.get("land_front", true):
+		text += "\nلا توجد جبهة برية: التقدم يحتاج تفوقاً بحرياً للإنزال، والإمداد أضعف."
+	text += "\nالحرب تُخاض منطقة بمنطقة، وتخفض النمو والاستقرار، وتغضب حلفاء العدو."
 	var do_war := func():
 		s.declare_war(pid, id)
 		_dirty = true
@@ -857,6 +941,13 @@ func _show_battle_report() -> void:
 		return "، ".join(parts) if not parts.is_empty() else "خسائر طفيفة"
 	v.add_child(UI.label("خسائر المهاجم: " + loss_text.call(r["losses_a"]), UI.C_MUTED, 14))
 	v.add_child(UI.label("خسائر المدافع: " + loss_text.call(r["losses_d"]), UI.C_MUTED, 14))
+	var taken: Array = r.get("taken", [])
+	if not taken.is_empty():
+		var who: String = "المهاجم" if r.get("taken_by_attacker", true) else "المدافع"
+		var names := PackedStringArray(taken.map(func(x): return s.db.regions[x]["name_ar"]))
+		v.add_child(UI.label("سيطر %s على: %s" % [who, "، ".join(names)], UI.C_ACCENT))
+	else:
+		v.add_child(UI.label("الجبهة لم تتحرك هذا الأسبوع.", UI.C_MUTED, 14))
 	v.add_child(UI.kv("تغير نتيجة الحرب", UI.signed(float(r["delta"]), 1), UI.C_ACCENT))
 	v.add_child(UI.label("مشهد المعركة ثلاثي الأبعاد يأتي في مرحلة لاحقة، وسيعرض هذا التقرير نفسه.", UI.C_MUTED, 13))
 	_show_dialog("تقرير المعركة", "", [{"text": "إغلاق"}], v)
