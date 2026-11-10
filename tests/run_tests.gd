@@ -488,6 +488,25 @@ func test_presentation() -> void:
 	check(plan.size() == 2, "المشهد يعرض مرحلتي التقرير فقط")
 	check(bool(plan[0]["attacker_wins"]) and not bool(plan[1]["attacker_wins"]), "تفوق كل مرحلة من إشارة نتيجتها")
 	check(str(plan[1]["name_ar"]) == "البر", "اسم المرحلة هو اسم التقرير")
+	var Models := preload("res://battle/models.gd")
+	for kind in ["air", "strike", "sea", "land", "soldier"]:
+		var model := Models.make(kind, Color.WHITE)
+		check(model.get_child_count() >= 2, "شكل %s من أكثر من قطعة" % kind)
+		model.free()
+	var lines := BattleScene.summary_lines({
+		"ratio": 0.62,
+		"losses_a": {"tank": 2},
+		"losses_d": {},
+		"hits_a": [{"type": "refinery", "region": "IQ.BA"}],
+		"hits_d": [],
+		"taken": ["IQ.BA"],
+		"taken_by_attacker": true,
+	}, {"tank": "فئة T-90"}, {"IQ.BA": "البصرة"})
+	check(lines.size() == 5, "الختام يذكر الفائز والخسائر والضربات والأرض")
+	check(str(lines[0]).contains("المهاجم") and str(lines[0]).contains("62"), "نسبة التقرير كما هي")
+	check(str(lines[1]).contains("فئة T-90"), "الخسائر بأسماء الفئات")
+	check(str(lines[3]).contains("مصفاة") and str(lines[3]).contains("البصرة"), "المنشأة المضروبة من التقرير")
+	check(str(lines[4]).contains("البصرة"), "الأرض المأخوذة من التقرير")
 
 
 func test_reference_systems() -> void:
