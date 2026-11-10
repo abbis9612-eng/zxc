@@ -37,6 +37,17 @@ func _add(e: Dictionary) -> void:
 	if fx.size() >= MAX_FX:
 		return
 	fx.append(e)
+	var kind := String(e["kind"])
+	# مؤثرات مرافقة: وميض الإطلاق، صاروخ الاعتراض الصاعد للقاء، والدخان الباقي بعد الانفجار
+	if kind == "missile":
+		fx.append({"kind": "launch", "t0": e["t0"], "dur": 0.6, "p": e["a"]})
+		var cut := float(e.get("cut", 1.0))
+		if cut < 1.0:
+			var meet := _arc_point(e["a"], e["b"], cut, true)
+			var idur := 0.45
+			fx.append({"kind": "interceptor", "t0": float(e["t0"]) + float(e["dur"]) * cut - idur, "dur": idur, "a": (e["b"] as Vector2) + Vector2(0.15, 0.1), "b": meet})
+	elif kind == "boom" and fx.size() < MAX_FX:
+		fx.append({"kind": "smoke", "t0": float(e["t0"]) + 0.25, "dur": 2.2, "p": e["p"], "small": e.get("small", false)})
 
 
 func _center(rid: String) -> Vector2:
@@ -329,23 +340,46 @@ func draw_air(cv: CanvasItem) -> void:
 					continue
 				var arc: bool = e["kind"] == "missile"
 				var p: Vector2 = map.map_to_screen(_arc_point(e["a"], e["b"], k, arc))
-				var prev: Vector2 = map.map_to_screen(_arc_point(e["a"], e["b"], maxf(0.0, k - 0.06), arc))
+				var prev: Vector2 = map.map_to_screen(_arc_point(e["a"], e["b"], maxf(0.0, k - 0.03), arc))
 				var dir := (p - prev).normalized()
+				if dir == Vector2.ZERO:
+					dir = Vector2.RIGHT
+				var zs := ts * clampf(s / 8.0, 0.75, 1.6)
 				if arc:
-					# أثر الدخان خلف الصاروخ
-					var trail := PackedVector2Array()
-					for i in 8:
-						var tt := maxf(0.0, k - 0.025 * float(i))
-						trail.append(map.map_to_screen(_arc_point(e["a"], e["b"], tt, true)))
-					cv.draw_polyline(trail, Color(0.85, 0.85, 0.85, 0.55), 3.0 * ts, true)
-					cv.draw_circle(p, 4.0 * ts, Color(1.0, 0.85, 0.3))
-					cv.draw_circle(p, 2.2 * ts, Color.WHITE)
+					# دخان كثيف يتلاشى خلف الصاروخ
+					for i in range(10, 0, -1):
+						var tt := maxf(0.0, k - 0.02 * float(i))
+						var sp: Vector2 = map.map_to_screen(_arc_point(e["a"], e["b"], tt, true))
+						var fade := 1.0 - float(i) / 10.0
+						cv.draw_circle(sp, (2.0 + float(i) * 0.7) * zs, Color(0.82, 0.82, 0.82, 0.35 * fade))
+					_draw_missile(cv, p, dir, zs, e["col"], now)
 				else:
-					var sz := 22.0 * ts
-					cv.draw_set_transform(p, dir.angle() + PI * 0.5, Vector2.ONE)
-					cv.draw_texture_rect(Icons.tex("airbase", map.pal("OUTLINE"), 64), Rect2(Vector2(-sz, -sz) * 0.5 - Vector2(1, -1), Vector2(sz, sz)), false)
-					cv.draw_texture_rect(Icons.tex("airbase", e["col"], 64), Rect2(Vector2(-sz, -sz) * 0.5, Vector2(sz, sz)), false)
-					cv.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+					# خطا تكثف خلف المحركين
+					var tr: Vector2 = map.map_to_screen(_arc_point(e["a"], e["b"], maxf(0.0, k - 0.12), false))
+					var n := dir.orthogonal()
+					for sgn in [-1.0, 1.0]:
+						cv.draw_line(tr + n * 3.0 * zs * sgn, p - dir * 6.0 * zs + n * 3.0 * zs * sgn, Color(1, 1, 1, 0.45), 1.6 * zs, true)
+					_draw_jet(cv, p, dir, zs, e["col"])
+			"interceptor":
+				var p6: Vector2 = map.map_to_screen((e["a"] as Vector2).lerp(e["b"], k))
+				var pr6: Vector2 = map.map_to_screen((e["a"] as Vector2).lerp(e["b"], maxf(0.0, k - 0.15)))
+				var d6 := (p6 - pr6).normalized()
+				if d6 == Vector2.ZERO:
+					d6 = Vector2.UP
+				cv.draw_line(pr6, p6, Color(0.9, 0.95, 1.0, 0.7), 2.0 * ts, true)
+				_draw_missile(cv, p6, d6, ts * 0.7, Color(0.75, 0.88, 1.0), now)
+			"launch":
+				var p7: Vector2 = map.map_to_screen(e["p"])
+				var a7 := 1.0 - k
+				cv.draw_circle(p7, (6.0 + 10.0 * k) * ts, Color(1.0, 0.85, 0.4, 0.55 * a7))
+				cv.draw_arc(p7, (8.0 + 18.0 * k) * ts, 0.0, TAU, 24, Color(0.9, 0.9, 0.9, 0.5 * a7), 2.5 * ts, true)
+			"smoke":
+				var p8: Vector2 = map.map_to_screen(e["p"])
+				var r8 := (8.0 if e.get("small", false) else 14.0) * ts
+				for i in 4:
+					var ang := float(i) * 1.7
+					var off := Vector2(cos(ang), sin(ang)) * r8 * 0.5 * (0.5 + k) + Vector2(0, -r8 * 1.4 * k)
+					cv.draw_circle(p8 + off, r8 * (0.6 + 0.6 * k), Color(0.35, 0.35, 0.35, 0.35 * (1.0 - k)))
 			"ship":
 				var p2: Vector2 = map.map_to_screen((e["a"] as Vector2).lerp(e["b"], k))
 				var sz2 := 26.0 * ts
@@ -366,9 +400,15 @@ func draw_air(cv: CanvasItem) -> void:
 					if kk > 0.0 and kk < 1.0:
 						_explosion(cv, p3 + Vector2(cos(i * 2.1), sin(i * 2.1)) * 9.0 * ts, kk, 10.0 * ts)
 			"flak":
+				# اعتراض في الجو: وميض أبيض وشظايا وحلقة
 				var p4: Vector2 = map.map_to_screen(e["p"])
-				cv.draw_arc(p4, (4.0 + 12.0 * k) * ts, 0.0, TAU, 20, Color(0.75, 0.88, 1.0, 1.0 - k), 2.0, true)
-				cv.draw_circle(p4, 3.0 * (1.0 - k) * ts, Color(1, 1, 1, 1.0 - k))
+				var a4 := 1.0 - k
+				cv.draw_circle(p4, (5.0 + 8.0 * k) * ts, Color(1.0, 0.95, 0.75, 0.6 * a4))
+				cv.draw_arc(p4, (4.0 + 16.0 * k) * ts, 0.0, TAU, 24, Color(0.75, 0.88, 1.0, a4), 2.0, true)
+				for i in 8:
+					var ang4 := float(i) * TAU / 8.0 + 0.3
+					var d4 := Vector2(cos(ang4), sin(ang4))
+					cv.draw_line(p4 + d4 * 6.0 * k * ts, p4 + d4 * (8.0 + 14.0 * k) * ts, Color(1.0, 0.8, 0.4, a4), 1.5, true)
 			"capture":
 				var p5: Vector2 = map.region_screen(e["rid"])
 				var a := clampf(1.0 - k, 0.0, 1.0)
@@ -384,8 +424,56 @@ func draw_air(cv: CanvasItem) -> void:
 				cv.draw_string(map._font_bold, Vector2(box.position.x + 10, box.position.y + fs + 2), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))
 
 
+## صاروخ: جسم ورأس وزعانف ولهب يرتجف
+static func _draw_missile(cv: CanvasItem, p: Vector2, dir: Vector2, z: float, col: Color, now: float) -> void:
+	var n := dir.orthogonal()
+	var L := 11.0 * z
+	var W := 2.2 * z
+	var tail := p - dir * L
+	var flick := 0.75 + 0.25 * sin(now * 40.0)
+	cv.draw_colored_polygon(PackedVector2Array([tail - dir * 7.0 * z * flick, tail + n * W * 1.1, tail - n * W * 1.1]), Color(1.0, 0.55, 0.1, 0.9))
+	cv.draw_colored_polygon(PackedVector2Array([tail - dir * 4.0 * z * flick, tail + n * W * 0.6, tail - n * W * 0.6]), Color(1.0, 0.95, 0.6))
+	var body := PackedVector2Array([p + n * W, p - n * W, tail - n * W, tail + n * W])
+	cv.draw_colored_polygon(body, Color(0.92, 0.92, 0.9))
+	cv.draw_colored_polygon(PackedVector2Array([p + n * W, p + dir * 4.5 * z, p - n * W]), col)
+	cv.draw_colored_polygon(PackedVector2Array([tail + n * W, tail + n * W * 2.6 - dir * 1.5 * z, tail + dir * 3.0 * z + n * W]), col.darkened(0.2))
+	cv.draw_colored_polygon(PackedVector2Array([tail - n * W, tail - n * W * 2.6 - dir * 1.5 * z, tail + dir * 3.0 * z - n * W]), col.darkened(0.2))
+
+
+## مقاتلة: جسم وجناحان مائلان وذيل، بلون صاحبها وظل تحتها
+static func _draw_jet(cv: CanvasItem, p: Vector2, dir: Vector2, z: float, col: Color) -> void:
+	var n := dir.orthogonal()
+	var pts := PackedVector2Array([
+		p + dir * 9.0 * z,
+		p + dir * 2.0 * z + n * 1.4 * z,
+		p - dir * 1.0 * z + n * 8.0 * z,
+		p - dir * 3.0 * z + n * 8.0 * z,
+		p - dir * 3.0 * z + n * 1.6 * z,
+		p - dir * 7.0 * z + n * 4.0 * z,
+		p - dir * 8.5 * z + n * 4.0 * z,
+		p - dir * 8.0 * z,
+		p - dir * 8.5 * z - n * 4.0 * z,
+		p - dir * 7.0 * z - n * 4.0 * z,
+		p - dir * 3.0 * z - n * 1.6 * z,
+		p - dir * 3.0 * z - n * 8.0 * z,
+		p - dir * 1.0 * z - n * 8.0 * z,
+		p + dir * 2.0 * z - n * 1.4 * z,
+	])
+	var shadow := PackedVector2Array()
+	for q in pts:
+		shadow.append(q + Vector2(3.0, 5.0) * z)
+	cv.draw_colored_polygon(shadow, Color(0, 0, 0, 0.25))
+	var outline := PackedVector2Array(pts)
+	outline.append(pts[0])
+	cv.draw_colored_polygon(pts, col)
+	cv.draw_polyline(outline, Color(0.05, 0.05, 0.05, 0.8), 1.2, true)
+	cv.draw_circle(p + dir * 4.0 * z, 1.3 * z, Color(0.7, 0.9, 1.0))
+
+
 static func _explosion(cv: CanvasItem, p: Vector2, k: float, r: float) -> void:
 	var a := 1.0 - k
+	# موجة ضغط تتسع
+	cv.draw_arc(p, r * (0.5 + 1.6 * k), 0.0, TAU, 28, Color(1.0, 0.9, 0.7, 0.55 * a), 2.0, true)
 	cv.draw_circle(p, r * (0.4 + 0.9 * k), Color(1.0, 0.45, 0.1, 0.45 * a))
 	cv.draw_circle(p, r * (0.3 + 0.5 * k), Color(1.0, 0.75, 0.2, 0.8 * a))
 	cv.draw_circle(p, r * 0.25 * (1.0 - k), Color(1, 1, 0.9, a))

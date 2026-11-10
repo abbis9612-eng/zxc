@@ -40,6 +40,7 @@ const PATHS := {
 	"tank": '<path d="M3 15.5h18l-2.2 4H5.2z"/><path d="M6 15.5V12h10.5l1.8 3.5M9.5 12V9.5h5.5V12M15 10.7h7"/>',
 	"soldier": '<circle cx="11" cy="6" r="2.6"/><path d="M6 21v-4.5a5 5 0 0 1 10 0V21M15.5 12.5 21 4M7 9.5h8"/>',
 	"heli": '<path d="M3 5h18M12 5v3M5 12a5 3.5 0 0 0 10 0 5 3.5 0 0 0-10 0zM15 12h6l1-2M8 15.5 7 19h8l-1-3.5"/>',
+	"search": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/>',
 	"camera": '<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>',
 	"advisor": '<path d="M4 9l8-5 8 5-8 5z"/><path d="M7 11v5c0 1.5 2.2 3 5 3s5-1.5 5-3v-5M20 9v6"/>',
 	"region": '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',

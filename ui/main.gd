@@ -93,6 +93,9 @@ var expand_btn: Button
 var layer_btn: Button
 var cam_btn: Button
 var fps_label: Label
+## سطر المستشار فوق الأزرار: أهم ما تفعله الآن، بضغطة يأخذك إليه
+var advice_btn: Button
+var _advice: Array = []
 var _cam_i := 0
 ## شريط الأخبار المباشر للقتال (فوق بطاقة السياق)
 var ticker: PanelContainer
@@ -515,6 +518,9 @@ func _build_map_tools() -> void:
 	var home := _pill_button("capital", "", _go_home, "العودة إلى دولتك")
 	home.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	v.add_child(home)
+	var find := _pill_button("search", "", _open_search, "ابحث عن دولة أو محافظة أو سلاح")
+	find.custom_minimum_size = Vector2(TOUCH, TOUCH)
+	v.add_child(find)
 	cam_btn = _pill_button("camera", "", _watch_battle, "كاميرا المعركة: انتقل إلى أسخن نقطة على جبهتك وأبطئ الوقت")
 	cam_btn.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	cam_btn.visible = false
@@ -580,6 +586,17 @@ func _build_context_card() -> void:
 	ctx_box = UI.col()
 	ctx_box.add_theme_constant_override("separation", 8)
 	ctx_card.add_child(ctx_box)
+	advice_btn = UI.button("", func():
+		if not _advice.is_empty():
+			_go_alert(int(_advice[2]), String(_advice[3])), "advisor", "FlatButton")
+	advice_btn.add_theme_stylebox_override("normal", UI.float_box(12, 6))
+	advice_btn.add_theme_font_size_override("font_size", 14)
+	advice_btn.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	advice_btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	advice_btn.clip_text = true
+	advice_btn.custom_minimum_size = Vector2(0, 40)
+	advice_btn.visible = false
+	bottom.add_child(advice_btn)
 	ticker = PanelContainer.new()
 	ticker.add_theme_stylebox_override("panel", UI.float_box(12, 6))
 	ticker.visible = false
@@ -1708,6 +1725,78 @@ func _on_day() -> void:
 		cam_btn.visible = at_war
 
 
+# ------------------------------------------------------------------ البحث
+
+static func _norm(t: String) -> String:
+	var out := t.strip_edges().to_lower()
+	for pair in [["أ", "ا"], ["إ", "ا"], ["آ", "ا"], ["ة", "ه"], ["ى", "ي"]]:
+		out = out.replace(pair[0], pair[1])
+	return out
+
+
+## مربع بحث واحد لكل شيء: الدول والمحافظات والأسلحة
+func _open_search() -> void:
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 6)
+	var le := LineEdit.new()
+	le.placeholder_text = "اكتب اسم دولة أو محافظة أو سلاح"
+	le.custom_minimum_size = Vector2(0, TOUCH)
+	le.clear_button_enabled = true
+	v.add_child(le)
+	var res := UI.col()
+	res.add_theme_constant_override("separation", 4)
+	v.add_child(res)
+	le.text_changed.connect(func(t: String): _search_fill(res, t))
+	_show_dialog("بحث", "", [{"text": "إغلاق"}], v, "search")
+	le.call_deferred("grab_focus")
+
+
+func _search_fill(res: VBoxContainer, text: String) -> void:
+	UI.clear(res)
+	var q := _norm(text)
+	if q.length() < 2:
+		return
+	var s = Game.sim
+	var n := 0
+	for id in s.alive_ids():
+		var c: Dictionary = s.country(id)
+		if _norm(c["name_ar"]).contains(q) or String(id).to_lower() == q:
+			var cid: String = id
+			res.add_child(_choice("", c["name_ar"], [["دولة", UI.C_MUTED]], "", func():
+				_close_top_dialog()
+				map.focus_country(cid)
+				map.selected = cid
+				_on_country_selected(cid), false, false, c.get("flag", "")))
+			n += 1
+			if n >= 6:
+				break
+	for rid in s.db.region_ids:
+		if n >= 12:
+			break
+		var info: Dictionary = s.db.regions[rid]
+		if _norm(info["name_ar"]).contains(q):
+			var owner: String = s.state["regions"][rid]["owner"]
+			var r2: String = rid
+			res.add_child(_choice("region", info["name_ar"], [["محافظة في %s" % s.country(owner)["name_ar"], UI.C_MUTED]], "", func():
+				_close_top_dialog()
+				map.focus_point(float(info["lon"]), float(info["lat"]))
+				map.selected_region = r2
+				_on_region_clicked(r2)))
+			n += 1
+	for u in s.db.units:
+		var ui: Dictionary = s.db.units[u]
+		var hit := _norm(ui["name_ar"]).contains(q)
+		for g in ui["gens"]:
+			hit = hit or _norm(String(g)).contains(q)
+		if hit:
+			res.add_child(_choice(UNIT_ICONS.get(u, "army"), String(ui["name_ar"]).trim_suffix(" (ألف)"), [["سلاح · افتح الجيش", UI.C_MUTED]], "", func():
+				_close_top_dialog()
+				_open_tab(Tab.ARMY)))
+			n += 1
+	if n == 0:
+		res.add_child(UI.label("لا نتائج.", UI.C_MUTED, 14))
+
+
 # ------------------------------------------------------------------ كاميرا المعركة والأخبار المباشرة
 
 ## مناطق القتال في حروب اللاعب، الأضعف سيطرة أولاً
@@ -1810,6 +1899,10 @@ func _process(delta: float) -> void:
 		return
 	_refresh_acc += delta
 	_ticker_step(delta)
+	var show_adv: bool = not _advice.is_empty() and not ctx_card.visible and not ticker.visible and not sheet.visible
+	if advice_btn.visible != show_adv:
+		advice_btn.visible = show_adv
+		bottom.queue_sort()
 	if fps_label.visible:
 		fps_label.text = "%d إطار/ث" % int(Engine.get_frames_per_second())
 	if _dirty and _refresh_acc > 0.25:
@@ -1976,7 +2069,18 @@ func _update_advisor() -> void:
 				items.append([68, "%s غير راضين (%d)." % [fname, int(sat)], Tab.STATE, ""])
 	if items.is_empty():
 		items.append([0, "الوضع مستقر. راقب جيرانك وطوّر اقتصادك.", Tab.ECONOMY, ""])
+	# المصانع الفارغة والمشاريع: لا تترك المال نائماً
+	var free_lines: int = s.production_lines(p) - p["production"].size()
+	if free_lines >= 2 and float(p["treasury"]) > gdp * 0.01:
+		items.append([45, "لديك %d خطوط إنتاج فارغة: صنّع سلاحاً." % free_lines, Tab.ARMY, ""])
+	if p.get("dom_projects", []).is_empty() and float(p["treasury"]) > gdp * 0.02:
+		items.append([42, "لا مشروع استثماري جارٍ: طوّر النفط أو البنية التحتية.", Tab.ECONOMY, ""])
 	items.sort_custom(func(a, c): return a[0] > c[0])
+	_advice = items[0] if not items.is_empty() else []
+	if not _advice.is_empty():
+		advice_btn.text = String(_advice[1])
+		var pr := int(_advice[0])
+		advice_btn.icon = Icons.tex("warning" if pr >= 85 else "advisor", UI.C_BAD if pr >= 85 else (UI.C_WARN if pr >= 60 else UI.C_ACCENT_TEXT), 40)
 	# الجرس: عدد الأمور العاجلة بلون أخطرها
 	var urgent := 0
 	for it in items:
@@ -3375,32 +3479,43 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	var actions := GridContainer.new()
 	actions.columns = 2
 	box.add_child(actions)
-	var act := func(text: String, cb: Callable) -> void:
-		var b := UI.button(text, cb)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		actions.add_child(b)
+	var act := func(text: String, cb: Callable, sub: String, col: Color) -> void:
+		actions.add_child(_action_cell(text, cb, "", "", sub, col))
+	var M := UI.C_MUTED
 	if not at_war:
-		act.call("تحسين العلاقات (%s)" % UI.money(maxf(0.2, float(s.player()["gdp"]) * 0.0005)), func(): _do(s.improve_relations(pid, id), "تحسنت العلاقات."))
-		act.call("استثمار ونفوذ (%s)" % UI.money(maxf(0.5, float(c["gdp"]) * 0.01)), func(): _do(s.invest(pid, id), "تم الاستثمار وزاد نفوذك."))
-		act.call("اتحاد سلمي", _confirm_union.bind(id))
+		var rel2: float = s.relation(pid, id)
+		act.call("تحسين العلاقات", func(): _do(s.improve_relations(pid, id), "تحسنت العلاقات."), "%s · العلاقة +8" % UI.money_short(maxf(0.2, float(s.player()["gdp"]) * 0.0005)), M)
+		act.call("استثمار ونفوذ", func(): _do(s.invest(pid, id), "تم الاستثمار وزاد نفوذك."), "%s · نفوذ وأرباح" % UI.money_short(maxf(0.5, float(c["gdp"]) * 0.01)), M)
+		var why_u: String = Development.can_union(s, pid, id)
+		act.call("اتحاد سلمي", _confirm_union.bind(id), "ممكن الآن" if why_u == "" else why_u, UI.C_GOOD if why_u == "" else M)
 		var do_sanction := func():
 			s.toggle_sanction(pid, id)
 			_dirty = true
-		act.call("رفع العقوبات" if pid in c["sanctions"] else "فرض عقوبات (−15% من صادراتها)", do_sanction)
+		var sanc: bool = pid in c["sanctions"]
+		act.call("رفع العقوبات" if sanc else "فرض عقوبات", do_sanction, "تتحسن العلاقة" if sanc else "−15% من صادراتها · تسوء العلاقة", M)
 		if Market.has_pact(s, pid, id):
-			act.call("إلغاء الاتفاقية التجارية", func():
+			act.call("إلغاء الاتفاقية", func():
 				Market.cancel_pact(s, pid, id, "بقرار منك")
-				_dirty = true)
+				_dirty = true, "تخسر نمو الاتفاقية", M)
 		else:
 			var tp: Dictionary = s.db.market["trade_pact"]
-			act.call("اتفاقية تجارية (+%.2f%% نمو، +%d%% استيراد)" % [float(tp["growth"]), int(float(tp["import_bonus"]) * 100.0)], func(): _do(Market.sign_pact(s, pid, id), "وُقعت الاتفاقية التجارية."))
+			var why_p: String = Market.can_sign_pact(s, pid, id)
+			act.call("اتفاقية تجارية", func(): _do(Market.sign_pact(s, pid, id), "وُقعت الاتفاقية التجارية."),
+				("تقبل · +%.2f%% نمو" % float(tp["growth"])) if why_p == "" else "تحتاج علاقة %d+ (الآن %d)" % [int(tp["min_relation"]), int(rel2)], UI.C_GOOD if why_p == "" else M)
 		if not (id in s.allies(pid)):
-			act.call("عرض تحالف", func(): _do(s.propose_alliance(pid, id), "تم التحالف!"))
-		act.call("⚔ إعلان الحرب", func(): _confirm_war(id))
+			act.call("عرض تحالف", func(): _do(s.propose_alliance(pid, id), "تم التحالف!"),
+				"تقبل الآن" if rel2 >= 60.0 else "تحتاج علاقة 60 (الآن %d)" % int(rel2), UI.C_GOOD if rel2 >= 60.0 else M)
+		var why_w: String = s.can_declare_war(pid, id)
+		var land := float(Combat.forecast(s, pid, id)["land"]) if why_w == "" else 0.0
+		act.call("⚔ إعلان الحرب", func(): _confirm_war(id), ("فرصة البر ~%d%%" % int(land * 100.0)) if why_w == "" else "غير ممكن الآن", _chance_color(land) if why_w == "" else M)
 	else:
-		act.call("☮ عرض السلام", func(): _do(s.propose_peace(pid, id), "قُبل السلام."))
-		act.call("☢ ضربة نووية", func(): _confirm_nuke(id))
+		var w: Dictionary = s.war_between(pid, id)
+		var their := float(w["score"]) if id in w["attackers"] else -float(w["score"])
+		var days_w := int(s.state["day"]) - int(w["start_day"])
+		var accept: bool = their < 15.0 or (days_w > 180 and their < 35.0)
+		act.call("☮ عرض السلام", func(): _do(s.propose_peace(pid, id), "قُبل السلام."), "ستقبل الآن" if accept else "سترفض: تتقدم في الحرب", UI.C_GOOD if accept else UI.C_BAD)
+		var why_n: String = s.can_nuke(pid, id)
+		act.call("☢ ضربة نووية", func(): _confirm_nuke(id), "دمار وغضب عالمي" if why_n == "" else why_n, UI.C_BAD if why_n == "" else M)
 	_covert_section(box, id)
 
 
