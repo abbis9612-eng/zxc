@@ -16,6 +16,7 @@ const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Icons := preload("res://ui/icons.gd")
 const Flags := preload("res://ui/flags.gd")
+const TouchScroll := preload("res://ui/touch_scroll.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
@@ -104,6 +105,7 @@ var dialog_queue: Array = []
 var dialog_open := false
 var start_screen: Control
 
+var touch_scroll: Node
 var _refresh_acc := 0.0
 var _dirty := true
 
@@ -116,6 +118,8 @@ func _ready() -> void:
 	MapView.text_scale = 1.15 if mobile else 1.0
 	theme = UI.make_theme(mobile)
 	layout_direction = Control.LAYOUT_DIRECTION_RTL
+	touch_scroll = TouchScroll.new()
+	add_child(touch_scroll)
 	_build_layout()
 	_build_start_screen()
 	Game.day_passed.connect(_on_day)
@@ -538,6 +542,7 @@ func _build_sheet() -> void:
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(box)
 		tabs.add_child(scroll)
+		touch_scroll.add(scroll)
 		tab_boxes.append(box)
 	tabs.tab_changed.connect(_on_tab_changed)
 
@@ -1159,6 +1164,7 @@ func _build_start_screen() -> void:
 	scroll.custom_minimum_size = Vector2(0, minf(520.0, get_viewport_rect().size.y - 280.0))
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
+	touch_scroll.add(scroll)
 	var grid := GridContainer.new()
 	grid.columns = 2 if mobile else 4
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL

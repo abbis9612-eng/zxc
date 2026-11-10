@@ -1026,7 +1026,7 @@ func _gui_input(event: InputEvent) -> void:
 				_dragging = true
 				_drag_moved = 0.0
 			else:
-				if _dragging and _drag_moved < 10.0:
+				if _dragging and _drag_moved < 16.0:
 					_click(mb.position)
 				_dragging = false
 	elif event is InputEventMouseMotion and _dragging:
