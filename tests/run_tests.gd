@@ -38,6 +38,7 @@ func _init() -> void:
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
+		test_research_forecast()
 		test_strong_beats_weak()
 		test_twenty_years()
 	print("")
@@ -125,6 +126,30 @@ func test_forecast_is_pure() -> void:
 	Economy.preview(s, s.player(), {"tax_rate": 0.4})
 	check(s.checksum() == before, "التوقع والمعاينة بلا آثار جانبية")
 	check(float(f["land"]) > 0.5, "توقع تركيا ضد سوريا لصالح تركيا (%.2f)" % float(f["land"]))
+
+
+## توقع مدة البحث يطابق ما يحدث فعلاً، ولا يغيّر العالم
+func test_research_forecast() -> void:
+	print("توقع البحث")
+	var s := new_sim("SAU", 11)
+	var p: Dictionary = s.player()
+	s.set_research("SAU", 0.02, "air_defense")
+	var gen0 := int(p["tech"]["air_defense"])
+	var before := s.checksum()
+	var months := Economy.research_months(s, p, "air_defense", 0.02)
+	var doubled := Economy.research_months(s, p, "air_defense", 0.04)
+	check(s.checksum() == before, "توقع البحث بلا آثار جانبية")
+	check(months > 0 and doubled <= ceili(months / 2.0) + 1, "مضاعفة الميزانية تختصر المدة للنصف تقريباً (%d ← %d شهراً)" % [months, doubled])
+	# نشغّل الأشهر المتوقعة (أياماً) ونتأكد أن الجيل التالي وصل في الوقت المتوقع تقريباً
+	var hit := -1
+	for m in months + 3:
+		run_days(s, 30)
+		if int(p["tech"]["air_defense"]) > gen0:
+			hit = m + 1
+			break
+	check(hit > 0 and absi(hit - months) <= 2, "الجيل التالي وصل بعد %d شهراً، والتوقع %d" % [hit, months])
+	p["tech"]["land"] = 5
+	check(Economy.research_months(s, p, "land", 0.02) == -1, "الفرع في أعلى جيل")
 
 
 func test_strong_beats_weak() -> void:

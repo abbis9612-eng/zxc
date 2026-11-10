@@ -17,11 +17,13 @@ const Divisions := preload("res://sim/divisions.gd")
 const Icons := preload("res://ui/icons.gd")
 const Flags := preload("res://ui/flags.gd")
 const TouchScroll := preload("res://ui/touch_scroll.gd")
+const GenLadder := preload("res://ui/gen_ladder.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
 const TAB_ICONS := ["state", "economy", "army", "research", "diplomacy", "intel", "news"]
 const LAYERS := [["سياسي", "layers"], ["القوة", "army"], ["الاقتصاد", "economy"], ["الاستقرار", "stability"], ["الموارد", "r_oil"], ["المدى", "range"]]
+const BRANCH_ICONS := {"land": "unit", "air": "airbase", "sea": "port", "missile": "target", "air_defense": "radar"}
 const BRANCH_EXAMPLE := {"land": "armor", "air": "fighters", "sea": "ships", "missile": "missiles", "air_defense": "air_defense"}
 const NEWS_COLORS := {"war": "#e05a55", "nuke": "#ff7b29", "peace": "#4cc38a", "good": "#4cc38a", "world": "#7fb8e6", "info": "#c9d4dc"}
 
@@ -63,6 +65,7 @@ var speed_pips: Array = []
 # الرصيف واللوحة
 var dock: PanelContainer
 var dock_btns: Dictionary = {}
+var seg_btns: Dictionary = {}
 var sheet: PanelContainer
 var panel_title: Label
 var panel_icon: TextureRect
@@ -518,9 +521,33 @@ func _build_sheet() -> void:
 	panel_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	panel_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	head.add_child(panel_icon)
-	panel_title = UI.title("", 20)
-	panel_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel_title = UI.title("", 19)
+	panel_title.add_theme_color_override("font_color", UI.C_TEXT)
 	head.add_child(panel_title)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(sp)
+	# الأقسام داخل اللوحة: التنقل بينها بلمسة دون إغلاقها
+	var seg := PanelContainer.new()
+	var seg_st := StyleBoxFlat.new()
+	seg_st.bg_color = UI.C_SUNKEN
+	seg_st.set_corner_radius_all(10)
+	seg_st.set_content_margin_all(3)
+	seg.add_theme_stylebox_override("panel", seg_st)
+	var seg_row := HBoxContainer.new()
+	seg_row.add_theme_constant_override("separation", 2)
+	seg.add_child(seg_row)
+	for t in DOCK_TABS:
+		var sb := Button.new()
+		sb.text = DOCK_TITLES[t]
+		sb.theme_type_variation = "FlatButton"
+		sb.custom_minimum_size = Vector2(0, TOUCH - 6)
+		sb.add_theme_font_size_override("font_size", 14)
+		sb.pressed.connect(_open_tab.bind(t))
+		seg_btns[t] = sb
+		seg_row.add_child(sb)
+	head.add_child(seg)
 	var close := _pill_button("close", "", _close_sheet, "إغلاق")
 	close.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	head.add_child(close)
@@ -577,7 +604,8 @@ func _layout_sheet() -> void:
 	sheet.offset_right = -EDGE
 	sheet.offset_left = -EDGE - w
 	sheet.offset_top = EDGE + TOUCH + 16
-	sheet.offset_bottom = -(EDGE + BIG + 20)
+	# اللوحة المفتوحة تأخذ مكان الرصيف حتى آخر الشاشة، والأقسام في رأسها
+	sheet.offset_bottom = -EDGE
 
 
 func _on_sheet_drag(ev: InputEvent) -> void:
@@ -620,6 +648,7 @@ func _toggle_sheet(t: int) -> void:
 func _open_tab(i: int) -> void:
 	var was_open := sheet.visible
 	sheet.visible = true
+	dock.visible = false
 	ctx_card.visible = false
 	alerts_pop.visible = false
 	layers_pop.visible = false
@@ -642,6 +671,7 @@ func _close_sheet() -> void:
 	_sheet_tw.tween_property(sheet, "modulate:a", 0.0, 0.12)
 	_sheet_tw.tween_callback(func():
 		sheet.visible = false
+		dock.visible = true
 		sheet.modulate.a = 1.0
 		_layout_sheet()
 		_sync_dock())
@@ -658,6 +688,26 @@ func _on_tab_changed(t: int) -> void:
 
 
 func _sync_dock() -> void:
+	for t in seg_btns:
+		var sbn: Button = seg_btns[t]
+		var active: bool = tabs.current_tab == t
+		var st := StyleBoxFlat.new()
+		st.bg_color = UI.C_PANEL_2 if active else Color.TRANSPARENT
+		st.set_corner_radius_all(8)
+		st.content_margin_left = 9
+		st.content_margin_right = 9
+		if active:
+			st.shadow_color = Color(0, 0, 0, 0.10)
+			st.shadow_size = 2
+		for k in ["normal", "hover", "pressed", "hover_pressed"]:
+			sbn.add_theme_stylebox_override(k, st)
+		var fc: Color = UI.C_TEXT if active else UI.C_MUTED
+		sbn.add_theme_color_override("font_color", fc)
+		sbn.add_theme_color_override("font_hover_color", UI.C_TEXT)
+		if active:
+			sbn.add_theme_font_override("font", _bold_font())
+		else:
+			sbn.remove_theme_font_override("font")
 	for t in dock_btns:
 		var b: Button = dock_btns[t]
 		var on: bool = sheet != null and sheet.visible and tabs.current_tab == t
@@ -1270,7 +1320,10 @@ func _update_top() -> void:
 	lbl_date.text = s.date_text()
 	var b: Dictionary = p.get("last_budget", {})
 	var bal := float(b.get("balance", 0.0))
-	_set_stat(stat_money, "%s  %s%s" % [UI.money_short(float(p["treasury"])), "▲" if bal >= 0.0 else "▼", UI.money_short(absf(bal))], UI.C_GOOD if bal >= 0.0 else UI.C_BAD, "treasury")
+	var money_txt := UI.money_short(float(p["treasury"]))
+	if absf(bal) >= 0.05:
+		money_txt += "   %s %s شهرياً" % ["▲" if bal >= 0.0 else "▼", UI.money_short(absf(bal))]
+	_set_stat(stat_money, money_txt, UI.C_GOOD if bal >= 0.0 else UI.C_BAD, "treasury")
 	var st := float(p["stability"])
 	_set_stat(stat_stab, "%d" % int(st), UI.C_GOOD if st >= 50.0 else (UI.C_WARN if st >= 30.0 else UI.C_BAD), "stability")
 	var wn: int = s.wars_of(p["id"]).size()
@@ -1815,29 +1868,306 @@ func _fill_research() -> void:
 	var s = Game.sim
 	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
-	box.add_child(UI.section("أجيال الأسلحة", "research"))
-	box.add_child(UI.label("خمسة أجيال لكل فرع. الجيل الخامس يحتاج اقتصاداً بحجم 500 مليار على الأقل. نسبة الإنفاق على البحث تُضبط من تبويب الاقتصاد.", UI.C_MUTED, 14))
-	var research_month := float(p["gdp"]) * float(p["research_ratio"]) / 12.0
+	var ratio := float(p["research_ratio"])
+	var focus: String = p["research_focus"]
+	var rival := _rival()
+	var rc: Dictionary = s.country(rival) if rival != "" else {}
+	var rival_known: bool = rival != "" and Intel.visibility(s, pid, rival) >= 40.0
+
+	# 1) الجواب الأول: ماذا تبحث، وكم تقدمت، ومتى ينتهي
+	var hero := PanelContainer.new()
+	hero.add_theme_stylebox_override("panel", _tint_box(UI.C_ACCENT, 0.10, 0.45))
+	var hv := UI.col()
+	hv.add_theme_constant_override("separation", 4)
+	hero.add_child(hv)
+	var gen_f := int(p["tech"][focus])
+	var months := Economy.research_months(s, p, focus, ratio)
+	# سطر واحد: السلاح القادم ومدته، ثم شريط التقدم
+	var head := UI.row()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(Icons.icon_rect(BRANCH_ICONS.get(focus, "research"), UI.C_ACCENT_TEXT, 24))
+	if gen_f < 5:
+		head.add_child(_nowrap(_big(_weapon_name(focus, gen_f + 1), 17)))
+		var sub := _nowrap(UI.label("%s · الجيل %d" % [s.db.branches[focus], gen_f + 1], UI.C_MUTED, 13))
+		sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(sub)
+		head.add_child(_nowrap(UI.label("يكتمل بعد", UI.C_MUTED, 13)))
+		head.add_child(_nowrap(_big(_human_months(months), 17)))
+	else:
+		var done := _nowrap(_big("وصلت لأعلى جيل في %s" % s.db.branches[focus], 17))
+		done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(done)
+	hv.add_child(head)
+	if gen_f < 5:
+		var need := Economy.research_cost(gen_f + 1)
+		var frac := clampf(float(p["research_progress"]) / need, 0.0, 1.0)
+		var pr := UI.row()
+		var bar := UI.bar(frac * 100.0, 100.0, UI.C_ACCENT)
+		bar.custom_minimum_size = Vector2(0, 8)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pr.add_child(bar)
+		pr.add_child(_nowrap(_big("%d%%" % int(frac * 100.0), 14)))
+		hv.add_child(pr)
+	box.add_child(hero)
+	box.add_theme_constant_override("separation", 8)
+
+	# 2) توصية المستشار: جملة واحدة وفعل واحد
+	_research_advice(box, p, rival, rival_known, months)
+
+	# 3) سلّم الأجيال لكل فرع، مع علم العدو فوق جيله
 	for br in s.db.branches:
-		box.add_child(UI.sep())
-		var gen := int(p["tech"][br])
-		var ex: Dictionary = s.db.units[BRANCH_EXAMPLE[br]]
-		var focus: bool = p["research_focus"] == br
-		box.add_child(UI.kv(s.db.branches[br], "الجيل %d · %s" % [gen, ex["gens"][gen - 1]], UI.C_ACCENT if focus else UI.C_TEXT))
-		if gen < 5:
-			var need := Economy.research_cost(gen + 1)
-			var prog := float(p["research_progress"]) if focus else 0.0
-			box.add_child(UI.bar(prog, need))
-			if focus:
-				var months := ceili((need - prog) / maxf(0.001, research_month))
-				box.add_child(UI.label("قيد البحث: الجيل %d (%s) خلال %d شهراً تقريباً" % [gen + 1, ex["gens"][gen], months], UI.C_ACCENT, 14))
-			else:
-				var branch := String(br)
-				box.add_child(UI.button("ركّز البحث هنا (التقدم الحالي يقل للنصف)", func():
-					s.set_research(pid, float(p["research_ratio"]), branch)
-					_dirty = true))
+		box.add_child(_research_row(p, String(br), rc if rival_known else {}))
+	var legend := UI.row()
+	legend.add_theme_constant_override("separation", 8)
+	if rival != "":
+		legend.add_child(Flags.rect(rc.get("flag", ""), 20))
+		legend.add_child(_nowrap(UI.label(("علم %s فوق جيلها" % rc["name_ar"]) if rival_known else ("أجيال %s مجهولة: ارفع رؤيتك الاستخباراتية" % rc["name_ar"]), UI.C_MUTED, 13)))
+	box.add_child(legend)
+
+
+## صف فرع: اسمه وأيقونته، وسلّم الأجيال، وحالته. الصف كله زر يغيّر التركيز.
+func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
+	var s = Game.sim
+	var btn := Button.new()
+	btn.theme_type_variation = "FlatButton"
+	btn.custom_minimum_size = Vector2(0, 58)
+	var focus: bool = p["research_focus"] == br
+	if focus:
+		btn.add_theme_stylebox_override("normal", _tint_box(UI.C_ACCENT, 0.08, 0.0))
+	var h := UI.row()
+	h.add_theme_constant_override("separation", 10)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 8
+	h.offset_right = -8
+	var name_box := UI.row()
+	name_box.custom_minimum_size = Vector2(118, 0)
+	name_box.add_child(Icons.icon_rect(BRANCH_ICONS.get(br, "research"), UI.C_ACCENT_TEXT if focus else UI.C_TEXT, 22))
+	name_box.add_child(_nowrap(_big(String(s.db.branches[br]), 16)))
+	h.add_child(name_box)
+	var lad := GenLadder.new()
+	lad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lad.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lad.gen = int(p["tech"][br])
+	lad.researching = focus
+	var gen := int(p["tech"][br])
+	if gen < 5:
+		lad.progress = float(p["research_progress"]) / Economy.research_cost(gen + 1) if focus else 0.0
+	lad.names = s.db.units[BRANCH_EXAMPLE[br]]["gens"]
+	if not rc.is_empty():
+		lad.rival_gen = int(rc["tech"][br])
+		lad.rival_flag = Flags.tex(rc.get("flag", ""))
+	h.add_child(lad)
+	var st := UI.label("", UI.C_ACCENT_TEXT, 14)
+	st.custom_minimum_size = Vector2(70, 0)
+	st.autowrap_mode = TextServer.AUTOWRAP_OFF
+	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	if gen >= 5:
+		st.text = "مكتمل"
+		st.add_theme_color_override("font_color", UI.C_GOOD)
+	elif focus:
+		st.text = "قيد البحث"
+	else:
+		st.text = "ابحث ‹"
+	h.add_child(st)
+	btn.add_child(h)
+	for c in h.get_children():
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not focus and gen < 5:
+		btn.pressed.connect(_confirm_research.bind(br))
+	return btn
+
+
+## التحويل يضيّع نصف التقدم: نعرض الثمن والمدة الجديدة قبل التنفيذ
+func _confirm_research(br: String) -> void:
+	var s = Game.sim
+	var p: Dictionary = s.player()
+	var pid: String = p["id"]
+	var months := Economy.research_months(s, p, br, float(p["research_ratio"]))
+	var gen := int(p["tech"][br])
+	var weapon: String = _weapon_name(br, gen + 1)
+	var cur_need := Economy.research_cost(int(p["tech"][p["research_focus"]]) + 1)
+	var lost := int(float(p["research_progress"]) * 0.5 / cur_need * 100.0)
+	var txt := "الجيل %d من %s: %s.\nيكتمل بعد %s." % [gen + 1, s.db.branches[br], weapon, _human_months(months)]
+	if months == -2:
+		txt = "الجيل الخامس يحتاج اقتصاداً بحجم 500 مليار على الأقل."
+	elif lost > 0:
+		txt += "\nيضيع نصف تقدمك الحالي (%d%%)." % lost
+	var go := func():
+		s.set_research(pid, float(p["research_ratio"]), br)
+		_dirty = true
+	_show_dialog("تغيير البحث إلى %s؟" % s.db.branches[br], txt, [{"text": "ابحث هنا", "cb": go}, {"text": "تراجع"}], null, "research")
+
+
+## توصية واحدة: أين العدو متقدم، أو كيف تختصر المدة، أو لا شيء يقلق
+func _research_advice(box: VBoxContainer, p: Dictionary, rival: String, rival_known: bool, months: int) -> void:
+	var s = Game.sim
+	var pid: String = p["id"]
+	var ratio := float(p["research_ratio"])
+	var text := ""
+	var btn_text := ""
+	var cb := Callable()
+	var sev := UI.C_GOOD
+	# العدو متقدم في فرع: الأخطر هو الأكبر فرقاً
+	if rival_known:
+		var rc: Dictionary = s.country(rival)
+		var worst := ""
+		var gap := 0
+		for br in s.db.branches:
+			var d := int(rc["tech"][br]) - int(p["tech"][br])
+			if d > gap:
+				gap = d
+				worst = br
+		if worst != "" and worst != p["research_focus"]:
+			text = "%s تسبقك في %s: الجيل %d مقابل %d." % [rc["name_ar"], s.db.branches[worst], int(rc["tech"][worst]), int(p["tech"][worst])]
+			btn_text = "ابحث فيه"
+			cb = _confirm_research.bind(worst)
+			sev = UI.C_BAD
+	if text == "" and months > 24 and ratio < 0.05:
+		var new_ratio := minf(0.05, ratio * 2.0 if ratio > 0.0 else 0.01)
+		var faster := Economy.research_months(s, p, p["research_focus"], new_ratio)
+		var cost := float(p["gdp"]) * (new_ratio - ratio) / 12.0
+		text = "ضاعف الميزانية: %s بدل %s (+%s/شهر)" % [_human_months(faster), _human_months(months), UI.money_short(cost)]
+		btn_text = "ضاعف"
+		cb = func():
+			s.set_research(pid, new_ratio, p["research_focus"])
+			_sync_economy_controls()
+			_toast("تم رفع ميزانية البحث إلى %s%% من الناتج." % String.num(new_ratio * 100.0, 2))
+			_dirty = true
+		sev = UI.C_WARN
+	if text == "":
+		if rival_known:
+			text = "لا فرع تتأخر فيه عن %s. استمر في البحث الحالي." % s.country(rival)["name_ar"]
 		else:
-			box.add_child(UI.label("وصلت لأعلى جيل.", UI.C_GOOD, 14))
+			text = "البحث يسير جيداً."
+	var card := PanelContainer.new()
+	var cst := _tint_box(sev, 0.08, 0.5)
+	cst.content_margin_top = 6
+	cst.content_margin_bottom = 6
+	card.add_theme_stylebox_override("panel", cst)
+	var h := UI.row()
+	h.add_theme_constant_override("separation", 10)
+	card.add_child(h)
+	h.add_child(Icons.icon_rect("advisor", sev, 22))
+	var l := UI.label(text, UI.C_TEXT, 14)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size = Vector2(160, 0)
+	h.add_child(l)
+	if cb.is_valid():
+		var b := UI.button(btn_text, cb, "", "PrimaryButton")
+		b.custom_minimum_size = Vector2(84, TOUCH - 4)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(b)
+	box.add_child(card)
+
+
+## أقوى خصومك: من تحاربه، وإلا من يعاديك ويتهيأ لك، وإلا أسوأ جيرانك علاقة
+func _rival() -> String:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var best := ""
+	var best_power := -1.0
+	for oid in s.enemies_of(pid):
+		var pw: float = s.military_power(s.country(oid))
+		if pw > best_power:
+			best_power = pw
+			best = oid
+	if best != "":
+		return best
+	for oid in s.alive_ids():
+		if oid == pid:
+			continue
+		var c: Dictionary = s.country(oid)
+		if c.get("rival", "") == pid or s.relation(pid, oid) < -30.0:
+			var pw: float = s.military_power(c)
+			if pw > best_power:
+				best_power = pw
+				best = oid
+	if best != "":
+		return best
+	var worst := 1000.0
+	for oid in s.player()["neighbors"]:
+		if s.country(oid).is_empty():
+			continue
+		var r: float = s.relation(pid, oid)
+		if r < worst:
+			worst = r
+			best = oid
+	return best
+
+
+## اسم سلاح الجيل: «فئة T-90» تصبح «T-90»، و«الجيل القادم» تصبح «دبابات الجيل القادم»
+func _weapon_name(br: String, gen: int) -> String:
+	var u: Dictionary = Game.sim.db.units[BRANCH_EXAMPLE[br]]
+	var w: String = String(u["gens"][clampi(gen, 1, 5) - 1]).trim_prefix("فئة ")
+	if w.begins_with("الجيل"):
+		w = String(u["name_ar"]) + " " + w
+	return w
+
+
+## مدة بلغة البشر: «9 سنوات» لا «110 أشهر»
+static func _human_months(m: int) -> String:
+	if m == -1:
+		return "مكتمل"
+	if m == -2:
+		return "يحتاج اقتصاداً أكبر"
+	if m >= 1200:
+		return "أكثر من قرن"
+	if m < 12:
+		return _ar_count(maxi(1, m), "شهر", "شهران", "أشهر", "شهراً")
+	var y := roundi(m / 12.0)
+	return _ar_count(y, "سنة", "سنتان", "سنوات", "سنة")
+
+
+## العدد مع المعدود بقواعد العربية: 1 سنة، 2 سنتان، 3-10 سنوات، 11+ سنة
+static func _ar_count(n: int, one: String, two: String, few: String, many: String) -> String:
+	if n == 1:
+		return one
+	if n == 2:
+		return two
+	if n <= 10:
+		return "%d %s" % [n, few]
+	return "%d %s" % [n, many]
+
+
+static func _nowrap(l: Label) -> Label:
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	return l
+
+
+## نص عريض بلون النص الأساسي (للأرقام والأسماء المهمة)
+static func _big(text: String, size: int) -> Label:
+	var l := UI.label(text, UI.C_TEXT, size)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.add_theme_font_override("font", _bold_font())
+	return l
+
+
+static var _bold_cache: Font = null
+
+
+static func _bold_font() -> Font:
+	if _bold_cache == null:
+		var fb := FontVariation.new()
+		fb.base_font = UI.load_font(UI.FONT_BODY)
+		fb.variation_embolden = 0.7
+		_bold_cache = fb
+	return _bold_cache
+
+
+## خلفية ملونة خفيفة بإطار من نفس اللون
+static func _tint_box(col: Color, bg_alpha: float, border_alpha: float) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col, bg_alpha)
+	sb.border_color = Color(col, border_alpha)
+	sb.set_border_width_all(1 if border_alpha > 0.0 else 0)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	return sb
 
 
 # ------------------------------------------------------------------ تبويب الدبلوماسية

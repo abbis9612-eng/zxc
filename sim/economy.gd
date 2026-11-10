@@ -58,6 +58,34 @@ static func research_cost(next_gen: int) -> float:
 	return RESEARCH_BASE_COST * next_gen * next_gen
 
 
+## توقع البحث بلا آثار جانبية: الأشهر الباقية حتى الجيل التالي في فرع، بنسبة إنفاق معينة.
+## يحسب نصف التقدم إن كان الفرع غير المركّز عليه (لأن تغيير التركيز يضيّع النصف).
+## يرجع -1 إن كان الفرع في أعلى جيل، و-2 إن احتاج الجيل الخامس اقتصاداً بحجم 500 مليار.
+static func research_months(sim, c: Dictionary, branch: String, ratio: float) -> int:
+	var gen := int(c["tech"][branch])
+	if gen >= 5:
+		return -1
+	if gen + 1 >= 5 and float(c["gdp"]) < 500.0:
+		return -2
+	var gov: Dictionary = sim.db.governments[c["government"]]
+	var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research"))
+	var per_month := float(c["gdp"]) * ratio / 12.0 * mult
+	var prog := float(c["research_progress"])
+	if branch != c["research_focus"]:
+		prog *= 0.5
+	var left := maxf(0.0, research_cost(gen + 1) - prog)
+	if per_month <= 0.0:
+		return 9999
+	# الاقتصاد ينمو فيزيد مال البحث كل شهر: نحسب شهراً بشهر بالنمو الحالي
+	var monthly_growth := pow(1.0 + clampf(growth_rate(sim, c), -20.0, 20.0) / 100.0, 1.0 / 12.0)
+	var months := 0
+	while left > 0.0 and months < 1200:
+		left -= per_month
+		per_month *= monthly_growth
+		months += 1
+	return months
+
+
 static func growth_rate(sim, c: Dictionary) -> float:
 	var gov: Dictionary = sim.db.governments[c["government"]]
 	var g: Dictionary = sim.state["global"]
