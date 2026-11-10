@@ -95,9 +95,11 @@ var advisor_box: VBoxContainer
 # الاقتصاد (تُبنى مرة واحدة حتى لا تضيع حركة المنزلقات)
 var eco_controls: VBoxContainer
 var eco_info: VBoxContainer
+var eco_more: VBoxContainer
 var tax_slider: HSlider
 var tax_label: Label
 var tax_preview: Label
+var tax_chips: VBoxContainer
 var res_slider: HSlider
 var res_label: Label
 
@@ -583,8 +585,10 @@ func _build_sheet() -> void:
 
 	eco_controls = UI.col()
 	eco_info = UI.col()
-	tab_boxes[Tab.ECONOMY].add_child(eco_controls)
+	eco_more = UI.col()
 	tab_boxes[Tab.ECONOMY].add_child(eco_info)
+	tab_boxes[Tab.ECONOMY].add_child(eco_controls)
+	tab_boxes[Tab.ECONOMY].add_child(eco_more)
 	_build_economy_controls()
 
 	army_controls = UI.col()
@@ -1414,7 +1418,7 @@ func _set_stat(b: Button, text: String, color: Color, icon: String) -> void:
 	b.icon = Icons.tex(icon, color, 48)
 
 func _build_economy_controls() -> void:
-	eco_controls.add_child(UI.section("الضرائب والبحث", "invest"))
+	eco_controls.add_child(UI.section("الضرائب وميزانية البحث", "invest"))
 	tax_label = UI.label("")
 	eco_controls.add_child(tax_label)
 	tax_slider = HSlider.new()
@@ -1432,8 +1436,11 @@ func _build_economy_controls() -> void:
 	res_slider.value_changed.connect(func(_v): _update_tax_preview())
 	eco_controls.add_child(res_slider)
 	tax_preview = UI.label("", UI.C_MUTED)
+	tax_preview.visible = false
 	eco_controls.add_child(tax_preview)
-	eco_controls.add_child(UI.button("تطبيق الضرائب والبحث", _apply_tax))
+	tax_chips = VBoxContainer.new()
+	eco_controls.add_child(tax_chips)
+	eco_controls.add_child(UI.button("طبّق", _apply_tax, "check", "PrimaryButton"))
 
 
 func _build_army_controls() -> void:
@@ -1823,14 +1830,25 @@ func _update_tax_preview() -> void:
 		return
 	var s = Game.sim
 	var p: Dictionary = s.player()
-	tax_label.text = "الضرائب: %d%% من الناتج" % int(tax_slider.value)
-	res_label.text = "البحث والتطوير: %.2f%% من الناتج" % res_slider.value
+	tax_label.text = "الضرائب %d%% من الناتج" % int(tax_slider.value)
+	res_label.text = "البحث %s%% من الناتج" % String.num(res_slider.value, 2)
 	var now: Dictionary = Economy.preview(s, p, {})
 	var pv: Dictionary = Economy.preview(s, p, {"tax_rate": tax_slider.value / 100.0, "research_ratio": res_slider.value / 100.0})
-	tax_preview.text = "التوقع للشهر القادم:\nالرصيد %s (الآن %s)\nالنمو السنوي %s%% (الآن %s%%)\nالاستقرار يتجه إلى %d (الآن %d)" % [
-		UI.money(float(pv["balance"])), UI.money(float(now["balance"])),
-		UI.signed(float(pv["growth"]), 2), UI.signed(float(now["growth"]), 2),
-		int(pv["stability_target"]), int(now["stability_target"])]
+	# الأثر المتوقع كوسوم: ما يتغير فقط، بلون الجيد أو السيئ
+	UI.clear(tax_chips)
+	var d_bal := float(pv["balance"]) - float(now["balance"])
+	var d_gr := float(pv["growth"]) - float(now["growth"])
+	var d_st := int(pv["stability_target"]) - int(now["stability_target"])
+	var chips: Array = []
+	if absf(d_bal) >= 0.01:
+		chips.append(["الرصيد %s%s شهرياً" % ["+" if d_bal > 0 else "−", UI.money_short(absf(d_bal))], UI.C_GOOD if d_bal > 0 else UI.C_BAD])
+	if absf(d_gr) >= 0.01:
+		chips.append(["النمو %s" % UI.signed(d_gr, 2), UI.C_GOOD if d_gr > 0 else UI.C_BAD])
+	if d_st != 0:
+		chips.append(["الاستقرار %s%d" % ["+" if d_st > 0 else "", d_st], UI.C_GOOD if d_st > 0 else UI.C_BAD])
+	if chips.is_empty():
+		chips.append(["حرّك المنزلق لترى الأثر قبل التطبيق", UI.C_MUTED])
+	tax_chips.add_child(_chips(chips))
 
 
 func _apply_tax() -> void:
@@ -1845,42 +1863,133 @@ func _apply_tax() -> void:
 func _fill_economy() -> void:
 	_update_tax_preview()
 	UI.clear(eco_info)
+	UI.clear(eco_more)
 	var s = Game.sim
 	var p: Dictionary = s.player()
-	eco_info.add_child(UI.section("الاقتصاد", "economy"))
-	eco_info.add_child(UI.kv("الناتج المحلي", UI.money(float(p["gdp"]))))
-	eco_info.add_child(UI.kv("نصيب الفرد", "%s $" % s.fmt_num(Economy.gdp_per_capita(p))))
-	eco_info.add_child(UI.kv("النمو السنوي", "%s%%" % UI.signed(Economy.growth_rate(s, p), 2)))
-	eco_info.add_child(UI.kv("الخزينة", UI.money(float(p["treasury"]))))
-	eco_info.add_child(UI.kv("الدين", "%s (%d%% من الناتج)" % [UI.money(float(p["debt"])), int(100.0 * float(p["debt"]) / float(p["gdp"]))]))
-	eco_info.add_child(UI.kv("التضخم", "%.1f%%" % float(p["inflation"]), UI.C_BAD if float(p["inflation"]) > 8.0 else UI.C_TEXT))
 	var b: Dictionary = p.get("last_budget", {})
+	var bal := float(b.get("balance", 0.0))
+	var growth: float = Economy.growth_rate(s, p)
+	var debt_pct := int(100.0 * float(p["debt"]) / maxf(1.0, float(p["gdp"])))
+	var infl := float(p["inflation"])
+	# 1) الجواب: تربح أم تخسر كل شهر
+	var chips: Array = [
+		["النمو %s%%" % UI.signed(growth, 1), UI.C_GOOD if growth >= 0.0 else UI.C_BAD],
+		["التضخم %s%%" % String.num(infl, 1), UI.C_BAD if infl > 8.0 else UI.C_MUTED],
+		["الدين %d%% من الناتج" % debt_pct, UI.C_BAD if debt_pct > 90 else UI.C_MUTED],
+		["الناتج %s" % UI.money_short(float(p["gdp"])), UI.C_MUTED],
+	]
+	var title := ("تربح %s شهرياً" if bal >= 0.0 else "عجز %s شهرياً") % UI.money_short(absf(bal))
+	eco_info.add_child(_answer_card("treasury", "ميزانية الشهر الماضي", title, chips, UI.money_short(float(p["treasury"])), "في الخزينة", UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
+	# 2) الميزانية جدولاً: الداخل والطالع بأشرطة متناسبة
 	if not b.is_empty():
-		eco_info.add_child(UI.sep())
-		eco_info.add_child(UI.section("ميزانية الشهر الماضي", "treasury"))
-		eco_info.add_child(UI.kv("الإيرادات", UI.money(float(b["revenue"])), UI.C_GOOD))
-		var tr := float(b.get("trade", 0.0))
-		if absf(tr) >= 0.001:
-			eco_info.add_child(UI.kv("أثر أسعار الموارد والتجارة", ("+" if tr > 0.0 else "−") + UI.money(absf(tr)), UI.C_GOOD if tr > 0.0 else UI.C_BAD))
-		for row in [["الرواتب والخدمات", "civil"], ["صيانة الجيش", "military"], ["الدعم", "subsidies"], ["البحث", "research"], ["فوائد الدين", "interest"], ["مكافحة التجسس", "intel"], ["جزية للمتبوع", "tribute"]]:
-			if float(b.get(row[1], 0.0)) > 0.0:
-				eco_info.add_child(UI.kv(row[0], "−" + UI.money(float(b[row[1]])), UI.C_BAD))
-		var bal := float(b["balance"])
-		eco_info.add_child(UI.kv("الرصيد", UI.money(bal), UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
-	_market_section(eco_info, p)
-	_straits_section(eco_info, p)
-	eco_info.add_child(UI.sep())
-	eco_info.add_child(UI.section("الموارد (من مناطقك)", "r_oil"))
-	eco_info.add_child(UI.label("كل مورد يأتي من مناطق محددة: خسارة منطقة نفطية تُفقدك نفطها، واحتلال منطقة يمنحك مواردها تدريجياً.", UI.C_MUTED, 13))
+		eco_info.add_child(_budget_table(b))
+	# 3) البقية بعد التحكم بالضرائب
+	_resources_section(eco_more, p)
+	_market_section(eco_more, p)
+	_straits_section(eco_more, p)
+	_logistics_section(eco_more, p)
+
+
+## جدول الميزانية: كل بند بسطر، اسمه ومبلغه وشريط بحجمه من أكبر بند. الداخل أخضر والطالع أحمر
+func _budget_table(b: Dictionary) -> Control:
+	var rows: Array = []   # [اسم، مبلغ موجب للداخل وسالب للطالع]
+	rows.append(["الضرائب", float(b["revenue"])])
+	var tr := float(b.get("trade", 0.0))
+	if absf(tr) >= 0.01:
+		rows.append(["أسعار الموارد والتجارة", tr])
+	for row in [["الرواتب والخدمات", "civil"], ["صيانة الجيش", "military"], ["الدعم", "subsidies"], ["البحث", "research"], ["فوائد الدين", "interest"], ["مكافحة التجسس", "intel"], ["جزية للمتبوع", "tribute"]]:
+		var v := float(b.get(row[1], 0.0))
+		if v >= 0.01:
+			rows.append([row[0], -v])
+	var biggest := 0.01
+	for r in rows:
+		biggest = maxf(biggest, absf(float(r[1])))
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _tint_box(UI.C_TEXT, 0.03, 0.15))
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+	for r in rows:
+		var amount := float(r[1])
+		var col: Color = UI.C_GOOD if amount >= 0.0 else UI.C_BAD
+		var h := UI.row()
+		h.add_theme_constant_override("separation", 10)
+		var name := _nowrap(UI.label(r[0], UI.C_TEXT, 14))
+		name.custom_minimum_size = Vector2(170, 0)
+		h.add_child(name)
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.max_value = 1.0
+		bar.value = absf(amount) / biggest
+		bar.custom_minimum_size = Vector2(0, 8)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color(col, 0.10)
+		bg.set_corner_radius_all(4)
+		var fg := StyleBoxFlat.new()
+		fg.bg_color = col
+		fg.set_corner_radius_all(4)
+		bar.add_theme_stylebox_override("background", bg)
+		bar.add_theme_stylebox_override("fill", fg)
+		h.add_child(bar)
+		var amt := _nowrap(_big("%s%s" % ["+" if amount >= 0.0 else "−", UI.money_short(absf(amount))], 14))
+		amt.add_theme_color_override("font_color", col)
+		amt.custom_minimum_size = Vector2(110, 0)
+		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		h.add_child(amt)
+		v.add_child(h)
+	var line := ColorRect.new()
+	line.color = UI.C_LINE_2
+	line.custom_minimum_size = Vector2(0, 1)
+	v.add_child(line)
+	var bal := float(b["balance"])
+	var net := UI.row()
+	var nl := _nowrap(_big("الصافي", 15))
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	net.add_child(nl)
+	var nv := _nowrap(_big("%s%s" % ["+" if bal >= 0.0 else "−", UI.money_short(absf(bal))], 16))
+	nv.add_theme_color_override("font_color", UI.C_GOOD if bal >= 0.0 else UI.C_BAD)
+	net.add_child(nv)
+	v.add_child(net)
+	return card
+
+
+## الموارد: شبكة صغيرة، أيقونة واسم وشريط من 100، ووسم إن نقص المورد عن أصله بخسارة مناطق
+func _resources_section(box: VBoxContainer, p: Dictionary) -> void:
+	box.add_child(UI.sep())
+	box.add_child(UI.section("الموارد من مناطقك", "r_oil"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 8)
 	for r in Territory.RESOURCE_NAMES:
 		var v := float(p["resources"].get(r, 0.0))
 		var base := float(_core_resource(p["id"], r))
-		var txt := str(int(roundf(v)))
-		if absf(v - base) >= 1.0:
-			txt += " (الأصل %d)" % int(roundf(base))
-		eco_info.add_child(UI.kv(Territory.RESOURCE_NAMES[r], txt, UI.C_TEXT if v + 0.5 >= base else UI.C_BAD))
-		eco_info.add_child(UI.bar(v, 100.0, UI.C_LINE))
-	_logistics_section(eco_info, p)
+		var lost: bool = v + 0.5 < base
+		var cell := UI.row()
+		cell.add_theme_constant_override("separation", 6)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_child(Icons.icon_rect("r_" + String(r), UI.C_BAD if lost else UI.C_TEXT, 20))
+		var nl := _nowrap(UI.label(Territory.RESOURCE_NAMES[r], UI.C_TEXT, 14))
+		nl.custom_minimum_size = Vector2(84, 0)
+		cell.add_child(nl)
+		var bar := UI.bar(v, 100.0, UI.C_BAD if lost else UI.C_ACCENT)
+		bar.custom_minimum_size = Vector2(0, 8)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cell.add_child(bar)
+		var vl := _nowrap(_big(str(int(roundf(v))), 14))
+		vl.custom_minimum_size = Vector2(28, 0)
+		cell.add_child(vl)
+		grid.add_child(cell)
+	box.add_child(grid)
+	var lost_any := PackedStringArray()
+	for r in Territory.RESOURCE_NAMES:
+		if float(p["resources"].get(r, 0.0)) + 0.5 < float(_core_resource(p["id"], r)):
+			lost_any.append(Territory.RESOURCE_NAMES[r])
+	if not lost_any.is_empty():
+		box.add_child(_chips([["خسرت جزءاً من %s بخسارة مناطق" % "، ".join(lost_any), UI.C_BAD]]))
 
 
 # ------------------------------------------------------------------ تبويب الجيش
@@ -3011,18 +3120,17 @@ func _logistics_section(box: VBoxContainer, p: Dictionary) -> void:
 	box.add_child(UI.section("الإمداد", "trade"))
 	if Logistics.blockaded(s, p):
 		box.add_child(UI.label("تحت حصار بحري: الواردات شبه مقطوعة.", UI.C_BAD))
-	var pct := func(x: float) -> String:
-		return "%d%%" % int(roundf(x * 100.0))
-	var col := func(x: float) -> Color:
-		return UI.C_GOOD if x >= 0.95 else (UI.C_ACCENT if x >= 0.75 else UI.C_BAD)
-	box.add_child(UI.kv("قدرة الاستيراد", pct.call(float(lg["import"])), col.call(float(lg["import"]) / Logistics.BASE_IMPORT)))
-	box.add_child(UI.kv("الوقود للجيش", pct.call(float(lg["fuel"])), col.call(float(lg["fuel"]))))
-	box.add_child(UI.kv("كفاءة القواعد الجوية", pct.call(float(lg["air"])), col.call(float(lg["air"]))))
-	box.add_child(UI.kv("كفاءة الموانئ والأسطول", pct.call(float(lg["sea"])), col.call(float(lg["sea"]))))
-	box.add_child(UI.kv("سرعة التصنيع", pct.call(float(lg["production"])), col.call(float(lg["production"]))))
-	box.add_child(UI.kv("الكهرباء", pct.call(float(lg["power"])), col.call(float(lg["power"]))))
+	# كل عامل وسم: أخضر سليم، ذهبي ناقص قليلاً، أحمر ناقص كثيراً
+	var items: Array = []
+	for k in [["import", "الاستيراد"], ["fuel", "الوقود"], ["air", "القواعد الجوية"], ["sea", "الموانئ"], ["production", "التصنيع"], ["power", "الكهرباء"]]:
+		var x := float(lg[k[0]])
+		if k[0] == "import":
+			x /= Logistics.BASE_IMPORT
+		var col: Color = UI.C_GOOD if x >= 0.95 else (UI.C_WARN if x >= 0.75 else UI.C_BAD)
+		items.append(["%s %d%%" % [k[1], int(roundf(float(lg[k[0]]) * 100.0))], col])
 	if float(lg["food_penalty"]) > 0.0:
-		box.add_child(UI.kv("نقص الغذاء", "−%d استقرار" % int(float(lg["food_penalty"])), UI.C_BAD))
+		items.append(["نقص الغذاء −%d استقرار" % int(float(lg["food_penalty"])), UI.C_BAD])
+	box.add_child(_chips(items))
 
 
 ## قائمة مناطق الدولة بأسمائها، مع العاصمة والمناطق المحتلة
