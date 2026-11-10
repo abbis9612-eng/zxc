@@ -11,6 +11,7 @@ const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Sparkline := preload("res://ui/sparkline.gd")
+const Factions := preload("res://sim/factions.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الأخبار"]
@@ -496,6 +497,16 @@ func _update_advisor() -> void:
 			if oid != pid and Market.can_sign_pact(s, pid, oid) == "":
 				items.append([30, "يمكنك توقيع اتفاقية تجارية مع %s." % s.country(oid)["name_ar"], Tab.DIPLOMACY, oid])
 				break
+	if p.has("factions"):
+		for f in Factions.ids(s):
+			var sat := float(p["factions"][f]["sat"])
+			var fname: String = s.db.factions["factions"][f]["name_ar"]
+			if f == "military" and sat < 25.0:
+				items.append([98, "الجيش غاضب (%d): خطر انقلاب! ارفع ميزانيته أو استرضِه." % int(sat), Tab.STATE, ""])
+			elif f == "street" and sat < 20.0:
+				items.append([96, "الشارع يغلي (%d): خطر ثورة إن انهار الاستقرار." % int(sat), Tab.STATE, ""])
+			elif sat < 30.0:
+				items.append([68, "%s غير راضين (%d)." % [fname, int(sat)], Tab.STATE, ""])
 	if items.is_empty():
 		items.append([0, "الوضع مستقر. راقب جيرانك وطوّر اقتصادك.", Tab.ECONOMY, ""])
 	items.sort_custom(func(a, c): return a[0] > c[0])
@@ -535,18 +546,36 @@ func _fill_state() -> void:
 	var vs: Array = s.vassals(pid)
 	if not vs.is_empty():
 		box.add_child(UI.kv("الدول التابعة", "، ".join(PackedStringArray(vs.map(func(x): return s.country(x)["name_ar"])))))
+	_factions_section(box, p)
 	_regions_section(box, pid)
 	box.add_child(UI.sep())
 
 	box.add_child(UI.title("نظام الحكم", 18))
+	box.add_child(UI.label("التغيير يحتاج دعم %d%% من الفئات (حسب أوزانها)، واستقراراً 40، وألا تكون في حرب." % int(float(s.db.factions["support_needed"]) * 100.0), UI.C_MUTED, 13))
 	var gov_opt := OptionButton.new()
 	var gov_ids: Array = s.db.governments.keys()
 	for i in gov_ids.size():
 		var g: Dictionary = s.db.governments[gov_ids[i]]
-		gov_opt.add_item("%s (نمو %s، استقرار %s)" % [g["name_ar"], UI.signed(float(g["growth"])), UI.signed(float(g["stability"]), 0)])
+		var sup: float = Factions.support(s, p, gov_ids[i])["total"]
+		var mark := "" if gov_ids[i] == p["government"] else "، دعم %d%%" % int(sup * 100.0)
+		gov_opt.add_item("%s (نمو %s، استقرار %s%s)" % [g["name_ar"], UI.signed(float(g["growth"])), UI.signed(float(g["stability"]), 0), mark])
 		if gov_ids[i] == p["government"]:
 			gov_opt.select(i)
 	box.add_child(gov_opt)
+	var sup_label := UI.label("", UI.C_MUTED, 14)
+	var show_support := func(idx: int) -> void:
+		var gid: String = gov_ids[idx]
+		if gid == p["government"]:
+			sup_label.text = "هذا نظامك الحالي."
+			return
+		var sp: Dictionary = Factions.support(s, p, gid)
+		var parts := PackedStringArray()
+		for f in Factions.ids(s):
+			parts.append("%s %d%%" % [s.db.factions["factions"][f]["name_ar"], int(float(sp["parts"][f]) * 100.0)])
+		sup_label.text = "دعم الفئات: " + "، ".join(parts) + " ← المجموع %d%%" % int(float(sp["total"]) * 100.0)
+	gov_opt.item_selected.connect(show_support)
+	show_support.call(gov_opt.selected)
+	box.add_child(sup_label)
 	box.add_child(UI.button("تغيير نظام الحكم (−20 استقرار)", func():
 		var gid: String = gov_ids[gov_opt.selected]
 		var why: String = s.can_change_government(pid, gid)
@@ -581,6 +610,12 @@ func _fill_state() -> void:
 		var d_stab := float(pv["stability_target"]) - float(base["stability_target"])
 		var d_gr := float(pv["growth"]) - float(base["growth"])
 		var verb := "إلغاؤها" if on else "تفعيلها"
+		var fx: Dictionary = Factions.policy_preview(s, p, pol)
+		if not fx.is_empty():
+			var fparts := PackedStringArray()
+			for f in fx:
+				fparts.append("%s %s" % [s.db.factions["factions"][f]["name_ar"], UI.signed(float(fx[f]), 0)])
+			box.add_child(UI.label("الفئات: " + "، ".join(fparts), UI.C_ACCENT, 14))
 		box.add_child(UI.label("أثر %s: الميزانية %s شهرياً، النمو %s%%، الاستقرار %s" % [verb, UI.money(d_bal), UI.signed(d_gr, 2), UI.signed(d_stab, 0)], UI.C_ACCENT, 14))
 
 
@@ -913,6 +948,43 @@ func _core_resource(id: String, k: String) -> float:
 	for rid in Game.sim.db.regions_by_country.get(id, []):
 		t += float(Game.sim.db.regions[rid].get("resources", {}).get(k, 0.0))
 	return t
+
+
+## الفئات الداخلية: رضا كل فئة وأسبابه ووزنها، وزر الاسترضاء
+func _factions_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	if not p.has("factions"):
+		return
+	box.add_child(UI.sep())
+	box.add_child(UI.title("الفئات الداخلية", 18))
+	box.add_child(UI.label("رضاها الموزون يرفع الاستقرار أو يخفضه. الجيش الغاضب ينقلب، والشارع الغاضب يثور.", UI.C_MUTED, 13))
+	for f in Factions.ids(s):
+		var e: Dictionary = p["factions"][f]
+		var info: Dictionary = s.db.factions["factions"][f]
+		var sat := float(e["sat"])
+		var w := Factions.weight(s, p["government"], f)
+		var col := UI.C_GOOD if sat >= 55.0 else (UI.C_ACCENT if sat >= 30.0 else UI.C_BAD)
+		var trend := ""
+		if float(e["target"]) > sat + 2.0:
+			trend = " ▲"
+		elif float(e["target"]) < sat - 2.0:
+			trend = " ▼"
+		box.add_child(UI.kv("%s (وزنها %d%%)" % [info["name_ar"], int(w * 100.0)], "%d%s" % [int(sat), trend], col))
+		box.add_child(UI.bar(sat, 100.0, col))
+		var reasons: Array = e.get("reasons", []).duplicate()
+		reasons.sort_custom(func(a, b): return absf(float(a[1])) > absf(float(b[1])))
+		var rp := PackedStringArray()
+		for r in reasons.slice(0, 3):
+			if absf(float(r[1])) >= 1.0:
+				rp.append("%s %s" % [r[0], UI.signed(float(r[1]), 0)])
+		if not rp.is_empty():
+			box.add_child(UI.label("الأسباب: " + "، ".join(rp), UI.C_MUTED, 13))
+		var fid: String = f
+		var b := UI.button("استرضاء: %s (%s)" % [info["appease_ar"], UI.money(Factions.appease_cost(s, p))], func():
+			_do(Factions.appease(s, p, fid), "ارتفع رضا %s." % info["name_ar"]))
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.disabled = Factions.can_appease(s, p, f) != ""
+		box.add_child(b)
 
 
 ## السوق العالمي: الأسعار وتاريخها، ومركزك تصديراً واستيراداً، واتفاقياتك

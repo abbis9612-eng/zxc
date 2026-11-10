@@ -11,6 +11,7 @@ const AI := preload("res://sim/ai.gd")
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
+const Factions := preload("res://sim/factions.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -97,6 +98,8 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 	state["relation_base"] = state["relations"].duplicate()
 	for id in state["order"]:
 		Economy.init_civil_spending(self, country(id))
+	for id in state["order"]:
+		Factions.init_country(self, country(id))
 	add_news("بدأت اللعبة. أنت تقود %s." % country(player_id)["name_ar"], "info")
 
 
@@ -234,6 +237,8 @@ func _monthly() -> void:
 	Market.monthly(self)               # الأسعار ودخل التجارة قبل الميزانيات
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
+	for id in alive_ids():
+		Factions.monthly(self, country(id))
 	for id in alive_ids():
 		if not is_player(id):
 			AI.monthly(self, country(id))
@@ -592,6 +597,10 @@ func can_change_government(id: String, gov: String) -> String:
 		return "تغيير نظام الحكم يحتاج استقراراً 40 على الأقل."
 	if not wars_of(id).is_empty():
 		return "لا يمكن تغيير نظام الحكم أثناء الحرب."
+	var sup: float = Factions.support(self, c, gov)["total"]
+	var need := float(db.factions["support_needed"])
+	if sup < need:
+		return "دعم الفئات للنظام الجديد %d%% فقط، والمطلوب %d%%." % [int(sup * 100.0), int(need * 100.0)]
 	return ""
 
 
@@ -599,8 +608,10 @@ func change_government(id: String, gov: String) -> bool:
 	if can_change_government(id, gov) != "":
 		return false
 	var c := country(id)
+	var old_gov: String = c["government"]
 	c["government"] = gov
 	c["stability"] = float(c["stability"]) - 20.0
+	Factions.shift_for_government(self, c, old_gov, gov)
 	add_news("%s تتحول إلى %s." % [c["name_ar"], db.governments[gov]["name_ar"]], "info")
 	return true
 

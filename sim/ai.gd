@@ -2,6 +2,8 @@
 ## الشخصيات: cautious حذرة، ambitious طموحة، opportunist انتهازية.
 extends RefCounted
 
+const Factions := preload("res://sim/factions.gd")
+
 const Market := preload("res://sim/market.gd")
 
 const Economy := preload("res://sim/economy.gd")
@@ -23,6 +25,7 @@ const BUY_WEIGHTS := {
 static func monthly(sim, c: Dictionary) -> void:
 	var difficulty: int = int(sim.state.get("difficulty", 1))
 	_economy(sim, c)
+	_factions(sim, c)
 	_research(sim, c)
 	_armament(sim, c, difficulty)
 	_diplomacy(sim, c)
@@ -216,3 +219,20 @@ static func _trade(sim, c: Dictionary) -> void:
 		if sim.relation(id, oid) >= 45.0 and Market.can_sign_pact(sim, id, oid) == "":
 			Market.sign_pact(sim, id, oid)
 			return
+
+
+## استرضاء أكثر فئة غاضبة إن كان ذلك متاحاً، خاصة الجيش
+static func _factions(sim, c: Dictionary) -> void:
+	if not c.has("factions"):
+		return
+	var worst := ""
+	var low := 35.0
+	for f in Factions.ids(sim):
+		var sat := float(c["factions"][f]["sat"])
+		if f == "military":
+			sat -= 5.0
+		if sat < low:
+			low = sat
+			worst = f
+	if worst != "" and float(c["treasury"]) > Factions.appease_cost(sim, c) * 3.0:
+		Factions.appease(sim, c, worst)

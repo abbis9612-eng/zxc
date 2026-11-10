@@ -10,6 +10,7 @@ const Combat := preload("res://sim/combat.gd")
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
+const Factions := preload("res://sim/factions.gd")
 
 var db: DataDB
 var failures := 0
@@ -29,6 +30,7 @@ func _init() -> void:
 		test_facilities()
 		test_market()
 		test_trade_pacts()
+		test_factions()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -381,3 +383,61 @@ func test_trade_pacts() -> void:
 	check(Market.sign_pact(s, "IRQ", "ISR") != "", "لا اتفاقية مع دولة معادية")
 	s.declare_war("IRQ", "JOR")
 	check(not Market.has_pact(s, "IRQ", "JOR"), "الحرب تلغي الاتفاقية")
+
+
+func _target(s: Simulation, c: Dictionary, f: String) -> float:
+	return float(Factions.compute_targets(s, c)[f]["target"])
+
+
+func test_factions() -> void:
+	print("الفئات الداخلية")
+	var s := new_sim("IRQ", 15)
+	var c := s.player()
+	var ok := true
+	for f in ["military", "business", "street", "clergy"]:
+		var v := float(c["factions"][f]["sat"])
+		if v < 0.0 or v > 100.0:
+			ok = false
+	check(ok and c["factions"].size() == 4, "أربع فئات برضا بين 0 و100")
+	var street0 := _target(s, c, "street")
+	var mil0 := _target(s, c, "military")
+	s.toggle_policy("IRQ", "subsidies")
+	check(_target(s, c, "street") > street0 + 8.0, "دعم السلع يرضي الشارع")
+	s.toggle_policy("IRQ", "subsidies")
+	s.toggle_policy("IRQ", "conscription")
+	check(_target(s, c, "military") > mil0 and _target(s, c, "street") < street0, "التجنيد الإجباري يرضي الجيش ويغضب الشارع")
+	s.toggle_policy("IRQ", "conscription")
+	var bus0 := _target(s, c, "business")
+	s.set_tax("IRQ", float(c["tax_rate"]) + 0.08)
+	check(_target(s, c, "business") < bus0 - 10.0, "رفع الضرائب يغضب رجال الأعمال")
+	s.set_tax("IRQ", float(c["tax_rate"]) - 0.08)
+	# تغيير نظام الحكم يحتاج دعم الفئات
+	var sup_mil: float = Factions.support(s, c, "military")["total"]
+	var sup_pres: float = Factions.support(s, c, "presidential")["total"]
+	check(sup_mil < 0.5 and s.can_change_government("IRQ", "military") != "", "الفئات ترفض حكماً عسكرياً في العراق (%d%%)" % int(sup_mil * 100.0))
+	check(sup_pres > sup_mil, "النظام الرئاسي يحظى بدعم أكبر (%d%%)" % int(sup_pres * 100.0))
+	# الاسترضاء
+	c["treasury"] = 50.0
+	var before := float(c["factions"]["military"]["sat"])
+	check(Factions.appease(s, c, "military") == "", "استرضاء الجيش")
+	check(float(c["factions"]["military"]["sat"]) > before + 10.0 and float(c["treasury"]) < 50.0, "الاسترضاء يرفع الرضا ويكلف المال")
+	check(Factions.can_appease(s, c, "military") != "", "لا استرضاء متكرر قبل ثلاثة أشهر")
+	# انقلاب عسكري في دولة يديرها الذكاء الاصطناعي
+	var syr := s.country("SYR")
+	var couped := false
+	for m in 24:
+		syr["factions"]["military"]["sat"] = 5.0
+		Factions._check_coup(s, syr)
+		if syr["government"] == "military":
+			couped = true
+			break
+	check(couped, "الجيش الغاضب ينقلب في سوريا")
+	check(Factions._immune(s, syr), "فترة هدوء بعد الانقلاب")
+	# انقلاب على اللاعب = نهاية اللعبة
+	for m in 24:
+		c["factions"]["military"]["sat"] = 5.0
+		Factions._check_coup(s, c)
+		s.pending.clear()
+		if s.state["game_over"] != "":
+			break
+	check(s.state["game_over"] == "coup", "الانقلاب على اللاعب ينهي اللعبة")

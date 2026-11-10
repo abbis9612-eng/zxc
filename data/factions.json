@@ -1,0 +1,140 @@
+{
+  "_note": "الفئات الداخلية (تصميم اللعبة). weights: وزن كل فئة حسب نظام الحكم. preferences: ميل الفئة لكل نظام (-1 إلى 1). policy_effects: أثر السياسات على رضا كل فئة.",
+  "factions": {
+    "military": {
+      "name_ar": "الجيش",
+      "appease_ar": "زيادة رواتب الضباط وميزانيات الوحدات"
+    },
+    "business": {
+      "name_ar": "رجال الأعمال",
+      "appease_ar": "إعفاءات ضريبية وعقود حكومية"
+    },
+    "street": {
+      "name_ar": "الشارع",
+      "appease_ar": "منح مالية ومشاريع خدمية"
+    },
+    "clergy": {
+      "name_ar": "رجال الدين",
+      "appease_ar": "دعم المؤسسات الدينية والأوقاف"
+    }
+  },
+  "weights": {
+    "presidential": {
+      "military": 0.3,
+      "business": 0.3,
+      "street": 0.3,
+      "clergy": 0.1
+    },
+    "parliamentary": {
+      "military": 0.15,
+      "business": 0.3,
+      "street": 0.45,
+      "clergy": 0.1
+    },
+    "monarchy": {
+      "military": 0.25,
+      "business": 0.3,
+      "street": 0.2,
+      "clergy": 0.25
+    },
+    "islamic": {
+      "military": 0.25,
+      "business": 0.15,
+      "street": 0.25,
+      "clergy": 0.35
+    },
+    "military": {
+      "military": 0.55,
+      "business": 0.2,
+      "street": 0.15,
+      "clergy": 0.1
+    },
+    "one_party": {
+      "military": 0.4,
+      "business": 0.25,
+      "street": 0.3,
+      "clergy": 0.05
+    }
+  },
+  "preferences": {
+    "military": {
+      "military": 1.0,
+      "one_party": 0.5,
+      "presidential": 0.3,
+      "monarchy": 0.2,
+      "islamic": 0.0,
+      "parliamentary": -0.3
+    },
+    "business": {
+      "parliamentary": 0.8,
+      "presidential": 0.6,
+      "monarchy": 0.4,
+      "one_party": 0.0,
+      "islamic": -0.2,
+      "military": -0.3
+    },
+    "street": {
+      "parliamentary": 1.0,
+      "presidential": 0.6,
+      "islamic": 0.3,
+      "monarchy": 0.0,
+      "one_party": -0.3,
+      "military": -0.6
+    },
+    "clergy": {
+      "islamic": 1.0,
+      "monarchy": 0.5,
+      "presidential": 0.2,
+      "parliamentary": 0.0,
+      "one_party": -0.3,
+      "military": 0.0
+    }
+  },
+  "policy_effects": {
+    "conscription": {
+      "military": 8,
+      "street": -12
+    },
+    "war_economy": {
+      "military": 6,
+      "business": -8,
+      "street": -3
+    },
+    "open_economy": {
+      "business": 10,
+      "clergy": -8,
+      "street": 2
+    },
+    "censorship": {
+      "street": -8,
+      "clergy": 8,
+      "business": -3,
+      "military": 3
+    },
+    "subsidies": {
+      "street": 12,
+      "clergy": 4,
+      "business": -2
+    }
+  },
+  "appease_cost_gdp": 0.002,
+  "appease_gain": 12,
+  "appease_cooldown_days": 90,
+  "drift": 0.15,
+  "stability_weight": 0.35,
+  "support_needed": 0.5,
+  "_islamic_note": "الدول التي يمكن أن تتحول فيها ثورة إلى دولة إسلامية (تقدير اللعبة).",
+  "islamic_possible": [
+    "IRN",
+    "IRQ",
+    "SYR",
+    "JOR",
+    "SAU",
+    "ARE",
+    "EGY",
+    "DZA",
+    "PAK",
+    "TUR"
+  ],
+  "regime_immunity_days": 1095
+}

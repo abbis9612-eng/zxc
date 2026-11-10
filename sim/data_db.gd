@@ -14,6 +14,7 @@ var alliances: Dictionary = {}
 var relations: Array = []
 var events: Array = []
 var market: Dictionary = {}
+var factions: Dictionary = {}
 var regions: Dictionary = {}          # id -> بيانات المنطقة الثابتة
 var region_ids: Array = []            # ترتيب ثابت للمناطق (للحتمية)
 var regions_by_country: Dictionary = {}
@@ -39,9 +40,11 @@ func load_all() -> bool:
 	var e: Variant = read_json(DATA_DIR + "events.json")
 	var r: Variant = read_json(DATA_DIR + "regions.json")
 	var mk: Variant = read_json(DATA_DIR + "market.json")
-	if c == null or u == null or g == null or a == null or e == null or r == null or mk == null:
+	var fc: Variant = read_json(DATA_DIR + "factions.json")
+	if c == null or u == null or g == null or a == null or e == null or r == null or mk == null or fc == null:
 		return false
 	market = mk
+	factions = fc
 	countries = c["countries"]
 	units = u["units"]
 	gen_mult = u["generation_multiplier"]

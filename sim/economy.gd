@@ -161,6 +161,8 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	target -= minf(10.0, Territory.occupied_count(sim, c["id"]) * 0.4)
 	# نقص الغذاء (خاصة تحت الحصار) يغضب الشارع
 	target -= float(c.get("logistics", {}).get("food_penalty", 0.0))
+	# رضا الفئات الداخلية الموزون حسب نظام الحكم
+	target += float(c.get("faction_delta", 0.0)) * float(sim.db.factions.get("stability_weight", 0.0))
 	target = clampf(target, 0.0, 100.0)
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 

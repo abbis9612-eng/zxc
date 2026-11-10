@@ -67,6 +67,9 @@ func _run() -> void:
 		main.tabs.current_tab = t
 		main._refresh()
 		await _shot("04_tab_%d_%s" % [t, names[t]])
+		if names[t] == "state":
+			(main.tabs.get_child(t) as ScrollContainer).scroll_vertical = 380
+			await _shot("04_tab_0b_factions")
 		if names[t] == "economy":
 			(main.tabs.get_child(t) as ScrollContainer).scroll_vertical = 820
 			await _shot("04_tab_1b_market")
