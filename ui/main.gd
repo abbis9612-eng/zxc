@@ -423,10 +423,10 @@ func _update_top() -> void:
 	var s = Game.sim
 	var p: Dictionary = s.player()
 	lbl_country.text = p["name_ar"]
-	lbl_date.text = "📅 " + s.date_text()
-	lbl_money.text = "💰 " + UI.money(float(p["treasury"]))
+	lbl_date.text = s.date_text()
+	lbl_money.text = "الخزينة " + UI.money(float(p["treasury"]))
 	var st := float(p["stability"])
-	lbl_stab.text = "⚖ استقرار %d" % int(st)
+	lbl_stab.text = "استقرار %d" % int(st)
 	lbl_stab.add_theme_color_override("font_color", UI.C_GOOD if st >= 50.0 else (UI.C_ACCENT if st >= 30.0 else UI.C_BAD))
 	btn_pause.text = "▶" if Game.paused else "⏸"
 	for i in speed_btns.size():
@@ -436,7 +436,7 @@ func _update_top() -> void:
 ## المستشار: أهم 3 مشكلات أو فرص الآن، والضغط ينقلك للمكان الصحيح
 func _update_advisor() -> void:
 	UI.clear(advisor_box)
-	advisor_box.add_child(UI.title("🎖 المستشار", 16))
+	advisor_box.add_child(UI.title("المستشار", 16))
 	var s = Game.sim
 	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
@@ -766,6 +766,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	var act := func(text: String, cb: Callable) -> void:
 		var b := UI.button(text, cb)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		actions.add_child(b)
 	if not at_war:
 		act.call("تحسين العلاقات (%s)" % UI.money(maxf(0.2, float(s.player()["gdp"]) * 0.0005)), func(): _do(s.improve_relations(pid, id), "تحسنت العلاقات."))

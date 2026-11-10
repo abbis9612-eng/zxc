@@ -86,8 +86,8 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var strike_d := _side_power(sim, D, ["missiles", "drones", "artillery"]) + _side_power(sim, D, ["bombers"]) * sup_d
 	var intercept_d := clampf(ad_d / (ad_d + strike_a + 0.001), 0.05, 0.85)
 	var intercept_a := clampf(ad_a / (ad_a + strike_d + 0.001), 0.05, 0.85)
-	var eff_a := strike_a * (1.0 - intercept_d) * rng.range_f(0.85, 1.15)
-	var eff_d := strike_d * (1.0 - intercept_a) * rng.range_f(0.85, 1.15)
+	var eff_a: float = strike_a * (1.0 - intercept_d) * rng.range_f(0.85, 1.15)
+	var eff_d: float = strike_d * (1.0 - intercept_a) * rng.range_f(0.85, 1.15)
 	_apply_losses(sim, A, ["missiles"], 0.05, loss_a)
 	_apply_losses(sim, A, ["drones"], 0.08, loss_a)
 	_apply_losses(sim, D, ["missiles"], 0.05, loss_d)
@@ -112,20 +112,20 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	for id in A:
 		land_a += _side_power(sim, [id], PHASE_UNITS["land"]) * _supply(sim, id, D)
 	var land_d := _side_power(sim, D, PHASE_UNITS["land"])
-	var total_a := land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
-	var total_d := land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
+	var total_a: float = land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
+	var total_d: float = land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
 	total_a *= 1.0 + (naval_a - 0.5) * 0.2
 	total_d *= 1.0 + (0.5 - naval_a) * 0.2
 	total_a *= rng.range_f(0.85, 1.15)
 	total_d *= rng.range_f(0.85, 1.15)
-	var ratio := total_a / (total_a + total_d + 0.001)
+	var ratio: float = total_a / (total_a + total_d + 0.001)
 	_apply_losses(sim, A, PHASE_UNITS["land"], 0.03 * (1.0 - ratio) + 0.005, loss_a)
 	_apply_losses(sim, D, PHASE_UNITS["land"], 0.03 * ratio + 0.005, loss_d)
 	_apply_losses(sim, D, ["artillery"], 0.02 * ratio, loss_d)
 	_apply_losses(sim, A, ["artillery"], 0.02 * (1.0 - ratio), loss_a)
 	phases.append({"id": "land", "name_ar": "المعركة البرية", "a": total_a, "d": total_d, "result": ratio * 2.0 - 1.0})
 
-	var delta := (ratio - 0.5) * 30.0
+	var delta: float = (ratio - 0.5) * 30.0
 	w["score"] = clampf(float(w["score"]) + delta, -100.0, 100.0)
 	w["battles"] = int(w["battles"]) + 1
 
@@ -207,17 +207,17 @@ static func forecast(sim, attacker: String, defender: String) -> Dictionary:
 	var sup_d := air_d / (air_d + air_a + 0.5 * ad_a + 0.001)
 	var strike_a: float = p.call(A, ["missiles", "drones", "artillery"])
 	var strike_d: float = p.call(D, ["missiles", "drones", "artillery"])
-	var eff_a := strike_a * (1.0 - clampf(ad_d / (ad_d + strike_a + 0.001), 0.05, 0.85))
-	var eff_d := strike_d * (1.0 - clampf(ad_a / (ad_a + strike_d + 0.001), 0.05, 0.85))
+	var eff_a: float = strike_a * (1.0 - clampf(ad_d / (ad_d + strike_a + 0.001), 0.05, 0.85))
+	var eff_d: float = strike_d * (1.0 - clampf(ad_a / (ad_a + strike_d + 0.001), 0.05, 0.85))
 	var sea_a: float = p.call(A, ["ships", "submarines"])
 	var sea_d: float = p.call(D, ["ships", "submarines"])
 	var land_a := 0.0
 	for id in A:
 		land_a += float(p.call([id], PHASE_UNITS["land"])) * _supply(sim, id, D)
 	var land_d: float = p.call(D, PHASE_UNITS["land"])
-	var total_a := land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
-	var total_d := land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
-	var ratio := total_a / (total_a + total_d + 0.001)
+	var total_a: float = land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
+	var total_d: float = land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
+	var ratio: float = total_a / (total_a + total_d + 0.001)
 	return {
 		"defenders": D,
 		"air": sup_a / maxf(0.001, sup_a + sup_d),

@@ -1,0 +1,73 @@
+## فحص الواجهة: يشغّل الشاشة الرئيسية ويمر على كل التبويبات ويحفظ لقطات.
+##   godot --path . -s tests/ui_smoke.gd -- <مجلد_اللقطات>
+extends SceneTree
+
+var out_dir := "user://shots"
+
+
+func _initialize() -> void:
+	var args := OS.get_cmdline_user_args()
+	if not args.is_empty():
+		out_dir = args[0]
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	change_scene_to_file("res://ui/main.tscn")
+	_run.call_deferred()
+
+
+func _wait(frames: int = 10) -> void:
+	for i in frames:
+		await process_frame
+
+
+func _shot(name: String) -> void:
+	await _wait(6)
+	var img := root.get_texture().get_image()
+	img.save_png(out_dir.path_join(name + ".png"))
+	print("لقطة: ", name)
+
+
+func _run() -> void:
+	await _wait(20)
+	var game: Node = root.get_node("Game")
+	var main: Node = current_scene
+	await _shot("01_start")
+	game.start_new("IRQ", 1, 2026)
+	await _shot("02_welcome")
+	# إغلاق نافذة الترحيب
+	main.dialog_queue.clear()
+	for ch in main.overlay.get_children():
+		ch.queue_free()
+	main.dialog_open = false
+	for i in 95:
+		game.step_day()
+	main.dialog_queue.clear()
+	for ch in main.overlay.get_children():
+		ch.queue_free()
+	main.dialog_open = false
+	main._dirty = true
+	await _shot("03_state")
+	var names := ["state", "economy", "army", "research", "diplomacy", "news"]
+	for t in names.size():
+		main.tabs.current_tab = t
+		main._refresh()
+		await _shot("04_tab_%d_%s" % [t, names[t]])
+	main._on_country_selected("SYR")
+	main._refresh()
+	await _shot("05_select_syria")
+	main._confirm_war("SYR")
+	await _shot("06_war_forecast")
+	# إعلان الحرب فعلاً ومتابعة المعارك
+	main.dialog_queue.clear()
+	for ch in main.overlay.get_children():
+		ch.queue_free()
+	main.dialog_open = false
+	game.sim.declare_war("IRQ", "SYR")
+	for i in 60:
+		game.step_day()
+	main.dialog_queue.clear()
+	for ch in main.overlay.get_children():
+		ch.queue_free()
+	main.dialog_open = false
+	main._show_battle_report()
+	await _shot("07_battle_report")
+	quit()

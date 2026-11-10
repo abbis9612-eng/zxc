@@ -126,6 +126,9 @@ static func row(children: Array = []) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	for c in children:
+		# تسمية قصيرة داخل صف لا تلتف، وإلا انكسرت حرفاً حرفاً
+		if c is Label and not c.size_flags_horizontal & Control.SIZE_EXPAND:
+			(c as Label).autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(c)
 	return h
 
@@ -159,11 +162,13 @@ static func bar(value: float, max_value: float = 100.0, color: Color = C_ACCENT)
 
 ## مفتاح: قيمة في سطر واحد
 static func kv(key: String, value: String, value_color: Color = C_TEXT) -> HBoxContainer:
+	# الطرفان يلتفان حتى لا توسّع القيم الطويلة اللوحة الجانبية
 	var k := label(key, C_MUTED)
 	k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	k.autowrap_mode = TextServer.AUTOWRAP_OFF
 	var v := label(value, value_color)
-	v.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_stretch_ratio = 1.3
+	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return row([k, v])
 
 

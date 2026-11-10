@@ -669,11 +669,12 @@ func _check_end_conditions() -> void:
 
 func to_save() -> String:
 	state["rng"] = rng.state
-	return JSON.stringify(state, "", true, true)
+	# صيغة ثنائية دقيقة: نص JSON يفقد آخر رقم عشري فتنحرف المحاكاة بعد التحميل
+	return Marshalls.raw_to_base64(var_to_bytes(state))
 
 
 func load_save(text: String) -> bool:
-	var parsed: Variant = JSON.parse_string(text)
+	var parsed: Variant = bytes_to_var(Marshalls.base64_to_raw(text.strip_edges()))
 	if typeof(parsed) != TYPE_DICTIONARY or int(parsed.get("version", 0)) != SAVE_VERSION:
 		return false
 	state = parsed
