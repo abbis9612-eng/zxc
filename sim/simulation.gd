@@ -13,6 +13,7 @@ const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
+const Divisions := preload("res://sim/divisions.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -30,6 +31,10 @@ var rng: SimRng
 var state: Dictionary = {}
 ## أحداث تنتظر أن تعرضها الواجهة: {kind, title, text, pause, choices, data}
 var pending: Array = []
+## ذاكرة مؤقتة للحدود (مشتقة من الحالة ولا تُحفظ): تُبنى من جديد عند تغير ملكية منطقة
+var _borders_dirty := true
+var _owned_regions: Dictionary = {}     # دولة -> مناطقها
+var _region_border_owners: Dictionary = {}   # منطقة -> مالكو المناطق المجاورة (غير مالكها)
 
 
 func _init(database: DataDB = null) -> void:
@@ -45,6 +50,7 @@ func _init(database: DataDB = null) -> void:
 func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -> void:
 	rng = SimRng.new(seed_value)
 	pending.clear()
+	_borders_dirty = true
 	state = {
 		"version": SAVE_VERSION,
 		"seed": seed_value,
@@ -88,6 +94,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		state["order"].append(c["id"])
 	Territory.init_state(self)
 	Market.init_state(self)
+	state["divisions"] = []
 	state["truces"] = {}
 	for r in db.relations:
 		set_relation(r[0], r[1], float(r[2]))
@@ -102,6 +109,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 	for id in state["order"]:
 		Factions.init_country(self, country(id))
 		Intel.init_country(country(id))
+	Divisions.init_state(self)
 	add_news("بدأت اللعبة. أنت تقود %s." % country(player_id)["name_ar"], "info")
 
 
@@ -209,7 +217,16 @@ func advance_day() -> void:
 	state["date"] = {"y": year, "m": month, "d": day}
 
 	_daily_production()
+	Divisions.daily(self)
 	if int(state["day"]) % 7 == 0:
+		# توزيع الفرق: الذكاء الاصطناعي دائماً، واللاعب إن اختار التوزيع التلقائي.
+		# في الحرب أسبوعياً، وفي السلم كل أربعة أسابيع
+		var monthly_check := int(state["day"]) % 28 == 0
+		for id in alive_ids():
+			if is_player(id) and not country(id).get("auto_deploy", true):
+				continue
+			if monthly_check or not wars_of(id).is_empty():
+				Divisions.auto_deploy(self, id)
 		for w in state["wars"].duplicate():
 			if w.get("active", true):
 				Combat.weekly_battle(self, w)
@@ -503,6 +520,7 @@ func annex(id: String, by: String) -> void:
 		if w["attackers"].is_empty() or w["defenders"].is_empty():
 			w["active"] = false
 	_cleanup_wars()
+	Divisions.cleanup(self)
 	var text := "%s تُضم بالكامل إلى %s." % [c["name_ar"], country(by)["name_ar"]]
 	add_news(text, "war")
 	if is_player(id):
@@ -510,6 +528,34 @@ func annex(id: String, by: String) -> void:
 		push_event("game_over", "خسارة بالاحتلال", text, true)
 	elif is_player(by):
 		push_event("victory", "ضم كامل", text, true)
+
+
+## الحدود: لكل دولة مناطقها، ولكل منطقة من يجاورها من الدول الأخرى
+func border_info() -> Array:
+	if _borders_dirty or _owned_regions.is_empty():
+		_owned_regions = {}
+		_region_border_owners = {}
+		var regs: Dictionary = state["regions"]
+		for rid in db.region_ids:
+			var own: String = regs[rid]["owner"]
+			if not _owned_regions.has(own):
+				_owned_regions[own] = []
+			_owned_regions[own].append(rid)
+			var others: Array = []
+			for n in db.regions[rid]["neighbors"]:
+				var o: String = regs[n]["owner"]
+				if o != own and not (o in others):
+					others.append(o)
+			_region_border_owners[rid] = others
+		_borders_dirty = false
+	return [_owned_regions, _region_border_owners]
+
+
+## تستدعيها Territory عند انتقال منطقة: الفرق تنسحب أو تتقدم
+func on_region_captured(rid: String, new_owner: String) -> void:
+	_borders_dirty = true
+	if state.has("divisions"):
+		Divisions.on_capture(self, rid, new_owner)
 
 
 func _cleanup_wars() -> void:
@@ -816,6 +862,7 @@ func load_save(text: String) -> bool:
 	if typeof(parsed) != TYPE_DICTIONARY or int(parsed.get("version", 0)) != SAVE_VERSION:
 		return false
 	state = parsed
+	_borders_dirty = true
 	rng = SimRng.new(1)
 	rng.state = int(state["rng"])
 	pending.clear()

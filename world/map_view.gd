@@ -3,6 +3,8 @@
 extends Control
 
 const Intel := preload("res://sim/intel.gd")
+const Divisions := preload("res://sim/divisions.gd")
+const Territory := preload("res://sim/territory.gd")
 
 signal country_selected(id: String)
 signal region_selected(rid: String)
@@ -15,7 +17,7 @@ const C_OCCUPIED_LINE := Color(0, 0, 0, 0.35)
 const MAP_W := 360.0
 const MAP_H := 180.0
 
-enum Layer { POLITICAL, POWER, ECONOMY, STABILITY, RESOURCES }
+enum Layer { POLITICAL, POWER, ECONOMY, STABILITY, RESOURCES, RANGE }
 
 ## رموز المنشآت على الخريطة: حرف عربي داخل دائرة ملونة (يعمل مع أي خط)
 const FACILITY_MARKS := {
@@ -37,6 +39,9 @@ var sim = null
 var layer: int = Layer.POLITICAL
 var selected: String = ""
 var selected_region: String = ""
+var selected_division: int = -1
+var _range_cache: Dictionary = {}     # منطقة -> 0 لا شيء، 1 طيران، 2 صواريخ، 3 كلاهما
+var _range_day: int = -1
 
 var _shapes: Array = []          # [{id, name_ar, rings:[PackedVector2Array], tris:[PackedInt32Array], rect:Rect2}]
 var _by_id: Dictionary = {}       # id -> index في _shapes
@@ -218,6 +223,7 @@ func _draw() -> void:
 		_draw_region_labels()
 		_draw_facilities()
 		_draw_wars()
+		_draw_divisions()
 		_draw_capitals()
 
 
@@ -249,6 +255,8 @@ func _region_color(shape: Dictionary) -> Color:
 	var own := _owner_of(shape)
 	if layer == Layer.RESOURCES:
 		return _resource_color(shape)
+	if layer == Layer.RANGE:
+		return _range_color(shape)
 	var col := _fill_color(own)
 	if own != shape["country"]:
 		# منطقة محتلة: لون المحتل ممزوج بلون صاحبها الأصلي
@@ -268,6 +276,92 @@ func _resource_color(shape: Dictionary) -> Color:
 	if shape["id"] == selected_region:
 		col = col.lightened(0.25)
 	return col
+
+
+## طبقة المدى: أين تصل مقاتلاتك من قواعدها العاملة، وصواريخك من أرضك
+func _range_color(shape: Dictionary) -> Color:
+	if sim == null:
+		return C_LAND_OFF
+	if _range_day != int(sim.state["day"]) / 7:
+		_rebuild_range()
+	var code := int(_range_cache.get(shape["id"], 0))
+	var col: Color = [Color("1d2630"), Color("2f5f8f"), Color("6b3f8f"), Color("b0662e")][code]
+	if _owner_of(shape) == sim.state["player"]:
+		col = C_PLAYER.darkened(0.35)
+	return col
+
+
+func _rebuild_range() -> void:
+	_range_day = int(sim.state["day"]) / 7
+	_range_cache = {}
+	var pid: String = sim.state["player"]
+	var c: Dictionary = sim.player()
+	var fr: float = Divisions.range_km(sim, "fighters", int(c["tech"]["air"]))
+	var mr: float = Divisions.range_km(sim, "missiles", int(c["tech"]["missile"]))
+	var bases: Array = Territory.working_facilities(sim, [pid], "airbase")
+	var mine: Array = Territory.owned(sim, pid)
+	for shape in _regions:
+		var rid: String = shape["id"]
+		var code := 0
+		for b in bases:
+			if Divisions.dist_km(sim, b, rid) <= fr:
+				code |= 1
+				break
+		for m in mine:
+			if Divisions.dist_km(sim, m, rid) <= mr:
+				code |= 2
+				break
+		_range_cache[rid] = code
+
+
+## رموز الفرق: مربع عسكري فيه علامة ×، بلون صاحبه، مع سهم الحركة
+func _draw_divisions() -> void:
+	var pid: String = sim.state["player"]
+	var screen := Rect2(Vector2(-30, -30), size + Vector2(60, 60))
+	var stack := {}
+	var mine_regions: Array = []
+	for d in sim.state.get("divisions", []):
+		if d["owner"] == pid:
+			mine_regions.append(d["region"])
+	for d in sim.state.get("divisions", []):
+		var owner: String = d["owner"]
+		var rid: String = d["region"]
+		# ضباب الحرب: فرق الآخرين تظهر برؤية 40 أو إن كانت ملاصقة لقواتك
+		if owner != pid and not (owner in sim.allies(pid)):
+			var near := false
+			for m in mine_regions:
+				if rid == m or rid in sim.db.regions[m]["neighbors"]:
+					near = true
+					break
+			if not near and Intel.visibility(sim, pid, owner) < 40.0:
+				continue
+		var info: Dictionary = sim.db.regions[rid]
+		var base := map_to_screen(to_map(float(info["lon"]), float(info["lat"])))
+		var k := int(stack.get(rid, 0))
+		stack[rid] = k + 1
+		var p := base + Vector2(14 + k * 6, -14 - k * 6)
+		if not screen.has_point(p):
+			continue
+		var col := Color(0.8, 0.8, 0.8)
+		if owner == pid:
+			col = C_PLAYER
+		elif owner in sim.allies(pid) or sim.country(owner).get("overlord", "") == pid:
+			col = C_ALLY
+		elif owner in sim.enemies_of(pid):
+			col = C_ENEMY
+		var r := Rect2(p - Vector2(9, 6), Vector2(18, 12))
+		draw_rect(r, Color(0, 0, 0, 0.75))
+		draw_rect(r, col, false, 1.5)
+		draw_line(r.position, r.end, col, 1.2)
+		draw_line(Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y), col, 1.2)
+		if int(d["id"]) == selected_division:
+			draw_rect(r.grow(3), Color.WHITE, false, 1.5)
+		# سهم الحركة
+		if int(d["eta"]) >= 0 and owner == pid:
+			var t: Dictionary = sim.db.regions[d["target"]]
+			var tp := map_to_screen(to_map(float(t["lon"]), float(t["lat"])))
+			draw_dashed_line(p, tp, col, 1.5, 5.0)
+			draw_circle(tp, 3.0, col)
 
 
 func _draw_facilities() -> void:

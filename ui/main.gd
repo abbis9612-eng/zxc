@@ -13,6 +13,7 @@ const Market := preload("res://sim/market.gd")
 const Sparkline := preload("res://ui/sparkline.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
+const Divisions := preload("res://sim/divisions.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
@@ -25,6 +26,8 @@ var tabs: TabContainer
 var tab_boxes: Array = []        # VBox لكل تبويب
 var selected: String = ""
 var selected_region: String = ""
+var move_division: int = -1        # فرقة تنتظر اختيار وجهتها على الخريطة
+var _keep_tab := false
 
 # الشريط العلوي
 var lbl_country: Label
@@ -189,7 +192,7 @@ func _build_map_area() -> Control:
 	map.set_anchors_preset(Control.PRESET_FULL_RECT)
 	map.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	map.country_selected.connect(_on_country_selected)
-	map.region_selected.connect(func(rid): selected_region = rid)
+	map.region_selected.connect(_on_region_clicked)
 	area.add_child(map)
 
 	var margin := MarginContainer.new()
@@ -218,7 +221,7 @@ func _build_map_area() -> Control:
 	# طبقات الخريطة
 	var layers := UI.row()
 	layers.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var names := ["سياسي", "القوة العسكرية", "الاقتصاد", "الاستقرار", "الموارد"]
+	var names := ["سياسي", "القوة العسكرية", "الاقتصاد", "الاستقرار", "الموارد", "المدى"]
 	var group := ButtonGroup.new()
 	for i in names.size():
 		var b := UI.button(names[i], func(): map.set_layer(i))
@@ -382,6 +385,9 @@ func _on_country_selected(id: String) -> void:
 	if map.selected_region == "":
 		selected_region = ""
 	selected = id
+	if _keep_tab:
+		_keep_tab = false
+		return
 	tabs.current_tab = Tab.STATE if id == Game.sim.state["player"] else Tab.DIPLOMACY
 	_dirty = true
 
@@ -741,6 +747,7 @@ func _fill_army() -> void:
 	var p: Dictionary = s.player()
 	army_info.add_child(UI.title("القوات المسلحة", 18))
 	army_info.add_child(UI.kv("القوة الكلية", s.fmt_num(s.military_power(p)), UI.C_ACCENT))
+	_divisions_section(army_info, p)
 	var fac: Dictionary = p.get("facilities", {})
 	for t in Territory.FACILITY_TYPES:
 		var f: Dictionary = fac.get(t, {"total": 0, "working": 0})
@@ -921,6 +928,12 @@ func _region_card(box: VBoxContainer, id: String) -> void:
 	v.add_child(UI.label("تجاورها: " + ("، ".join(nb) if not nb.is_empty() else "لا جيران برّيين (جزيرة)"), UI.C_MUTED, 14))
 	if info.get("coastal", false):
 		v.add_child(UI.label("منطقة ساحلية", UI.C_MUTED, 13))
+	var here := PackedStringArray()
+	for d in s.state.get("divisions", []):
+		if d["region"] == selected_region and (d["owner"] == s.state["player"] or Intel.visibility(s, s.state["player"], d["owner"]) >= 40.0):
+			here.append("الفرقة %d (%s، جاهزية %d%%)" % [int(d["id"]), s.country(d["owner"])["name_ar"], int(float(d["strength"]) * 100.0)])
+	if not here.is_empty():
+		v.add_child(UI.label("فرق هنا: " + "، ".join(here), UI.C_ACCENT, 14))
 	var res: Dictionary = info.get("resources", {})
 	var rp := PackedStringArray()
 	for k in Territory.RESOURCE_NAMES:
@@ -1208,6 +1221,71 @@ func _fill_intel() -> void:
 		box.add_child(UI.label("لا أخطار ظاهرة الآن.", UI.C_MUTED))
 
 
+## الفرق: موقعها وحالتها، وتحريكها بالضغط على منطقة في الخريطة
+func _divisions_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	var pid: String = p["id"]
+	box.add_child(UI.sep())
+	box.add_child(UI.title("الفرق", 16))
+	var auto := CheckButton.new()
+	auto.text = "توزيع تلقائي على الجبهات والحدود"
+	auto.button_pressed = p.get("auto_deploy", true)
+	auto.toggled.connect(func(v):
+		p["auto_deploy"] = v
+		_dirty = true)
+	box.add_child(auto)
+	var air_r: float = Divisions.range_km(s, "fighters", int(p["tech"]["air"]))
+	var mis_r: float = Divisions.range_km(s, "missiles", int(p["tech"]["missile"]))
+	box.add_child(UI.label("مدى مقاتلاتك %d كم من قواعدها، وصواريخك %d كم من أرضك. طبقة «المدى» على الخريطة تعرضه." % [int(air_r), int(mis_r)], UI.C_MUTED, 13))
+	var enemies: Array = s.enemies_of(pid)
+	var front: Array = Divisions.front_regions(s, [pid], enemies)
+	for d in Divisions.of(s, pid):
+		var where: String = s.db.regions[d["region"]]["name_ar"]
+		var status := "احتياط"
+		var col := UI.C_TEXT
+		if int(d["eta"]) >= 0:
+			status = "تتحرك إلى %s (%d يوماً)" % [s.db.regions[d["target"]]["name_ar"], int(d["eta"]) - int(s.state["day"])]
+			col = UI.C_ACCENT
+		elif d["region"] in front:
+			status = "على الجبهة"
+			col = UI.C_BAD
+		box.add_child(UI.kv("الفرقة %d · %s" % [int(d["id"]), where], "%s · جاهزية %d%% · خبرة %d%%" % [status, int(float(d["strength"]) * 100.0), int(float(d["exp"]) * 100.0)], col))
+		var row := UI.row()
+		var did := int(d["id"])
+		var mv := UI.button("تحريك" if move_division != did else "اختر الوجهة على الخريطة…", func():
+			move_division = did
+			map.selected_division = did
+			_toast("اضغط على المنطقة التي تريد نقل الفرقة إليها.")
+			_dirty = true)
+		mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(mv)
+		var where_btn := UI.button("أين؟", func():
+			var info: Dictionary = s.db.regions[Divisions.find(s, did)["region"]]
+			map.selected_division = did
+			map.focus_point(float(info["lon"]), float(info["lat"])))
+		row.add_child(where_btn)
+		box.add_child(row)
+	if p.get("auto_deploy", true):
+		box.add_child(UI.label("التحريك اليدوي يعمل مع التوزيع التلقائي، لكن التوزيع قد يعيد ترتيب الفرق. أوقفه لقيادة كاملة.", UI.C_MUTED, 13))
+
+
+func _on_region_clicked(rid: String) -> void:
+	selected_region = rid
+	if move_division >= 0:
+		var s = Game.sim
+		var err: String = Divisions.move(s, move_division, rid)
+		if err == "":
+			var d: Dictionary = Divisions.find(s, move_division)
+			_toast("الفرقة %d تتحرك إلى %s (%d يوماً)." % [move_division, s.db.regions[rid]["name_ar"], int(d["eta"]) - int(s.state["day"])])
+		else:
+			_toast(err)
+		move_division = -1
+		map.selected_division = -1
+		_keep_tab = true
+		tabs.current_tab = Tab.ARMY
+		_dirty = true
+
+
 func _select_country(id: String) -> void:
 	selected = id
 	selected_region = ""
@@ -1248,6 +1326,11 @@ func _confirm_war(id: String) -> void:
 		text += "رؤيتك لهذا العدو %d فقط: الأرقام تقديرية. ابنِ شبكة تجسس لتوقع أدق.\n" % int(vis)
 	if int(f["weeks_to_win"]) > 0:
 		text += "التقدير: نصر خلال %d أسبوعاً تقريباً." % int(f["weeks_to_win"])
+	var mth: Dictionary = f.get("theater", {}).get(pid, {})
+	if not mth.is_empty():
+		text += "\nفرقك على الجبهة: %d من %d. قواعدك الجوية التي تصل الجبهة: %d%%. صواريخك: %s." % [int(mth["front_divisions"]), int(mth["divisions"]), int(float(mth["air"]) * 100.0), "في المدى" if float(mth["missiles"]) >= 1.0 else "خارج المدى"]
+		if int(mth["front_divisions"]) == 0:
+			text += "\nتحذير: لا فرق لك على الجبهة بعد. حرّكها أولاً أو فعّل التوزيع التلقائي."
 	else:
 		text += "التقدير: الحرب لن تكون في صالحك."
 	if not f.get("land_front", true):
@@ -1320,6 +1403,8 @@ func _show_battle_report() -> void:
 		v.add_child(UI.label("سيطر %s على: %s" % [who, "، ".join(names)], UI.C_ACCENT))
 	else:
 		v.add_child(UI.label("الجبهة لم تتحرك هذا الأسبوع.", UI.C_MUTED, 14))
+	if r.has("front_a"):
+		v.add_child(UI.kv("الفرق على الجبهة", "المهاجم %d، المدافع %d" % [int(r["front_a"]), int(r["front_d"])], UI.C_TEXT))
 	v.add_child(UI.kv("تغير نتيجة الحرب", UI.signed(float(r["delta"]), 1), UI.C_ACCENT))
 	v.add_child(UI.label("مشهد المعركة ثلاثي الأبعاد يأتي في مرحلة لاحقة، وسيعرض هذا التقرير نفسه.", UI.C_MUTED, 13))
 	_show_dialog("تقرير المعركة", "", [{"text": "إغلاق"}], v)

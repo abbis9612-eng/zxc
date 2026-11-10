@@ -1,0 +1,25 @@
+{
+  "_note": "الفرق العسكرية والمدى (تصميم اللعبة). الأمدية بالكيلومتر حسب الجيل (الفهرس 1-5).",
+  "divisions": {
+    "infantry_per_division": 40,
+    "min": 2,
+    "max": 14,
+    "days_per_hop": 4,
+    "sea_days_base": 10,
+    "sea_km_per_day": 400,
+    "reserve_factor": 0.15,
+    "deploy_scale": 0.5,
+    "fatigue_per_battle": 0.04,
+    "recovery_per_day": 0.007,
+    "exp_per_battle": 0.02,
+    "exp_bonus": 0.3,
+    "retreat_loss": 0.2
+  },
+  "range_km": {
+    "fighters": [0, 600, 800, 1000, 1200, 1500],
+    "bombers":  [0, 2000, 2800, 3500, 5000, 8000],
+    "missiles": [0, 300, 500, 1000, 1600, 2500],
+    "drones":   [0, 150, 400, 800, 1200, 1800]
+  },
+  "out_of_range_factor": 0.1
+}

@@ -10,10 +10,12 @@ const GAIN_RATE := 2.0         # تقدم أسبوعي لكل وحدة تفوق 
 const AIR_LAND_BASE := 0.5     # التفوق الجوي يضاعف أثر القوات البرية
 const AIR_LAND_WEIGHT := 1.0
 const STRIKE_MONTHS := 4       # مدة تعطل المنشأة بعد ضربة في معركة
+const STRIKE_REF := 150.0      # قوة الضربات التي تكفي لضربة استراتيجية أسبوعية تقريباً
 const STRIKE_PRIORITY := ["airbase", "refinery", "factory", "power_plant", "port"]
 
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
+const Divisions := preload("res://sim/divisions.gd")
 
 const PHASE_UNITS := {
 	"air": ["fighters"],
@@ -36,14 +38,43 @@ static func _supply(sim, id: String, enemies: Array) -> float:
 	return FAR_SUPPLY
 
 
-static func _side_power(sim, side: Array, utypes: Array) -> float:
+## مضاعف وصول الصنف إلى هذه الجبهة: البر من انتشار الفرق، والجو من مدى القواعد، والصواريخ من مداها
+static func _factor(id: String, u: String, th: Dictionary, share: float) -> float:
+	if not th.has(id):
+		return share
+	var t: Dictionary = th[id]
+	match u:
+		"infantry", "armor", "helicopters", "artillery":
+			return float(t["land"])
+		"fighters":
+			return share * float(t["air"])
+		"bombers":
+			return share * float(t["bombers"])
+		"missiles":
+			return share * float(t["missiles"])
+		"drones":
+			return share * float(t["drones"])
+	return share
+
+
+static func _side_power(sim, side: Array, utypes: Array, th: Dictionary = {}) -> float:
 	var total := 0.0
 	for id in side:
 		var c: Dictionary = sim.country(id)
 		var f := _share(sim, id)
 		for u in utypes:
-			total += sim.unit_power(c, u) * f
+			total += sim.unit_power(c, u) * _factor(id, u, th, f)
 	return total
+
+
+## عوامل المسرح لكل دولة في الطرفين
+static func _theaters(sim, A: Array, D: Array) -> Dictionary:
+	var th := {}
+	for id in A:
+		th[id] = Divisions.theater(sim, id, A, D)
+	for id in D:
+		th[id] = Divisions.theater(sim, id, D, A)
+	return th
 
 
 static func _apply_losses(sim, side: Array, utypes: Array, pct: float, record: Dictionary) -> void:
@@ -71,15 +102,16 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 		sim.make_peace(w)
 		return {}
 	var rng = sim.rng
+	var th := _theaters(sim, A, D)
 	var loss_a := {}
 	var loss_d := {}
 	var phases: Array = []
 
 	# 1) الجو
-	var air_a := _side_power(sim, A, PHASE_UNITS["air"])
-	var air_d := _side_power(sim, D, PHASE_UNITS["air"])
-	var ad_a := _side_power(sim, A, ["air_defense"])
-	var ad_d := _side_power(sim, D, ["air_defense"])
+	var air_a := _side_power(sim, A, PHASE_UNITS["air"], th)
+	var air_d := _side_power(sim, D, PHASE_UNITS["air"], th)
+	var ad_a := _side_power(sim, A, ["air_defense"], th)
+	var ad_d := _side_power(sim, D, ["air_defense"], th)
 	var sup_a := air_a / (air_a + air_d + 0.5 * ad_d + 0.001)
 	var sup_d := air_d / (air_d + air_a + 0.5 * ad_a + 0.001)
 	_apply_losses(sim, A, ["fighters"], 0.04 * (1.0 - sup_a) * rng.range_f(0.7, 1.3), loss_a)
@@ -87,8 +119,8 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	phases.append({"id": "air", "name_ar": "المعركة الجوية", "a": air_a, "d": air_d + 0.5 * ad_d, "result": sup_a - sup_d})
 
 	# 2) الضربات: صواريخ ومسيّرات ومدفعية وقاذفات، ضد الدفاع الجوي
-	var strike_a := _side_power(sim, A, ["missiles", "drones", "artillery"]) + _side_power(sim, A, ["bombers"]) * sup_a
-	var strike_d := _side_power(sim, D, ["missiles", "drones", "artillery"]) + _side_power(sim, D, ["bombers"]) * sup_d
+	var strike_a := _side_power(sim, A, ["missiles", "drones", "artillery"], th) + _side_power(sim, A, ["bombers"], th) * sup_a
+	var strike_d := _side_power(sim, D, ["missiles", "drones", "artillery"], th) + _side_power(sim, D, ["bombers"], th) * sup_d
 	var intercept_d := clampf(ad_d / (ad_d + strike_a + 0.001), 0.05, 0.85)
 	var intercept_a := clampf(ad_a / (ad_a + strike_d + 0.001), 0.05, 0.85)
 	var eff_a: float = strike_a * (1.0 - intercept_d) * rng.range_f(0.85, 1.15)
@@ -100,13 +132,14 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	_apply_losses(sim, D, ["air_defense"], 0.03 * eff_a / (eff_a + ad_d + 0.001), loss_d)
 	_apply_losses(sim, A, ["air_defense"], 0.03 * eff_d / (eff_d + ad_a + 0.001), loss_a)
 	# ضرب الأهداف الاستراتيجية في العمق: قواعد ومصافٍ ومصانع ومحطات وموانئ
-	var hits_a := _strategic_strikes(sim, A, D, eff_a / (eff_a + ad_d + 0.001))
-	var hits_d := _strategic_strikes(sim, D, A, eff_d / (eff_d + ad_a + 0.001))
+	# عدد الضربات حسب اختراق الدفاع الجوي وحجم القوة الضاربة الفعلي
+	var hits_a := _strategic_strikes(sim, A, D, eff_a / (eff_a + ad_d + 0.001) * eff_a / (eff_a + STRIKE_REF))
+	var hits_d := _strategic_strikes(sim, D, A, eff_d / (eff_d + ad_a + 0.001) * eff_d / (eff_d + STRIKE_REF))
 	phases.append({"id": "strike", "name_ar": "الضربات الصاروخية والمسيّرات والمدفعية", "a": eff_a, "d": eff_d, "result": (eff_a - eff_d) / (eff_a + eff_d + 0.001), "intercept_a": intercept_a, "intercept_d": intercept_d})
 
 	# 3) البحر
-	var sea_a := _side_power(sim, A, PHASE_UNITS["sea"])
-	var sea_d := _side_power(sim, D, PHASE_UNITS["sea"])
+	var sea_a := _side_power(sim, A, PHASE_UNITS["sea"], th)
+	var sea_d := _side_power(sim, D, PHASE_UNITS["sea"], th)
 	var naval_a := 0.5
 	if sea_a + sea_d > 0.001:
 		naval_a = sea_a / (sea_a + sea_d) * rng.range_f(0.9, 1.1)
@@ -126,8 +159,8 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	# 4) البر
 	var land_a := 0.0
 	for id in A:
-		land_a += _side_power(sim, [id], PHASE_UNITS["land"]) * _supply(sim, id, D)
-	var land_d := _side_power(sim, D, PHASE_UNITS["land"])
+		land_a += _side_power(sim, [id], PHASE_UNITS["land"], th) * _supply(sim, id, D)
+	var land_d := _side_power(sim, D, PHASE_UNITS["land"], th)
 	var total_a: float = land_a * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_a) * _morale(sim, A) + eff_a * 0.5
 	var total_d: float = land_d * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
 	total_a *= 1.0 + (naval_a - 0.5) * 0.2
@@ -156,6 +189,8 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	w["score"] = Territory.war_score(sim, w)
 	var delta: float = float(w["score"]) - old_score
 	w["battles"] = int(w["battles"]) + 1
+	Divisions.after_battle(sim, A, D)
+	Divisions.after_battle(sim, D, A)
 
 	# إرهاق الحرب
 	for id in A + D:
@@ -168,6 +203,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 		"losses_a": loss_a, "losses_d": loss_d,
 		"taken": taken, "taken_by_attacker": a_wins,
 		"hits_a": hits_a, "hits_d": hits_d,
+		"front_a": _count_front(th, A), "front_d": _count_front(th, D),
 	}
 	var pid: String = sim.state["player"]
 	if pid in A or pid in D:
@@ -204,11 +240,12 @@ static func forecast(sim, attacker: String, defender: String) -> Dictionary:
 			D.append(al)
 	D += sim.vassals(defender)
 	var share := FRONT_SHARE
+	var th := _theaters(sim, A, D)
 	var p := func(side: Array, utypes: Array) -> float:
 		var t := 0.0
 		for id in side:
 			for u in utypes:
-				t += sim.unit_power(sim.country(id), u) * share
+				t += sim.unit_power(sim.country(id), u) * _factor(id, u, th, share)
 		return t
 	var air_a: float = p.call(A, ["fighters"])
 	var air_d: float = p.call(D, ["fighters"])
@@ -236,6 +273,7 @@ static func forecast(sim, attacker: String, defender: String) -> Dictionary:
 		"sea": sea_a / maxf(0.001, sea_a + sea_d) if sea_a + sea_d > 0.001 else -1.0,
 		"land": ratio,
 		"weeks_to_win": _weeks_to_win(sim, defender, ratio),
+		"theater": th,
 		"land_front": Territory.has_land_front(sim, A, D),
 	}
 
@@ -265,3 +303,10 @@ static func _strategic_strikes(sim, side: Array, enemies: Array, penetration: fl
 				hits.append({"region": rid, "type": ftype})
 				break
 	return hits
+
+
+static func _count_front(th: Dictionary, side: Array) -> int:
+	var n := 0
+	for id in side:
+		n += int(th.get(id, {}).get("front_divisions", 0))
+	return n

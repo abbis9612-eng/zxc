@@ -102,4 +102,12 @@ func _run() -> void:
 	map.focus_point(39.0, 34.5)
 	main._refresh()
 	await _shot("08_front")
+	# تبويب الجيش: الفرق، وطبقة المدى
+	main.tabs.current_tab = 2
+	main._refresh()
+	await _shot("09_divisions")
+	map.set_layer(5)
+	map.focus_point(44.0, 33.0)
+	map.queue_redraw()
+	await _shot("10_range_layer")
 	quit()

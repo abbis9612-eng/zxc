@@ -204,14 +204,15 @@ static func working_facilities(sim, side: Array, ftype: String, near_rid: String
 ## مناطق الخاسر الملاصقة لمناطق الرابح
 static func _front_candidates(sim, winners: Array, losers: Array) -> Array:
 	var out: Array = []
-	for rid in sim.db.region_ids:
-		var r: Dictionary = sim.state["regions"][rid]
-		if not (r["owner"] in losers):
-			continue
-		for n in sim.db.regions[rid]["neighbors"]:
-			if sim.state["regions"][n]["owner"] in winners:
-				out.append(rid)
-				break
+	var info: Array = sim.border_info()
+	var owned: Dictionary = info[0]
+	var borders: Dictionary = info[1]
+	for l in losers:
+		for rid in owned.get(l, []):
+			for o in borders[rid]:
+				if o in winners:
+					out.append(rid)
+					break
 	return out
 
 
@@ -303,6 +304,7 @@ static func capture(sim, rid: String, new_owner: String) -> void:
 	r["gdp"] = float(r["gdp"]) * 0.97
 	recompute(sim, old_owner)
 	recompute(sim, new_owner)
+	sim.on_region_captured(rid, new_owner)
 	var info: Dictionary = sim.db.regions[rid]
 	var core: String = r["core"]
 	var core_c: Dictionary = sim.country(core)

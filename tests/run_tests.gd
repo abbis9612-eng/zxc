@@ -12,6 +12,7 @@ const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
+const Divisions := preload("res://sim/divisions.gd")
 
 var db: DataDB
 var failures := 0
@@ -33,6 +34,7 @@ func _init() -> void:
 		test_trade_pacts()
 		test_factions()
 		test_intel()
+		test_divisions()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -522,3 +524,61 @@ func test_intel() -> void:
 	var ch0 := Intel.op_chance(s, "SYR", "IRQ", "cyber")
 	Intel.set_counter(s, "IRQ", 3)
 	check(Intel.op_chance(s, "SYR", "IRQ", "cyber") < ch0, "مكافحة التجسس المشددة تخفض فرص العدو")
+
+
+func test_divisions() -> void:
+	print("الفرق العسكرية والمدى")
+	var s := new_sim("IRQ", 19)
+	var ok := true
+	for c in db.countries:
+		var divs := Divisions.of(s, c["id"])
+		if divs.size() < 2:
+			ok = false
+		for d in divs:
+			if Territory.region(s, d["region"])["owner"] != c["id"]:
+				ok = false
+	check(ok, "لكل دولة فرقتان على الأقل في أرضها")
+	var my := Divisions.of(s, "IRQ")
+	var d0: Dictionary = my[0]
+	var basra := _region_by_name("IRQ", "Al-Basrah")
+	var dohuk := _region_by_name("IRQ", "Dihok")
+	s.player()["auto_deploy"] = false
+	d0["region"] = dohuk
+	check(Divisions.move(s, int(d0["id"]), basra) == "", "تحريك فرقة من دهوك إلى البصرة")
+	var days := int(d0["eta"]) - int(s.state["day"])
+	check(days >= 8, "الحركة تأخذ أياماً حسب المسافة (%d يوماً)" % days)
+	run_days(s, days + 1)
+	check(d0["region"] == basra, "الفرقة وصلت البصرة")
+	check(Divisions.move(s, int(d0["id"]), db.capitals["IRN"]) != "", "لا تحرك إلى أرض العدو بلا معركة")
+	# الانتشار على الجبهة يرفع القوة البرية
+	s.declare_war("IRQ", "SYR")
+	for d in my:
+		d["region"] = db.capitals["IRQ"]
+		d["eta"] = -1
+	var reserve: float = Divisions.theater(s, "IRQ", ["IRQ"], ["SYR"])["land"]
+	var front: Array = Divisions.front_regions(s, ["IRQ"], ["SYR"])
+	check(not front.is_empty(), "للعراق جبهة مع سوريا (%d مناطق)" % front.size())
+	for d in my:
+		d["region"] = front[0]
+	var deployed: float = Divisions.theater(s, "IRQ", ["IRQ"], ["SYR"])["land"]
+	check(deployed > reserve * 4.0, "الفرق على الجبهة أقوى كثيراً من الاحتياط (%.2f مقابل %.2f)" % [deployed, reserve])
+	# المدى: القواعد البعيدة لا تصل
+	var near: Dictionary = Divisions.theater(s, "IRQ", ["IRQ"], ["SYR"])
+	check(float(near["air"]) > 0.5, "الطيران العراقي يصل جبهة سوريا")
+	var far_th: Dictionary = Divisions.theater(s, "SYR", ["SYR"], ["JPN"])
+	check(float(far_th["missiles"]) < 0.5, "صواريخ سوريا لا تصل اليابان")
+	# سقوط منطقة: الفرقة المدافعة تنسحب
+	var syr_div: Dictionary = Divisions.of(s, "SYR")[0]
+	var spot: String = syr_div["region"]
+	Territory.capture(s, spot, "IRQ")
+	check(syr_div["region"] != spot and Territory.region(s, syr_div["region"])["owner"] == "SYR", "الفرقة السورية تنسحب من المنطقة الساقطة")
+	# التوزيع التلقائي في الحرب
+	var s2 := new_sim("JOR", 19)
+	s2.declare_war("TUR", "SYR")
+	run_days(s2, 35)
+	var tur_front: Array = Divisions.front_regions(s2, ["TUR"], ["SYR"])
+	var at_front := 0
+	for d in Divisions.of(s2, "TUR"):
+		if d["region"] in tur_front:
+			at_front += 1
+	check(at_front >= 3, "الذكاء الاصطناعي ينشر فرقه على الجبهة (%d)" % at_front)
