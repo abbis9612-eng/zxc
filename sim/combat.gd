@@ -6,9 +6,14 @@ const FRONT_SHARE := 0.35      # نسبة الجيش المشاركة في جب�
 const DEFENDER_BONUS := 1.25
 const FAR_SUPPLY := 0.6        # قوات بلا جبهة برية مع العدو تضعف بالإمداد
 const MAX_GAINS := 2           # أقصى عدد مناطق تسقط في معركة أسبوعية
-const GAIN_RATE := 3.0         # مناطق إضافية لكل وحدة تفوق
+const GAIN_RATE := 2.0         # تقدم أسبوعي لكل وحدة تفوق (منطقة صغيرة تحتاج 0.7)
+const AIR_LAND_BASE := 0.5     # التفوق الجوي يضاعف أثر القوات البرية
+const AIR_LAND_WEIGHT := 1.0
+const STRIKE_MONTHS := 4       # مدة تعطل المنشأة بعد ضربة في معركة
+const STRIKE_PRIORITY := ["airbase", "refinery", "factory", "power_plant", "port"]
 
 const Territory := preload("res://sim/territory.gd")
+const Logistics := preload("res://sim/logistics.gd")
 
 const PHASE_UNITS := {
 	"air": ["fighters"],
@@ -94,6 +99,9 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	_apply_losses(sim, D, ["drones"], 0.08, loss_d)
 	_apply_losses(sim, D, ["air_defense"], 0.03 * eff_a / (eff_a + ad_d + 0.001), loss_d)
 	_apply_losses(sim, A, ["air_defense"], 0.03 * eff_d / (eff_d + ad_a + 0.001), loss_a)
+	# ضرب الأهداف الاستراتيجية في العمق: قواعد ومصافٍ ومصانع ومحطات وموانئ
+	var hits_a := _strategic_strikes(sim, A, D, eff_a / (eff_a + ad_d + 0.001))
+	var hits_d := _strategic_strikes(sim, D, A, eff_d / (eff_d + ad_a + 0.001))
 	phases.append({"id": "strike", "name_ar": "الضربات الصاروخية والمسيّرات والمدفعية", "a": eff_a, "d": eff_d, "result": (eff_a - eff_d) / (eff_a + eff_d + 0.001), "intercept_a": intercept_a, "intercept_d": intercept_d})
 
 	# 3) البحر
@@ -106,14 +114,22 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 		_apply_losses(sim, A, PHASE_UNITS["sea"], 0.03 * (1.0 - naval_a), loss_a)
 		_apply_losses(sim, D, PHASE_UNITS["sea"], 0.03 * naval_a, loss_d)
 		phases.append({"id": "sea", "name_ar": "المعركة البحرية", "a": sea_a, "d": sea_d, "result": naval_a * 2.0 - 1.0})
+		# الحصار البحري: الطرف المهزوم بحرياً يفقد معظم وارداته
+		var until := int(sim.state["day"]) + Logistics.BLOCKADE_DAYS
+		if naval_a > 0.7:
+			for id in D:
+				sim.country(id)["blockade_until"] = until
+		elif naval_a < 0.3:
+			for id in A:
+				sim.country(id)["blockade_until"] = until
 
 	# 4) البر
 	var land_a := 0.0
 	for id in A:
 		land_a += _side_power(sim, [id], PHASE_UNITS["land"]) * _supply(sim, id, D)
 	var land_d := _side_power(sim, D, PHASE_UNITS["land"])
-	var total_a: float = land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
-	var total_d: float = land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
+	var total_a: float = land_a * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_a) * _morale(sim, A) + eff_a * 0.5
+	var total_d: float = land_d * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
 	total_a *= 1.0 + (naval_a - 0.5) * 0.2
 	total_d *= 1.0 + (0.5 - naval_a) * 0.2
 	total_a *= rng.range_f(0.85, 1.15)
@@ -128,12 +144,15 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	# التقدم على الجبهة: منطقة أو أكثر حسب تفوق الرابح
 	var old_score := float(w["score"])
 	var a_wins := ratio >= 0.5
-	var gains := mini(MAX_GAINS, floori(absf(ratio - 0.5) * GAIN_RATE + rng.next_float()))
+	# التقدم يتراكم أسبوعاً بعد أسبوع، والمناطق الكبرى تحتاج تقدماً أكبر
+	var push: float = absf(ratio - 0.5) * GAIN_RATE * rng.range_f(0.8, 1.2)
+	var pkey := "progress_a" if a_wins else "progress_d"
+	w[pkey] = float(w.get(pkey, 0.0)) + push
 	var winners: Array = A if a_wins else D
 	var losers: Array = D if a_wins else A
 	var naval_w := naval_a if a_wins else 1.0 - naval_a
 	var dominance := absf(ratio - 0.5) * 2.0
-	var taken: Array = Territory.advance(sim, w, winners, losers, gains, naval_w, dominance)
+	var taken: Array = Territory.advance(sim, w, winners, losers, MAX_GAINS, naval_w, dominance, pkey)
 	w["score"] = Territory.war_score(sim, w)
 	var delta: float = float(w["score"]) - old_score
 	w["battles"] = int(w["battles"]) + 1
@@ -148,6 +167,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 		"phases": phases, "ratio": ratio, "delta": delta, "score": w["score"],
 		"losses_a": loss_a, "losses_d": loss_d,
 		"taken": taken, "taken_by_attacker": a_wins,
+		"hits_a": hits_a, "hits_d": hits_d,
 	}
 	var pid: String = sim.state["player"]
 	if pid in A or pid in D:
@@ -206,8 +226,8 @@ static func forecast(sim, attacker: String, defender: String) -> Dictionary:
 	for id in A:
 		land_a += float(p.call([id], PHASE_UNITS["land"])) * _supply(sim, id, D)
 	var land_d: float = p.call(D, PHASE_UNITS["land"])
-	var total_a: float = land_a * (0.7 + 0.6 * sup_a) * _morale(sim, A) + eff_a * 0.5
-	var total_d: float = land_d * (0.7 + 0.6 * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
+	var total_a: float = land_a * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_a) * _morale(sim, A) + eff_a * 0.5
+	var total_d: float = land_d * (AIR_LAND_BASE + AIR_LAND_WEIGHT * sup_d) * _morale(sim, D) * DEFENDER_BONUS + eff_d * 0.5
 	var ratio: float = total_a / (total_a + total_d + 0.001)
 	return {
 		"defenders": D,
@@ -225,5 +245,23 @@ static func _weeks_to_win(sim, defender: String, ratio: float) -> int:
 	if ratio <= 0.55:
 		return -1
 	var regions: int = Territory.core_regions(defender, sim.db).size()
-	var per_week := minf(float(MAX_GAINS), (ratio - 0.5) * GAIN_RATE + 0.5)
-	return ceili(maxf(1.0, regions * 0.45) / maxf(0.2, per_week))
+	var per_week := (ratio - 0.5) * GAIN_RATE
+	# نحتاج نحو نصف أرض العدو: كلفة كل منطقة 0.7 + 3 × حصتها من الاقتصاد
+	var cost := regions * 0.5 * 0.7 + 0.5 * 3.0 * 1.0
+	return ceili(cost / maxf(0.05, per_week))
+
+
+## ضربات في العمق: عدد الأهداف حسب نسبة الضربات التي تتجاوز الدفاع الجوي
+static func _strategic_strikes(sim, side: Array, enemies: Array, penetration: float) -> Array:
+	var hits: Array = []
+	var n := floori(clampf(penetration, 0.0, 1.0) * 1.6 + sim.rng.next_float() * 0.6)
+	var my_cap := Territory.capital_region(sim, side[0])
+	for i in n:
+		for ftype in STRIKE_PRIORITY:
+			var targets: Array = Territory.working_facilities(sim, enemies, ftype, my_cap)
+			if not targets.is_empty():
+				var rid: String = targets[0]
+				Territory.damage_facility(sim, rid, ftype, STRIKE_MONTHS)
+				hits.append({"region": rid, "type": ftype})
+				break
+	return hits

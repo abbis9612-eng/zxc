@@ -6,6 +6,7 @@ const DATA_DIR := "res://data/"
 var countries: Array = []        # قوالب الدول كما في الملف
 var units: Dictionary = {}
 var gen_mult: Array = []
+var combat_mult: Array = []
 var branches: Dictionary = {}
 var governments: Dictionary = {}
 var policies: Dictionary = {}
@@ -41,6 +42,7 @@ func load_all() -> bool:
 	countries = c["countries"]
 	units = u["units"]
 	gen_mult = u["generation_multiplier"]
+	combat_mult = u.get("combat_multiplier", gen_mult)
 	branches = u["branches"]
 	governments = g["governments"]
 	policies = g["policies"]
@@ -62,3 +64,7 @@ func load_all() -> bool:
 
 func gen_multiplier(gen: int) -> float:
 	return float(gen_mult[clampi(gen, 1, gen_mult.size() - 1)])
+
+
+func combat_multiplier(gen: int) -> float:
+	return float(combat_mult[clampi(gen, 1, combat_mult.size() - 1)])

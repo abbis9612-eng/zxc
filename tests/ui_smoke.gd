@@ -53,6 +53,13 @@ func _run() -> void:
 	map._click(map.map_to_screen(map.to_map(44.4, 33.3)))
 	main._refresh()
 	await _shot("03b_iraq_regions")
+	# البصرة: مواردها ومنشآتها، وطبقة الموارد على الخريطة
+	map.focus_point(46.5, 31.5)
+	map._click(map.map_to_screen(map.to_map(47.4, 30.6)))
+	map.set_layer(4)
+	main._refresh()
+	await _shot("03c_basra_resources")
+	map.set_layer(0)
 	var names := ["state", "economy", "army", "research", "diplomacy", "news"]
 	for t in names.size():
 		main.tabs.current_tab = t

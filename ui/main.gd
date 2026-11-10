@@ -8,6 +8,7 @@ const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const Simulation := preload("res://sim/simulation.gd")
 const Territory := preload("res://sim/territory.gd")
+const Logistics := preload("res://sim/logistics.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الأخبار"]
@@ -213,7 +214,7 @@ func _build_map_area() -> Control:
 	# طبقات الخريطة
 	var layers := UI.row()
 	layers.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var names := ["سياسي", "القوة العسكرية", "الاقتصاد", "الاستقرار"]
+	var names := ["سياسي", "القوة العسكرية", "الاقتصاد", "الاستقرار", "الموارد"]
 	var group := ButtonGroup.new()
 	for i in names.size():
 		var b := UI.button(names[i], func(): map.set_layer(i))
@@ -468,6 +469,16 @@ func _update_advisor() -> void:
 			continue
 		if s.relation(pid, n) < -50.0 and s.bloc_power(n) > my_power * 1.3:
 			items.append([85, "%s معادية وأقوى منك. عزّز دفاعك أو حسّن العلاقات." % c["name_ar"], Tab.DIPLOMACY, n])
+	var lg: Dictionary = p.get("logistics", {})
+	if Logistics.blockaded(s, p):
+		items.append([90, "أنت تحت حصار بحري: الواردات شبه مقطوعة.", Tab.ECONOMY, ""])
+	if not lg.is_empty() and float(lg["fuel"]) < 0.85:
+		items.append([70, "نقص الوقود يضعف جيشك (%d%%). احمِ المصافي ومناطق النفط." % int(float(lg["fuel"]) * 100.0), Tab.ECONOMY, ""])
+	var broken := 0
+	for t in p.get("facilities", {}):
+		broken += int(p["facilities"][t]["total"]) - int(p["facilities"][t]["working"])
+	if broken > 0:
+		items.append([65, "%d من منشآتك معطلة بالضربات." % broken, Tab.ARMY, ""])
 	if float(p["treasury"]) > gdp * 0.03:
 		items.append([40, "في الخزينة فائض %s: استثمر أو صنّع سلاحاً." % UI.money(float(p["treasury"])), Tab.ARMY, ""])
 	if items.is_empty():
@@ -614,11 +625,17 @@ func _fill_economy() -> void:
 		var bal := float(b["balance"])
 		eco_info.add_child(UI.kv("الرصيد", UI.money(bal), UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
 	eco_info.add_child(UI.sep())
-	eco_info.add_child(UI.title("الموارد", 18))
-	var res_names := {"oil": "النفط", "gas": "الغاز", "steel": "الصلب", "rare_earth": "معادن نادرة", "uranium": "اليورانيوم", "food": "الغذاء"}
-	for r in res_names:
-		eco_info.add_child(UI.kv(res_names[r], str(int(p["resources"].get(r, 0)))))
-		eco_info.add_child(UI.bar(float(p["resources"].get(r, 0)), 100.0, UI.C_LINE))
+	eco_info.add_child(UI.title("الموارد (من مناطقك)", 18))
+	eco_info.add_child(UI.label("كل مورد يأتي من مناطق محددة: خسارة منطقة نفطية تُفقدك نفطها، واحتلال منطقة يمنحك مواردها تدريجياً.", UI.C_MUTED, 13))
+	for r in Territory.RESOURCE_NAMES:
+		var v := float(p["resources"].get(r, 0.0))
+		var base := float(_core_resource(p["id"], r))
+		var txt := str(int(roundf(v)))
+		if absf(v - base) >= 1.0:
+			txt += " (الأصل %d)" % int(roundf(base))
+		eco_info.add_child(UI.kv(Territory.RESOURCE_NAMES[r], txt, UI.C_TEXT if v + 0.5 >= base else UI.C_BAD))
+		eco_info.add_child(UI.bar(v, 100.0, UI.C_LINE))
+	_logistics_section(eco_info, p)
 	var oil := float(s.state["global"]["oil_price"])
 	eco_info.add_child(UI.kv("مؤشر سعر النفط العالمي", "%.2f" % oil, UI.C_ACCENT))
 
@@ -665,6 +682,12 @@ func _fill_army() -> void:
 	var p: Dictionary = s.player()
 	army_info.add_child(UI.title("القوات المسلحة", 18))
 	army_info.add_child(UI.kv("القوة الكلية", s.fmt_num(s.military_power(p)), UI.C_ACCENT))
+	var fac: Dictionary = p.get("facilities", {})
+	for t in Territory.FACILITY_TYPES:
+		var f: Dictionary = fac.get(t, {"total": 0, "working": 0})
+		if int(f["total"]) > 0:
+			var bad := int(f["working"]) < int(f["total"])
+			army_info.add_child(UI.kv(Territory.FACILITY_NAMES[t], "%d عاملة من %d" % [int(f["working"]), int(f["total"])], UI.C_BAD if bad else UI.C_TEXT))
 	army_info.add_child(UI.kv("الصيانة السنوية", UI.money(Economy.military_upkeep(s, p))))
 	for u in s.db.units:
 		var info: Dictionary = s.db.units[u]
@@ -822,7 +845,74 @@ func _region_card(box: VBoxContainer, id: String) -> void:
 			nm += " (%s)" % s.country(ninfo["country"])["name_ar"]
 		nb.append(nm)
 	v.add_child(UI.label("تجاورها: " + ("، ".join(nb) if not nb.is_empty() else "لا جيران برّيين (جزيرة)"), UI.C_MUTED, 14))
+	if info.get("coastal", false):
+		v.add_child(UI.label("منطقة ساحلية", UI.C_MUTED, 13))
+	var res: Dictionary = info.get("resources", {})
+	var rp := PackedStringArray()
+	for k in Territory.RESOURCE_NAMES:
+		if float(res.get(k, 0.0)) >= 0.5:
+			rp.append("%s %s" % [Territory.RESOURCE_NAMES[k], String.num(float(res[k]), 1)])
+	if not rp.is_empty():
+		v.add_child(UI.label("الموارد: " + "، ".join(rp), UI.C_TEXT, 14))
+	var fac: Dictionary = info.get("facilities", {})
+	var pid: String = s.state["player"]
+	var enemy: bool = r["owner"] != pid and not s.war_between(pid, r["owner"]).is_empty()
+	for t in Territory.FACILITY_TYPES:
+		if int(fac.get(t, 0)) <= 0:
+			continue
+		var dmg := int(r.get("damaged", {}).get(t, 0))
+		var status := "معطلة %d أشهر" % dmg if dmg > 0 else "عاملة"
+		var line := UI.kv("%s × %d" % [Territory.FACILITY_NAMES[t], int(fac[t])], status, UI.C_BAD if dmg > 0 else UI.C_GOOD)
+		v.add_child(line)
+		if enemy and dmg == 0:
+			var pct := int(s.strike_chance(pid, selected_region) * 100.0)
+			var b := UI.button("اضرب %s (%d صاروخاً، فرصة %d%%)" % [Territory.FACILITY_NAMES[t], int(Simulation.STRIKE_MISSILES), pct], _strike.bind(selected_region, t))
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(b)
 	box.add_child(panel)
+
+
+func _strike(rid: String, ftype: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var why: String = s.can_strike_facility(pid, rid, ftype)
+	if why != "":
+		_toast(why)
+		return
+	var res: Dictionary = s.strike_facility(pid, rid, ftype)
+	_show_dialog("ضربة صاروخية", res.get("text", ""), [{"text": "حسناً"}])
+	_dirty = true
+
+
+func _core_resource(id: String, k: String) -> float:
+	var t := 0.0
+	for rid in Game.sim.db.regions_by_country.get(id, []):
+		t += float(Game.sim.db.regions[rid].get("resources", {}).get(k, 0.0))
+	return t
+
+
+## الإمداد: كيف تؤثر الموارد والمنشآت في الجيش والاقتصاد
+func _logistics_section(box: VBoxContainer, p: Dictionary) -> void:
+	var lg: Dictionary = p.get("logistics", {})
+	if lg.is_empty():
+		return
+	var s = Game.sim
+	box.add_child(UI.sep())
+	box.add_child(UI.title("الإمداد", 18))
+	if Logistics.blockaded(s, p):
+		box.add_child(UI.label("تحت حصار بحري: الواردات شبه مقطوعة.", UI.C_BAD))
+	var pct := func(x: float) -> String:
+		return "%d%%" % int(roundf(x * 100.0))
+	var col := func(x: float) -> Color:
+		return UI.C_GOOD if x >= 0.95 else (UI.C_ACCENT if x >= 0.75 else UI.C_BAD)
+	box.add_child(UI.kv("قدرة الاستيراد", pct.call(float(lg["import"])), col.call(float(lg["import"]) / Logistics.BASE_IMPORT)))
+	box.add_child(UI.kv("الوقود للجيش", pct.call(float(lg["fuel"])), col.call(float(lg["fuel"]))))
+	box.add_child(UI.kv("كفاءة القواعد الجوية", pct.call(float(lg["air"])), col.call(float(lg["air"]))))
+	box.add_child(UI.kv("كفاءة الموانئ والأسطول", pct.call(float(lg["sea"])), col.call(float(lg["sea"]))))
+	box.add_child(UI.kv("سرعة التصنيع", pct.call(float(lg["production"])), col.call(float(lg["production"]))))
+	box.add_child(UI.kv("الكهرباء", pct.call(float(lg["power"])), col.call(float(lg["power"]))))
+	if float(lg["food_penalty"]) > 0.0:
+		box.add_child(UI.kv("نقص الغذاء", "−%d استقرار" % int(float(lg["food_penalty"])), UI.C_BAD))
 
 
 ## قائمة مناطق الدولة بأسمائها، مع العاصمة والمناطق المحتلة
@@ -941,6 +1031,15 @@ func _show_battle_report() -> void:
 		return "، ".join(parts) if not parts.is_empty() else "خسائر طفيفة"
 	v.add_child(UI.label("خسائر المهاجم: " + loss_text.call(r["losses_a"]), UI.C_MUTED, 14))
 	v.add_child(UI.label("خسائر المدافع: " + loss_text.call(r["losses_d"]), UI.C_MUTED, 14))
+	var hits_text := func(hits: Array) -> String:
+		var parts := PackedStringArray()
+		for h in hits:
+			parts.append("%s في %s" % [Territory.FACILITY_NAMES[h["type"]], s.db.regions[h["region"]]["name_ar"]])
+		return "، ".join(parts)
+	if not r.get("hits_a", []).is_empty():
+		v.add_child(UI.label("ضربات المهاجم في العمق: " + hits_text.call(r["hits_a"]), UI.C_ACCENT, 14))
+	if not r.get("hits_d", []).is_empty():
+		v.add_child(UI.label("ضربات المدافع في العمق: " + hits_text.call(r["hits_d"]), UI.C_ACCENT, 14))
 	var taken: Array = r.get("taken", [])
 	if not taken.is_empty():
 		var who: String = "المهاجم" if r.get("taken_by_attacker", true) else "المدافع"

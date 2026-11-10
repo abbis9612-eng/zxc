@@ -8,6 +8,7 @@ const Simulation := preload("res://sim/simulation.gd")
 const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const Territory := preload("res://sim/territory.gd")
+const Logistics := preload("res://sim/logistics.gd")
 
 var db: DataDB
 var failures := 0
@@ -23,6 +24,8 @@ func _init() -> void:
 		test_regions_economy()
 		test_regional_war()
 		test_peace_returns_regions()
+		test_resources()
+		test_facilities()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -130,7 +133,11 @@ func test_twenty_years() -> void:
 	var s := new_sim("IRQ", 2026)
 	var t0 := Time.get_ticks_msec()
 	for year in 20:
-		run_days(s, 365)
+		for d in 365:
+			s.advance_day()
+			s.pending.clear()
+			# محاكاة التوازن تستمر حتى لو خسر اللاعب (لا أحد يلعبه هنا)
+			s.state["game_over"] = ""
 	var ms := Time.get_ticks_msec() - t0
 	var ok := true
 	for id in s.state["order"]:
@@ -242,3 +249,75 @@ func test_peace_returns_regions() -> void:
 	s.make_peace(w)
 	check(Territory.region(s, rid)["owner"] == "SYR", "بعد السلام تعود المنطقة لسوريا")
 	check(Territory.owned(s, "IRQ").size() == 18, "العراق يعود لمحافظاته")
+
+
+func _region_by_name(country: String, name_en: String) -> String:
+	for rid in db.regions_by_country[country]:
+		if db.regions[rid]["name_en"] == name_en:
+			return rid
+	return ""
+
+
+func test_resources() -> void:
+	print("الموارد في المناطق")
+	var s := new_sim("JOR", 8)
+	var ok := true
+	for c in db.countries:
+		for k in Territory.RESOURCE_NAMES:
+			var total := 0.0
+			for rid in db.regions_by_country[c["id"]]:
+				total += float(db.regions[rid].get("resources", {}).get(k, 0.0))
+			if absf(total - float(c["resources"].get(k, 0))) > 0.5:
+				ok = false
+				print("    مجموع غير مطابق: %s %s %.1f" % [c["id"], k, total])
+	check(ok, "موارد المناطق تساوي تقييم كل دولة")
+	var basra := _region_by_name("IRQ", "Al-Basrah")
+	check(float(db.regions[basra]["resources"]["oil"]) > 40.0, "البصرة تحوي معظم نفط العراق")
+	var irq_oil := float(s.country("IRQ")["resources"]["oil"])
+	var irn_oil := float(s.country("IRN")["resources"]["oil"])
+	Territory.capture(s, basra, "IRN")
+	check(float(s.country("IRQ")["resources"]["oil"]) < irq_oil - 40.0, "خسارة البصرة تُفقد العراق نفطها")
+	check(float(s.country("IRN")["resources"]["oil"]) > irn_oil, "المحتل يكسب نفط المنطقة تدريجياً")
+
+
+func test_facilities() -> void:
+	print("المنشآت والإمداد")
+	var s := new_sim("JOR", 9)
+	var ok := true
+	for c in db.countries:
+		var f: Dictionary = s.country(c["id"])["facilities"]
+		if int(f["airbase"]["total"]) < 1 or int(f["factory"]["total"]) < 1 or int(f["power_plant"]["total"]) < 1:
+			ok = false
+			print("    منشآت ناقصة: " + c["id"])
+	check(ok, "لكل دولة قاعدة جوية ومصنع ومحطة كهرباء")
+	var ports_ok := true
+	for rid in db.region_ids:
+		if int(db.regions[rid].get("facilities", {}).get("port", 0)) > 0 and not db.regions[rid]["coastal"]:
+			ports_ok = false
+	check(ports_ok, "الموانئ في مناطق ساحلية فقط")
+	check(int(s.country("ISR")["facilities"]["nuclear"]["total"]) == 1 and int(s.country("IRQ")["facilities"]["nuclear"]["total"]) == 0, "المنشأة النووية لمن يملك سلاحاً نووياً فقط")
+	# ضرب كل القواعد الجوية يضعف سلاح الجو
+	var air_before: float = s.unit_power(s.country("SYR"), "fighters")
+	for rid in Territory.working_facilities(s, ["SYR"], "airbase"):
+		Territory.damage_facility(s, rid, "airbase", 2)
+	var air_after: float = s.unit_power(s.country("SYR"), "fighters")
+	check(air_after < air_before * 0.5, "تعطيل القواعد الجوية يضعف المقاتلات (%.0f ← %.0f)" % [air_before, air_after])
+	check(float(s.country("SYR")["logistics"]["air"]) < 0.4, "كفاءة القواعد تنخفض")
+	run_days(s, 70)
+	check(float(s.country("SYR")["logistics"]["air"]) > 0.99, "القواعد تُصلح بعد شهرين")
+	# الضربة الصاروخية على منشأة
+	var w := s.declare_war("TUR", "SYR")
+	var target: String = Territory.working_facilities(s, ["SYR"], "refinery")[0]
+	check(s.can_strike_facility("TUR", target, "refinery") == "", "تركيا تستطيع ضرب مصفاة سورية")
+	var hit := false
+	for i in 6:
+		var r: Dictionary = s.strike_facility("TUR", target, "refinery")
+		if r.get("hit", false):
+			hit = true
+			break
+	check(hit and not Territory.facility_working(s, target, "refinery"), "الضربة تعطل المصفاة")
+	check(s.can_strike_facility("JOR", target, "refinery") != "", "لا ضربة بلا حرب")
+	# الحصار يقطع الاستيراد
+	s.country("SYR")["blockade_until"] = int(s.state["day"]) + 10
+	check(Logistics.import_capacity(s, s.country("SYR")) < 0.3, "الحصار يقطع معظم الواردات")
+	s.make_peace(w)

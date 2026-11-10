@@ -9,6 +9,7 @@ const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const AI := preload("res://sim/ai.gd")
 const Territory := preload("res://sim/territory.gd")
+const Logistics := preload("res://sim/logistics.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -17,6 +18,9 @@ const MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const MONTH_NAMES_AR := ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"]
 const NUCLEAR_WINTER_STRIKES := 12
 const MAX_NEWS := 300
+const STRIKE_MISSILES := 10.0
+const TRUCE_DAYS := 730
+const BORDER_INCIDENT_CHANCE := 0.02
 
 var db: DataDB
 var rng: SimRng
@@ -80,6 +84,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		state["countries"][c["id"]] = c
 		state["order"].append(c["id"])
 	Territory.init_state(self)
+	state["truces"] = {}
 	for r in db.relations:
 		set_relation(r[0], r[1], float(r[2]))
 	for aid in state["alliances"]:
@@ -87,6 +92,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		for i in m.size():
 			for j in range(i + 1, m.size()):
 				set_relation(m[i], m[j], maxf(relation(m[i], m[j]), 60.0))
+	state["relation_base"] = state["relations"].duplicate()
 	for id in state["order"]:
 		Economy.init_civil_spending(self, country(id))
 	add_news("بدأت اللعبة. أنت تقود %s." % country(player_id)["name_ar"], "info")
@@ -214,32 +220,45 @@ static func days_in_month(m: int, y: int) -> int:
 
 func _monthly() -> void:
 	_global_modifiers_tick()
+	# النمو أولاً لكل الدول في مرور واحد على المناطق، ثم الميزانيات
+	var growths := {}
+	for id in alive_ids():
+		var c := country(id)
+		var g := Economy.growth_rate(self, c)
+		c["growth_now"] = g
+		growths[id] = g
+	Territory.monthly(self)          # الاندماج والإصلاح والمقاومة (بلا إعادة حساب)
+	Territory.grow_all(self, growths)  # النمو ثم إعادة حساب كل الدول مرة واحدة
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
-	Territory.monthly(self)
 	for id in alive_ids():
 		if not is_player(id):
 			AI.monthly(self, country(id))
 	_relations_drift()
+	_border_incidents()
 	_random_events()
 	_check_end_conditions()
 
 
 func _daily_production() -> void:
-	for id in alive_ids():
+	for id in state["order"]:
 		var c := country(id)
-		var speed := 1.0
-		if "war_economy" in c["policies"]:
-			speed = float(db.policies["war_economy"].get("production_speed", 1.0))
 		var queue: Array = c["production"]
-		for order in queue:
-			order["days_left"] = float(order["days_left"]) - speed
-		var done: Array = queue.filter(func(o): return float(o["days_left"]) <= 0.0)
-		for o in done:
-			queue.erase(o)
-			c["military"][o["type"]] = float(c["military"][o["type"]]) + float(o["count"])
-			if is_player(id):
-				add_news("اكتمل تصنيع %s %s." % [fmt_num(o["count"]), db.units[o["type"]]["name_ar"]], "good")
+		if queue.is_empty() or c.get("annexed", false):
+			continue
+		var speed := float(c.get("logistics", {}).get("production", 1.0))
+		if "war_economy" in c["policies"]:
+			speed *= float(db.policies["war_economy"].get("production_speed", 1.0))
+		var i := queue.size() - 1
+		while i >= 0:
+			var o: Dictionary = queue[i]
+			o["days_left"] = float(o["days_left"]) - speed
+			if float(o["days_left"]) <= 0.0:
+				queue.remove_at(i)
+				c["military"][o["type"]] = float(c["military"][o["type"]]) + float(o["count"])
+				if is_player(id):
+					add_news("اكتمل تصنيع %s %s." % [fmt_num(o["count"]), db.units[o["type"]]["name_ar"]], "good")
+			i -= 1
 
 
 func _global_modifiers_tick() -> void:
@@ -256,14 +275,32 @@ func _global_modifiers_tick() -> void:
 
 
 func _relations_drift() -> void:
-	# العلاقات تعود ببطء نحو الصفر، والحرب تبقيها منخفضة
+	# العلاقات تعود ببطء نحو مستواها التاريخي (العداوات القديمة لا تختفي)، والحرب تبقيها منخفضة
+	var base: Dictionary = state.get("relation_base", {})
 	for k in state["relations"].keys():
 		var v: float = state["relations"][k]
-		state["relations"][k] = v - signf(v) * minf(absf(v), 0.3)
+		var target: float = base.get(k, 0.0)
+		state["relations"][k] = v + clampf(target - v, -0.4, 0.4)
 	for w in state["wars"]:
 		for a in w["attackers"]:
 			for b in w["defenders"]:
 				change_relation(a, b, -3.0)
+
+
+## حوادث حدودية بين الجيران المتوترين ترفع احتمال الحرب
+func _border_incidents() -> void:
+	var ids := alive_ids()
+	for i in ids.size():
+		var a: String = ids[i]
+		for b in country(a)["neighbors"]:
+			if b <= a or country(b).is_empty() or country(b).get("annexed", false):
+				continue
+			if relation(a, b) < -20.0 and war_between(a, b).is_empty() and rng.chance(BORDER_INCIDENT_CHANCE):
+				change_relation(a, b, -12.0)
+				var text := "حادث حدودي بين %s و%s يرفع التوتر." % [country(a)["name_ar"], country(b)["name_ar"]]
+				add_news(text, "war")
+				if is_player(a) or is_player(b):
+					push_event("incident", "حادث حدودي", text, false)
 
 
 func _random_events() -> void:
@@ -316,7 +353,7 @@ func _apply_event(e: Dictionary, target: String) -> void:
 
 func unit_power(c: Dictionary, utype: String) -> float:
 	var u: Dictionary = db.units[utype]
-	return float(c["military"].get(utype, 0.0)) * float(u["power"]) * db.gen_multiplier(int(c["tech"][u["branch"]]))
+	return float(c["military"].get(utype, 0.0)) * float(u["power"]) * db.combat_multiplier(int(c["tech"][u["branch"]])) * Logistics.unit_factor(c, utype) * float(c.get("quality", 1.0))
 
 
 func military_power(c: Dictionary) -> float:
@@ -364,6 +401,8 @@ func can_declare_war(a: String, b: String) -> String:
 		return "هذه الدولة لم تعد قائمة."
 	if not war_between(a, b).is_empty():
 		return "أنتما في حرب بالفعل."
+	if int(state.get("truces", {}).get(rel_key(a, b), -1)) > int(state["day"]):
+		return "بينكما هدنة حتى %d يوماً أخرى." % (int(state["truces"][rel_key(a, b)]) - int(state["day"]))
 	if b in allies(a):
 		return "لا يمكن إعلان الحرب على حليف. اخرج من التحالف أولاً."
 	if country(a).get("overlord", "") == b or country(b).get("overlord", "") == a:
@@ -405,6 +444,10 @@ func make_peace(w: Dictionary, text: String = "", keep_loser: String = "", keep_
 		return
 	Territory.revert_war_regions(self, w, keep_loser, keep_side)
 	w["active"] = false
+	# هدنة سنتين بين أطراف الحرب
+	for a in w["attackers"]:
+		for b in w["defenders"]:
+			state["truces"][rel_key(a, b)] = int(state["day"]) + TRUCE_DAYS
 	var msg := text
 	if msg == "":
 		msg = "توقيع السلام بين %s و%s." % [country(w["attackers"][0])["name_ar"], country(w["defenders"][0])["name_ar"]]
@@ -574,8 +617,11 @@ func order_units(id: String, utype: String, count: float) -> String:
 	var c := country(id)
 	if not db.units.has(utype) or count <= 0.0:
 		return "طلب غير صالح."
-	if utype == "nukes" and float(c["military"]["nukes"]) < 1.0:
-		return "تحتاج برنامجاً نووياً قائماً (سيأتي في مرحلة لاحقة)."
+	if utype == "nukes":
+		if Territory.working_facilities(self, [id], "nuclear").is_empty():
+			return "تحتاج منشأة نووية عاملة."
+		if float(c["resources"].get("uranium", 0.0)) < 5.0:
+			return "تحتاج يورانيوم (5 على الأقل)."
 	var total := unit_cost(c, utype) * count
 	if total > float(c["treasury"]):
 		return "الخزينة لا تكفي. الكلفة %s مليار." % fmt_num(total)
@@ -654,6 +700,45 @@ func propose_peace(a: String, b: String) -> String:
 		make_peace(w)
 		return ""
 	return "%s ترفض السلام لأنها تتقدم في الحرب." % country(b)["name_ar"]
+
+
+## ضربة صاروخية على منشأة في منطقة يملكها عدو: تعطلها أشهراً إن نجحت
+func can_strike_facility(a: String, rid: String, ftype: String) -> String:
+	var r: Dictionary = Territory.region(self, rid)
+	if r.is_empty() or Territory.facility_count(self, rid, ftype) <= 0:
+		return "لا توجد هذه المنشأة هنا."
+	if war_between(a, r["owner"]).is_empty():
+		return "الضربة ممكنة فقط على منشآت دولة في حرب معك."
+	if not Territory.facility_working(self, rid, ftype):
+		return "المنشأة معطلة أصلاً."
+	if float(country(a)["military"]["missiles"]) < STRIKE_MISSILES:
+		return "تحتاج %d صاروخاً على الأقل." % int(STRIKE_MISSILES)
+	return ""
+
+
+func strike_chance(a: String, rid: String) -> float:
+	var ca := country(a)
+	var cd := country(Territory.region(self, rid)["owner"])
+	var ad := float(cd["military"]["air_defense"])
+	var p := 0.7 + 0.07 * (int(ca["tech"]["missile"]) - int(cd["tech"]["air_defense"])) - 0.3 * ad / (ad + 40.0)
+	return clampf(p, 0.15, 0.9)
+
+
+func strike_facility(a: String, rid: String, ftype: String) -> Dictionary:
+	if can_strike_facility(a, rid, ftype) != "":
+		return {}
+	var ca := country(a)
+	ca["military"]["missiles"] = float(ca["military"]["missiles"]) - STRIKE_MISSILES
+	var owner: String = Territory.region(self, rid)["owner"]
+	var hit := rng.chance(strike_chance(a, rid))
+	var place: String = db.regions[rid]["name_ar"]
+	var fname: String = Territory.FACILITY_NAMES[ftype]
+	if hit:
+		Territory.damage_facility(self, rid, ftype, 6)
+		add_news("صواريخ %s تدمر %s في %s." % [ca["name_ar"], fname, place], "war")
+	else:
+		add_news("%s تعترض صواريخ %s فوق %s." % [country(owner)["name_ar"], ca["name_ar"], place], "war")
+	return {"hit": hit, "text": ("أصابت الضربة %s في %s، وستبقى معطلة 6 أشهر." % [fname, place]) if hit else ("اعتُرضت الصواريخ فوق %s." % place)}
 
 
 ## رد اللاعب على حدث فيه خيارات

@@ -6,9 +6,9 @@ const Economy := preload("res://sim/economy.gd")
 
 ## عتبة العلاقات وتفوق القوة المطلوب لإعلان الحرب، واحتمالها الشهري
 const WAR_RULES := {
-	"cautious": {"relation": -95.0, "ratio": 3.0, "chance": 0.02},
-	"ambitious": {"relation": -55.0, "ratio": 1.8, "chance": 0.06},
-	"opportunist": {"relation": -65.0, "ratio": 2.2, "chance": 0.08},
+	"cautious": {"relation": -85.0, "ratio": 2.2, "chance": 0.03},
+	"ambitious": {"relation": -40.0, "ratio": 1.4, "chance": 0.08},
+	"opportunist": {"relation": -50.0, "ratio": 1.6, "chance": 0.10},
 }
 
 ## ميزان التسليح المرغوب: حصة كل صنف من ميزانية الشراء
@@ -83,6 +83,7 @@ static func _diplomacy(sim, c: Dictionary) -> void:
 	var id: String = c["id"]
 	if not sim.wars_of(id).is_empty():
 		return
+	_ambition(sim, c)
 	# تحسين العلاقات مع أقرب دولة صديقة غير حليفة
 	if sim.rng.chance(0.15):
 		for n in c["neighbors"]:
@@ -120,11 +121,15 @@ static func _war(sim, c: Dictionary, difficulty: int) -> void:
 	if float(c["stability"]) < 35.0:
 		return
 	var my_power: float = sim.bloc_power(id)
-	for n in c["neighbors"]:
+	for n in _targets(sim, c, rules):
 		var target: Dictionary = sim.country(n)
-		if target.is_empty() or target.get("overlord", "") != "":
+		if target.is_empty() or target.get("overlord", "") != "" or target.get("annexed", false):
 			continue
-		if sim.relation(id, n) > float(rules["relation"]):
+		# الردع النووي: الذكاء الاصطناعي لا يبدأ حرباً على دولة نووية
+		if float(target["military"].get("nukes", 0.0)) >= 1.0:
+			continue
+		var far: bool = not (n in c["neighbors"])
+		if sim.relation(id, n) > float(rules["relation"]) - (35.0 if far else 0.0):
 			continue
 		if sim.can_declare_war(id, n) != "":
 			continue
@@ -138,3 +143,57 @@ static func _war(sim, c: Dictionary, difficulty: int) -> void:
 		if sim.rng.chance(float(rules["chance"])):
 			sim.declare_war(id, n)
 			return
+
+
+const PROJECTION_SEA_POWER := 3000.0
+
+
+static func _sea_power(sim, c: Dictionary) -> float:
+	return sim.unit_power(c, "ships") + sim.unit_power(c, "submarines")
+
+
+## الأهداف الممكنة: الجيران، وللقوى البحرية الكبرى أعداء بعيدون يمكن الوصول إليهم بإنزال بحري
+static func _targets(sim, c: Dictionary, rules: Dictionary) -> Array:
+	var out: Array = c["neighbors"].duplicate()
+	var sea := _sea_power(sim, c)
+	if sea < PROJECTION_SEA_POWER or c.get("personality", "") == "cautious":
+		return out
+	for oid in sim.alive_ids():
+		if oid == c["id"] or oid in out:
+			continue
+		if _sea_power(sim, sim.country(oid)) * 2.0 < sea:
+			out.append(oid)
+	return out
+
+
+const RIVAL_DRIFT := 1.5     # تدهور العلاقة الشهري مع الخصم المختار
+
+
+## الطموح التوسعي: الدولة الطموحة أو الانتهازية تختار جاراً أضعف خصماً، فتتدهور العلاقات تدريجياً
+static func _ambition(sim, c: Dictionary) -> void:
+	var p: String = c.get("personality", "cautious")
+	if p == "cautious" or c.get("overlord", "") != "":
+		return
+	var id: String = c["id"]
+	var rules: Dictionary = WAR_RULES[p]
+	var rival: String = c.get("rival", "")
+	var rc: Dictionary = sim.country(rival)
+	if rival == "" or rc.is_empty() or rc.get("annexed", false) or rc.get("overlord", "") != "":
+		rival = ""
+		var best := 0.0
+		var mine: float = sim.bloc_power(id)
+		for n in c["neighbors"]:
+			var t: Dictionary = sim.country(n)
+			if t.is_empty() or t.get("annexed", false) or t.get("overlord", "") != "" or n in sim.allies(id):
+				continue
+			if float(t["military"].get("nukes", 0.0)) >= 1.0 or sim.relation(id, n) > 40.0:
+				continue
+			var ratio: float = mine / maxf(1.0, sim.bloc_power(n))
+			if ratio >= float(rules["ratio"]) and ratio > best:
+				best = ratio
+				rival = n
+		c["rival"] = rival
+		if rival != "":
+			sim.add_news("توتر متصاعد: %s تتهم %s بتهديد أمنها." % [c["name_ar"], sim.country(rival)["name_ar"]], "world")
+	if rival != "":
+		sim.change_relation(id, rival, -RIVAL_DRIFT)

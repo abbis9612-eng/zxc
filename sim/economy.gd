@@ -74,6 +74,8 @@ static func growth_rate(sim, c: Dictionary) -> float:
 	growth -= c["sanctions"].size() * 0.7 * sanction_mult
 	if float(c["debt"]) > float(c["gdp"]) * 1.2:
 		growth -= 1.0
+	# محطات الكهرباء المعطلة تبطئ الاقتصاد
+	growth -= float(c.get("logistics", {}).get("growth_penalty", 0.0))
 	growth += float(c["resources"].get("oil", 0.0)) / 100.0 * (float(g["oil_price"]) - 1.0) * 6.0
 	return growth
 
@@ -83,15 +85,14 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	var gov: Dictionary = sim.db.governments[c["government"]]
 	var gdp := float(c["gdp"])
 
-	# النمو
-	var growth := growth_rate(sim, c)
-	if dry:
+	# النمو: في المحاكاة الفعلية طُبق مسبقاً على كل المناطق (Territory.grow_all)
+	var growth: float
+	if dry or not c.has("growth_now"):
+		growth = growth_rate(sim, c)
 		gdp = maxf(1.0, gdp * (1.0 + growth / 1200.0))
 		c["gdp"] = gdp
 	else:
-		# النمو يُطبق على كل منطقة تملكها الدولة، والناتج = مجموع المناطق
-		Territory.grow(sim, c["id"], growth)
-		gdp = float(c["gdp"])
+		growth = float(c["growth_now"])
 
 	# الميزانية الشهرية بالمليار
 	var revenue := gdp * float(c["tax_rate"]) / 12.0
@@ -153,6 +154,8 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 		target -= 5.0
 	# المناطق المحتلة تحتاج قوات وتثير الاحتجاج
 	target -= minf(10.0, Territory.occupied_count(sim, c["id"]) * 0.4)
+	# نقص الغذاء (خاصة تحت الحصار) يغضب الشارع
+	target -= float(c.get("logistics", {}).get("food_penalty", 0.0))
 	target = clampf(target, 0.0, 100.0)
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 

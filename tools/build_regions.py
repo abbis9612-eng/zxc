@@ -2,15 +2,18 @@
 
 الاستعمال:
     pip install shapely
-    python3 tools/build_regions.py <ne_10m_admin_1_states_provinces.geojson> <ne_10m_populated_places_simple.geojson>
+    python3 tools/build_regions.py <ne_10m_admin_1_states_provinces.geojson> <ne_10m_populated_places_simple.geojson> <ne_10m_coastline.geojson>
 
 يكتب:
     data/regions.json      المناطق: الاسم، الدولة، حصة السكان والاقتصاد، العاصمة، المناطق المجاورة
     data/regions_geo.json  أشكال المناطق مبسطة للرسم
 
 حصص السكان والاقتصاد تقديرات اللعبة: من سكان المدن في كل منطقة (Natural Earth) مع وزن للمساحة.
+الموارد: تقييم الدولة في countries.json يُوزَّع على مناطقها حسب tools/resource_hotspots.json ثم بالمساحة أو السكان.
+المنشآت: تُوزَّع آلياً حسب حجم الجيش والاقتصاد والسواحل (تقديرات اللعبة، لا مواقع عسكرية حقيقية).
 """
 import json
+import math
 import sys
 from collections import defaultdict
 
@@ -64,7 +67,13 @@ NAME_FIXES = {
     ("USA", "District of Columbia"): "واشنطن العاصمة",
     ("ARE", "Abu Dhabi"): "أبوظبي",
     ("JOR", "Amman"): "عمّان",
+    ("KOR", "Busan"): "بوسان",
+    ("KOR", "Seoul"): "سيول",
+    ("JPN", "Fukuoka"): "فوكوكا",
 }
+# جوار حقيقي تفوته فجوات صغيرة في بيانات المصدر
+EXTRA_NEIGHBORS = [("IRQ", "Baghdad", "Wasit")]
+RESOURCES = ["oil", "gas", "steel", "rare_earth", "uranium", "food"]
 NAME_PREFIXES = ["محافظة ", "ولاية ", "مقاطعة ", "إقليم ", "منطقة ", "محافظه "]
 
 
@@ -92,7 +101,7 @@ def flat_polys(geom, min_area):
     return out
 
 
-def main(admin_path, places_path):
+def main(admin_path, places_path, coast_path):
     countries = json.load(open(f"{ROOT}/data/countries.json"))["countries"]
     playable = {c["id"]: c for c in countries}
     feats = json.load(open(admin_path))["features"]
@@ -143,6 +152,25 @@ def main(admin_path, places_path):
                 nbrs[i].add(j)
                 nbrs[j].add(i)
 
+    by_name = {(r["country"], r["name_en"]): i for i, r in enumerate(regions)}
+    for cc, a, b in EXTRA_NEIGHBORS:
+        i, j = by_name[(cc, a)], by_name[(cc, b)]
+        nbrs[i].add(j)
+        nbrs[j].add(i)
+
+    # السواحل: منطقة يمر بها خط ساحل بطول معقول
+    coast_lines = [shape(f["geometry"]) for f in json.load(open(coast_path))["features"]]
+    coast_tree = STRtree(coast_lines)
+    coastal = set()
+    for i, r in enumerate(regions):
+        g = r["geom"].buffer(0.02)
+        length = 0.0
+        for j in coast_tree.query(g):
+            length += g.intersection(coast_lines[int(j)]).length
+            if length > 0.15:
+                coastal.add(i)
+                break
+
     # السكان من المدن
     places = json.load(open(places_path))["features"]
     raw_tree = STRtree([r["geom"] for r in regions])
@@ -171,6 +199,8 @@ def main(admin_path, places_path):
         gdp_w = {i: weights[i] * (1.4 if i == cap_i else 1.0) for i in idxs}
         sw, sg = sum(weights.values()), sum(gdp_w.values())
         country_area = sum(regions[i]["geom"].area for i in idxs)
+        res = distribute_resources(cc, c, idxs, regions, weights, gdp_w, sw, sg, total_area)
+        fac = place_facilities(c, idxs, regions, weights, gdp_w, coastal, res, cap_i)
         tol = 0.02 if country_area < 50 else (0.05 if country_area < 500 else 0.12)
         for i in idxs:
             r = regions[i]
@@ -183,6 +213,9 @@ def main(admin_path, places_path):
                 "lat": round(rp.y, 2), "lon": round(rp.x, 2),
                 "pop_share": round(weights[i] / sw, 5), "gdp_share": round(gdp_w[i] / sg, 5),
                 "capital": i == cap_i,
+                "coastal": i in coastal,
+                "resources": {k: v for k, v in res[i].items() if v > 0.0},
+                "facilities": fac[i],
                 "neighbors": sorted(regions[j]["id"] for j in nbrs[i]),
             })
             out_geo[r["id"]] = flat_polys(simple, tol * tol * 4)
@@ -199,7 +232,70 @@ def main(admin_path, places_path):
     print("مناطق:", len(out_regions), dict(counts))
     missing = [r["name_en"] for r in out_regions if r["name_ar"] == r["name_en"]]
     print("بلا اسم عربي:", len(missing), missing[:20])
+    totals = defaultdict(int)
+    for r in out_regions:
+        for k, v in r["facilities"].items():
+            totals[k] += v
+    print("المنشآت:", dict(totals), "ساحلية:", sum(1 for r in out_regions if r["coastal"]))
 
+
+def distribute_resources(cc, c, idxs, regions, weights, gdp_w, sw, sg, total_area):
+    """تقييم الدولة لكل مورد (0-100) يُقسَّم على مناطقها: المناطق الغنية أولاً ثم الباقي."""
+    hot = HOTSPOTS.get(cc, {})
+    out = {i: {} for i in idxs}
+    for k in RESOURCES:
+        total = float(c["resources"].get(k, 0))
+        named = {}
+        for name, w in hot.get(k, {}).items():
+            for i in idxs:
+                if regions[i]["name_en"] == name:
+                    named[i] = w
+        rest = max(0.0, 1.0 - sum(named.values()))
+        if k == "food":
+            base = {i: 0.5 * weights[i] / sw + 0.5 * regions[i]["geom"].area / total_area for i in idxs}
+        elif k == "steel":
+            base = {i: gdp_w[i] / sg for i in idxs}
+        else:
+            base = {i: regions[i]["geom"].area / total_area for i in idxs}
+        bs = sum(base.values()) or 1.0
+        for i in idxs:
+            share = named.get(i, 0.0) + rest * base[i] / bs
+            out[i][k] = round(total * share, 3)
+    return out
+
+
+def place_facilities(c, idxs, regions, weights, gdp_w, coastal, res, cap_i):
+    """توزيع آلي للمنشآت حسب حجم الجيش والاقتصاد (تقديرات اللعبة)."""
+    m = c["military"]
+    fac = {i: {} for i in idxs}
+
+    def put(kind, ranked, n):
+        if not ranked:
+            return
+        for k in range(n):
+            i = ranked[k % len(ranked)]
+            fac[i][kind] = fac[i].get(kind, 0) + 1
+
+    by_pop = sorted(idxs, key=lambda i: (-weights[i], regions[i]["id"]))
+    by_gdp = sorted(idxs, key=lambda i: (-gdp_w[i], regions[i]["id"]))
+    spread = sorted(idxs, key=lambda i: (-(weights[i] * 0.5 + math.sqrt(regions[i]["geom"].area)), regions[i]["id"]))
+    coast = [i for i in by_gdp if i in coastal]
+    by_oil = sorted([i for i in idxs if res[i].get("oil", 0) > 0.5], key=lambda i: (-res[i]["oil"], regions[i]["id"]))
+
+    put("airbase", spread, max(1, min(30, round(m["fighters"] / 60) + 1)))
+    if coast:
+        put("port", coast, max(1, min(15, round((m["ships"] + m["submarines"]) / 12) + 1)))
+    put("factory", by_gdp, max(1, min(14, round(c["gdp"] / 400) + 1)))
+    put("refinery", by_oil[:4] if by_oil else by_gdp[:1], max(1, min(6, round(c["resources"].get("oil", 0) / 20) + 1)))
+    put("power_plant", by_pop, max(1, min(10, round(len(idxs) / 5) + 1)))
+    if m.get("nukes", 0) > 0:
+        site = next((i for i in sorted(idxs, key=lambda i: (-regions[i]["geom"].area, regions[i]["id"])) if i != cap_i), cap_i)
+        put("nuclear", [site], 1)
+    return fac
+
+
+HOTSPOTS = {}
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    HOTSPOTS = json.load(open(f"{ROOT}/tools/resource_hotspots.json"))
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

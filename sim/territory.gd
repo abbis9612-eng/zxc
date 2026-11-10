@@ -1,5 +1,5 @@
-## المناطق والاحتلال: كل دولة مقسمة إلى مناطقها الإدارية الحقيقية.
-## الناتج والسكان يُحسبان من مجموع المناطق التي تسيطر عليها الدولة،
+## المناطق والاحتلال والمنشآت: كل دولة مقسمة إلى مناطقها الإدارية الحقيقية.
+## الناتج والسكان والموارد والمنشآت تُحسب من مجموع المناطق التي تسيطر عليها الدولة،
 ## والحرب تتقدم منطقة بمنطقة على الجبهات بين المناطق المتجاورة.
 extends RefCounted
 
@@ -8,6 +8,14 @@ const OCCUPIED_START_EFF := 0.3
 const CAPTURE_LOYALTY := 10.0
 const CAPITAL_MIN_DOMINANCE := 0.3   # اقتحام العاصمة يحتاج تفوقاً واضحاً في المعركة
 const CAPITAL_CAPTURE_CHANCE := 0.35
+const FACILITY_TYPES := ["airbase", "port", "factory", "refinery", "power_plant", "nuclear"]
+const FACILITY_NAMES := {
+	"airbase": "قاعدة جوية", "port": "ميناء", "factory": "مصنع حربي",
+	"refinery": "مصفاة", "power_plant": "محطة كهرباء", "nuclear": "منشأة نووية",
+}
+const RESOURCE_NAMES := {"oil": "النفط", "gas": "الغاز", "steel": "الصلب", "rare_earth": "معادن نادرة", "uranium": "اليورانيوم", "food": "الغذاء"}
+
+const Logistics := preload("res://sim/logistics.gd")
 
 
 # ------------------------------------------------------------------ الإعداد
@@ -22,10 +30,10 @@ static func init_state(sim) -> void:
 			"gdp": float(c["gdp"]) * float(info["gdp_share"]),
 			"pop": float(c["population"]) * float(info["pop_share"]),
 			"loyalty": 100.0, "occupied_months": 0,
+			"damaged": {},     # نوع المنشأة -> أشهر متبقية للإصلاح
 		}
 	sim.state["regions"] = regions
-	for id in sim.state["order"]:
-		recompute(sim, id)
+	recompute_all(sim)
 
 
 # ------------------------------------------------------------------ أدوات
@@ -47,12 +55,7 @@ static func core_regions(id: String, db) -> Array:
 
 
 static func occupied_count(sim, id: String) -> int:
-	var n := 0
-	for rid in sim.db.region_ids:
-		var r: Dictionary = sim.state["regions"][rid]
-		if r["owner"] == id and r["core"] != id:
-			n += 1
-	return n
+	return int(sim.country(id).get("occupied_regions", 0))
 
 
 ## إنتاجية المنطقة لمالكها: المحتلة حديثاً تنتج أقل حتى تندمج
@@ -62,27 +65,85 @@ static func efficiency(r: Dictionary) -> float:
 	return OCCUPIED_START_EFF + (1.0 - OCCUPIED_START_EFF) * minf(1.0, float(r["occupied_months"]) / INTEGRATION_MONTHS)
 
 
+## عدد منشآت نوع معين في منطقة، والعامل منها
+static func facility_count(sim, rid: String, ftype: String) -> int:
+	return int(sim.db.regions[rid].get("facilities", {}).get(ftype, 0))
+
+
+static func facility_working(sim, rid: String, ftype: String) -> bool:
+	return not sim.state["regions"][rid].get("damaged", {}).has(ftype)
+
+
+## يعيد حساب كل الدول في مرور واحد على المناطق (سريع)
+static func recompute_all(sim) -> void:
+	var acc := {}
+	for id in sim.state["order"]:
+		acc[id] = _empty_acc()
+	_accumulate(sim, acc)
+	for id in acc:
+		_apply_acc(sim, id, acc[id])
+
+
 static func recompute(sim, id: String) -> void:
-	var c: Dictionary = sim.country(id)
-	if c.is_empty():
+	if sim.country(id).is_empty():
 		return
-	var gdp := 0.0
-	var pop := 0.0
+	var acc := {id: _empty_acc()}
+	_accumulate(sim, acc)
+	_apply_acc(sim, id, acc[id])
+
+
+static func _empty_acc() -> Dictionary:
+	var fac := {}
+	for t in FACILITY_TYPES:
+		fac[t] = {"total": 0, "working": 0}
+	return {"gdp": 0.0, "pop": 0.0, "occ": 0, "res": {"oil": 0.0, "gas": 0.0, "steel": 0.0, "rare_earth": 0.0, "uranium": 0.0, "food": 0.0}, "fac": fac}
+
+
+static func _accumulate(sim, acc: Dictionary) -> void:
 	for rid in sim.db.region_ids:
 		var r: Dictionary = sim.state["regions"][rid]
-		if r["owner"] == id:
-			gdp += float(r["gdp"]) * efficiency(r)
-			pop += float(r["pop"])
-	c["gdp"] = maxf(0.5, gdp)
-	c["population"] = maxf(0.05, pop)
+		var own: String = r["owner"]
+		if not acc.has(own):
+			continue
+		var a: Dictionary = acc[own]
+		var eff := efficiency(r)
+		a["gdp"] += float(r["gdp"]) * eff
+		a["pop"] += float(r["pop"])
+		if own != r["core"]:
+			a["occ"] += 1
+		var info: Dictionary = sim.db.regions[rid]
+		var res: Dictionary = info.get("resources", {})
+		for k in res:
+			a["res"][k] += float(res[k]) * eff
+		var fac: Dictionary = info.get("facilities", {})
+		if not fac.is_empty():
+			var dmg: Dictionary = r.get("damaged", {})
+			for t in fac:
+				var n := int(fac[t])
+				a["fac"][t]["total"] += n
+				if not dmg.has(t):
+					a["fac"][t]["working"] += n
 
 
-static func grow(sim, id: String, growth_annual_pct: float) -> void:
-	var f := 1.0 + growth_annual_pct / 1200.0
-	for rid in owned(sim, id):
+static func _apply_acc(sim, id: String, a: Dictionary) -> void:
+	var c: Dictionary = sim.country(id)
+	c["gdp"] = maxf(0.5, float(a["gdp"]))
+	c["population"] = maxf(0.05, float(a["pop"]))
+	c["occupied_regions"] = a["occ"]
+	for k in a["res"]:
+		a["res"][k] = snappedf(float(a["res"][k]), 0.01)
+	c["resources"] = a["res"]
+	c["facilities"] = a["fac"]
+	c["logistics"] = Logistics.compute(sim, c)
+
+
+## النمو الشهري لكل الدول في مرور واحد
+static func grow_all(sim, growth_by_id: Dictionary) -> void:
+	for rid in sim.db.region_ids:
 		var r: Dictionary = sim.state["regions"][rid]
-		r["gdp"] = maxf(0.001, float(r["gdp"]) * f)
-	recompute(sim, id)
+		var g: float = growth_by_id.get(r["owner"], 0.0)
+		r["gdp"] = maxf(0.001, float(r["gdp"]) * (1.0 + g / 1200.0))
+	recompute_all(sim)
 
 
 static func scale_gdp(sim, id: String, factor: float) -> void:
@@ -114,6 +175,30 @@ static func has_land_front(sim, side: Array, enemies: Array) -> bool:
 	return not _front_candidates(sim, side, enemies).is_empty()
 
 
+# ------------------------------------------------------------------ المنشآت
+
+## تعطيل منشأة بضربة: تبقى معطلة عدة أشهر
+static func damage_facility(sim, rid: String, ftype: String, months: int) -> void:
+	var r: Dictionary = sim.state["regions"][rid]
+	if not r.has("damaged"):
+		r["damaged"] = {}
+	r["damaged"][ftype] = maxi(months, int(r["damaged"].get(ftype, 0)))
+	recompute(sim, r["owner"])
+
+
+## منشآت عاملة لدى طرف ما، مرتبة: الأقرب إلى نقطة مرجعية أولاً
+static func working_facilities(sim, side: Array, ftype: String, near_rid: String = "") -> Array:
+	var out: Array = []
+	for rid in sim.db.region_ids:
+		if not (sim.state["regions"][rid]["owner"] in side):
+			continue
+		if facility_count(sim, rid, ftype) > 0 and facility_working(sim, rid, ftype):
+			out.append(rid)
+	if near_rid != "" and out.size() > 1:
+		out.sort_custom(func(a, b): return _dist2(sim, a, near_rid) < _dist2(sim, b, near_rid))
+	return out
+
+
 # ------------------------------------------------------------------ التقدم على الجبهة
 
 ## مناطق الخاسر الملاصقة لمناطق الرابح
@@ -124,7 +209,7 @@ static func _front_candidates(sim, winners: Array, losers: Array) -> Array:
 		if not (r["owner"] in losers):
 			continue
 		for n in sim.db.regions[rid]["neighbors"]:
-			if sim.state["regions"].has(n) and sim.state["regions"][n]["owner"] in winners:
+			if sim.state["regions"][n]["owner"] in winners:
 				out.append(rid)
 				break
 	return out
@@ -157,10 +242,19 @@ static func _pick_target(sim, cands: Array, winners: Array, loser_lead: String) 
 
 
 ## يتقدم الرابح gains مناطق. naval_superiority يسمح بإنزال بحري حين لا توجد جبهة برية.
-static func advance(sim, w: Dictionary, winners: Array, losers: Array, gains: int, naval_superiority: float, dominance: float = 1.0) -> Array:
+## كلفة احتلال منطقة من رصيد التقدم: المناطق الأغنى والأكثر سكاناً أصعب
+static func capture_cost(sim, rid: String) -> float:
+	var info: Dictionary = sim.db.regions[rid]
+	var c := 0.7 + 3.0 * float(info["gdp_share"])
+	if info["capital"]:
+		c *= 1.5
+	return minf(c, 3.0)
+
+
+static func advance(sim, w: Dictionary, winners: Array, losers: Array, max_gains: int, naval_superiority: float, dominance: float = 1.0, progress_key: String = "") -> Array:
 	var taken: Array = []
 	var loser_lead: String = losers[0]
-	for i in gains:
+	for i in max_gains:
 		var cands := _front_candidates(sim, winners, losers)
 		# العاصمة محصنة: لا تسقط إلا بتفوق واضح وبعد حصار
 		var cap := capital_region(sim, loser_lead)
@@ -172,18 +266,23 @@ static func advance(sim, w: Dictionary, winners: Array, losers: Array, gains: in
 		var rid := ""
 		if not cands.is_empty():
 			rid = _pick_target(sim, cands, winners, loser_lead)
-		elif naval_superiority > 0.6 and taken.is_empty():
-			# إنزال بحري: أقرب منطقة للعدو إلى عاصمة الرابح
+		elif naval_superiority > 0.6 and taken.is_empty() and not working_facilities(sim, winners, "port").is_empty():
+			# إنزال بحري يحتاج ميناءً عاملاً: أقرب منطقة ساحلية للعدو إلى عاصمة الرابح
 			var my_cap := capital_region(sim, winners[0])
 			var best := INF
 			for r2 in sim.db.region_ids:
-				if sim.state["regions"][r2]["owner"] in losers and my_cap != "":
+				if sim.state["regions"][r2]["owner"] in losers and sim.db.regions[r2].get("coastal", true) and my_cap != "":
 					var d := _dist2(sim, r2, my_cap)
 					if d < best:
 						best = d
 						rid = r2
 		if rid == "":
 			break
+		if progress_key != "":
+			var cost := capture_cost(sim, rid)
+			if float(w.get(progress_key, 0.0)) < cost:
+				break
+			w[progress_key] = float(w[progress_key]) - cost
 		# من يأخذ المنطقة: صاحبها الأصلي إن كان من الرابحين، وإلا قائد الرابحين
 		var r: Dictionary = sim.state["regions"][rid]
 		var new_owner: String = r["core"] if r["core"] in winners else winners[0]
@@ -246,7 +345,7 @@ static func war_score(sim, w: Dictionary) -> float:
 	return clampf(s, -100.0, 100.0)
 
 
-## هل انهارت الدولة؟ سقوط العاصمة مع خسارة أرض كبيرة، أو خسارة معظم الأرض
+## هل انهارت الدولة؟ سقوط العاصمة مع خسارة نصف الأرض، أو خسارة معظمها
 static func collapsed(sim, id: String, enemies: Array) -> bool:
 	var c: Dictionary = sim.country(id)
 	var occ := occupied_share(sim, id, enemies)
@@ -274,17 +373,22 @@ static func revert_war_regions(sim, w: Dictionary, keep_loser: String = "", keep
 		capture(sim, rid, core)
 
 
-# ------------------------------------------------------------------ الشهري: الاندماج والمقاومة
+# ------------------------------------------------------------------ الشهري: الاندماج والإصلاح والمقاومة
 
 static func monthly(sim) -> void:
-	var touched := {}
 	for rid in sim.db.region_ids:
 		var r: Dictionary = sim.state["regions"][rid]
+		# إصلاح المنشآت المعطلة
+		var dmg: Dictionary = r.get("damaged", {})
+		if not dmg.is_empty():
+			for t in dmg.keys():
+				dmg[t] = int(dmg[t]) - 1
+				if int(dmg[t]) <= 0:
+					dmg.erase(t)
 		if r["owner"] == r["core"]:
 			continue
 		r["occupied_months"] = int(r["occupied_months"]) + 1
 		r["loyalty"] = minf(100.0, float(r["loyalty"]) + 2.5)
-		touched[r["owner"]] = true
 		# المقاومة: المناطق المحتلة قد تثور وتعود لدولتها إن كانت لا تزال قائمة
 		var core: Dictionary = sim.country(r["core"])
 		if core.get("annexed", false) or float(r["loyalty"]) >= 35.0:
@@ -293,7 +397,5 @@ static func monthly(sim) -> void:
 		if sim.rng.chance(p):
 			var old_owner: String = r["owner"]
 			capture(sim, rid, r["core"])
-			touched[old_owner] = true
 			sim.add_news("ثورة في %s تطرد قوات %s." % [sim.db.regions[rid]["name_ar"], sim.country(old_owner)["name_ar"]], "war")
-	for id in touched:
-		recompute(sim, id)
+	# إعادة الحساب تتم بعدها في grow_all

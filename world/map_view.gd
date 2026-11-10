@@ -13,7 +13,13 @@ const C_OCCUPIED_LINE := Color(0, 0, 0, 0.35)
 const MAP_W := 360.0
 const MAP_H := 180.0
 
-enum Layer { POLITICAL, POWER, ECONOMY, STABILITY }
+enum Layer { POLITICAL, POWER, ECONOMY, STABILITY, RESOURCES }
+
+## رموز المنشآت على الخريطة: حرف عربي داخل دائرة ملونة (يعمل مع أي خط)
+const FACILITY_MARKS := {
+	"airbase": ["ج", Color("5fa8e8")], "port": ["م", Color("3fc1c9")], "factory": ["ص", Color("c9a03f")],
+	"refinery": ["ف", Color("e07b39")], "power_plant": ["ك", Color("e8d85f")], "nuclear": ["ن", Color("b05fe8")],
+}
 
 const C_BG := Color("0a1018")
 const C_GRID := Color(0.25, 0.45, 0.6, 0.10)
@@ -208,6 +214,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if sim != null:
 		_draw_region_labels()
+		_draw_facilities()
 		_draw_wars()
 		_draw_capitals()
 
@@ -238,6 +245,8 @@ func _owner_of(shape: Dictionary) -> String:
 
 func _region_color(shape: Dictionary) -> Color:
 	var own := _owner_of(shape)
+	if layer == Layer.RESOURCES:
+		return _resource_color(shape)
 	var col := _fill_color(own)
 	if own != shape["country"]:
 		# منطقة محتلة: لون المحتل ممزوج بلون صاحبها الأصلي
@@ -245,6 +254,48 @@ func _region_color(shape: Dictionary) -> Color:
 	if shape["id"] == selected_region:
 		col = col.lightened(0.2)
 	return col
+
+
+func _resource_color(shape: Dictionary) -> Color:
+	var res: Dictionary = _region_info[shape["id"]].get("resources", {})
+	var energy := float(res.get("oil", 0.0)) + float(res.get("gas", 0.0)) * 0.7
+	var other := float(res.get("steel", 0.0)) + float(res.get("rare_earth", 0.0)) + float(res.get("uranium", 0.0))
+	var col := Color("1d2630")
+	col = col.lerp(Color("d9822b"), clampf(energy / 25.0, 0.0, 1.0))
+	col = col.lerp(Color("6a7fd1"), clampf(other / 40.0, 0.0, 0.6))
+	if shape["id"] == selected_region:
+		col = col.lightened(0.25)
+	return col
+
+
+func _draw_facilities() -> void:
+	var s := _scale()
+	if s < 10.0:
+		return
+	var screen := Rect2(Vector2(-20, -20), size + Vector2(40, 40))
+	for shape in _regions:
+		var fac: Dictionary = _region_info[shape["id"]].get("facilities", {})
+		if fac.is_empty():
+			continue
+		# عند الاقتراب المتوسط: منشآت الدولة المختارة فقط
+		if s < 24.0 and _owner_of(shape) != selected and shape["country"] != selected:
+			continue
+		var base := map_to_screen(shape["center"])
+		if not screen.has_point(base):
+			continue
+		var dmg: Dictionary = {}
+		if sim != null:
+			dmg = sim.state["regions"][shape["id"]].get("damaged", {})
+		var x := -float(fac.size() - 1) * 9.0
+		for t in fac:
+			var mark: Array = FACILITY_MARKS.get(t, ["?", Color.WHITE])
+			var p := base + Vector2(x, 16)
+			var col: Color = Color("e05a55") if dmg.has(t) else mark[1]
+			draw_circle(p, 8.0, Color(0, 0, 0, 0.7))
+			draw_circle(p, 7.0, col)
+			var w := _font.get_string_size(mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+			draw_string(_font, p + Vector2(-w * 0.5, 4), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
+			x += 18.0
 
 
 func _draw_region_labels() -> void:
