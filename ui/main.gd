@@ -15,6 +15,7 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
+const Development := preload("res://sim/development.gd")
 const Icons := preload("res://ui/icons.gd")
 const Flags := preload("res://ui/flags.gd")
 const TouchScroll := preload("res://ui/touch_scroll.gd")
@@ -24,8 +25,12 @@ enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
 const TAB_ICONS := ["state", "economy", "army", "research", "diplomacy", "intel", "news"]
 const LAYERS := [["سياسي", "layers"], ["القوة", "army"], ["الاقتصاد", "economy"], ["الاستقرار", "stability"], ["الموارد", "r_oil"], ["المدى", "range"]]
-const BRANCH_ICONS := {"land": "unit", "air": "airbase", "sea": "port", "missile": "target", "air_defense": "radar"}
+const BRANCH_ICONS := {"land": "unit", "air": "airbase", "sea": "port", "missile": "target", "air_defense": "radar", "space": "research", "cyber": "intel", "nuclear": "warning"}
 const BRANCH_EXAMPLE := {"land": "armor", "air": "fighters", "sea": "ships", "missile": "missiles", "air_defense": "air_defense"}
+const DOCTRINE_ORDER := ["balanced", "mil_ind", "sci_tech", "eco_inv", "unity", "def_fort"]
+const TACTIC_ORDER := ["balanced", "sead", "blitz", "attrition", "strike", "naval", "ew"]
+const TRACK_ORDER := ["space", "cyber", "nuclear"]
+const PROJECT_ORDER := ["refinery", "factory", "power_plant", "airbase", "port"]
 const NEWS_COLORS := {"war": "#e05a55", "nuke": "#ff7b29", "peace": "#4cc38a", "good": "#4cc38a", "world": "#7fb8e6", "info": "#c9d4dc"}
 
 var mobile := false
@@ -806,7 +811,13 @@ func _country_title(c: Dictionary) -> HBoxContainer:
 	var h := UI.row()
 	h.add_theme_constant_override("separation", 10)
 	h.add_child(Flags.rect(c.get("flag", ""), 40))
-	h.add_child(UI.title(c["name_ar"], 22))
+	var v := UI.col()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(UI.title(c["name_ar"], 22))
+	var known := str(c.get("known_ar", ""))
+	if known != "":
+		v.add_child(UI.label(known, UI.C_MUTED, 13))
+	h.add_child(v)
 	return h
 
 
@@ -1706,6 +1717,16 @@ func _fill_state() -> void:
 			s.change_government(pid, gid)
 		_dirty = true))
 	box.add_child(UI.sep())
+	_doctrine_section(box, p)
+	var projects: Array = p.get("projects", [])
+	if not projects.is_empty():
+		box.add_child(UI.sep())
+		box.add_child(UI.section("مشاريع البناء", "factory"))
+		for o in projects:
+			var nm: String = s.db.regions[o["region"]]["name_ar"]
+			var pn: String = s.db.development["projects"][o["type"]]["name_ar"]
+			box.add_child(UI.kv("%s في %s" % [pn, nm], "%d يوماً" % int(ceilf(float(o["days_left"]))), UI.C_MUTED))
+	box.add_child(UI.sep())
 
 	box.add_child(UI.section("السياسات", "check"))
 	var base: Dictionary = Economy.preview(s, p, {})
@@ -1849,6 +1870,93 @@ func _on_buy() -> void:
 	_dirty = true
 
 
+func _doctrine_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	var pid: String = p["id"]
+	box.add_child(UI.section("اتجاه الدولة", "state"))
+	var cur: Dictionary = s.db.development["doctrines"][p.get("doctrine", "balanced")]
+	box.add_child(UI.label("الآن: %s. %s" % [cur["name_ar"], cur["desc_ar"]], UI.C_TEXT, 14))
+	var left := int(p.get("doctrine_until", 0)) - int(s.state["day"])
+	if left > 0:
+		box.add_child(UI.label("يمكن تغيير الاتجاه بعد %d يوماً. التغيير يكلف %d استقراراً." % [left, int(s.db.development["doctrine_stability_cost"])], UI.C_MUTED, 13))
+	else:
+		box.add_child(UI.label("التغيير يكلف %d استقراراً ولا يُعاد قبل سنة. الأثر مكتوب على كل خيار." % int(s.db.development["doctrine_stability_cost"]), UI.C_MUTED, 13))
+	for doc in DOCTRINE_ORDER:
+		if doc == p.get("doctrine", "balanced"):
+			continue
+		var info: Dictionary = s.db.development["doctrines"][doc]
+		var b := UI.button("%s — %s" % [info["name_ar"], info["desc_ar"]], _confirm_doctrine.bind(doc))
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(b)
+
+
+func _confirm_doctrine(doc: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var why: String = Development.can_set_doctrine(s, pid, doc)
+	if why != "":
+		_toast(why)
+		return
+	var info: Dictionary = s.db.development["doctrines"][doc]
+	var cost := int(s.db.development["doctrine_stability_cost"])
+	var go := func():
+		_do(Development.set_doctrine(s, pid, doc), "تغيّر اتجاه الدولة.")
+	_show_dialog("اتجاه: %s؟" % info["name_ar"], "%s\nالتغيير يكلف %d استقراراً، ثم يُقفل لسنة." % [info["desc_ar"], cost], [{"text": "أختار هذا الاتجاه", "cb": go}, {"text": "تراجع"}])
+
+
+func _import_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	var pid: String = p["id"]
+	box.add_child(UI.sep())
+	box.add_child(UI.section("استيراد السلاح", "trade"))
+	box.add_child(UI.label("الحليف يبيعك جيله. غير الحليف يبيع جيلاً أقل، وتحتاج علاقة 20 على الأقل.", UI.C_MUTED, 13))
+	for o in p.get("imports", []):
+		box.add_child(UI.kv("شحنة %s من %s" % [s.db.units[o["type"]]["name_ar"], s.country(o["from"])["name_ar"]], "جيل %d · %d يوماً" % [int(o["gen"]), int(ceilf(float(o["days_left"])))], UI.C_ACCENT))
+	var type_ids: Array = []
+	var types := OptionButton.new()
+	for u in s.db.units:
+		if u == "nukes":
+			continue
+		type_ids.append(u)
+		types.add_item(s.db.units[u]["name_ar"])
+	var offers: Array = []
+	var sellers := OptionButton.new()
+	var count := SpinBox.new()
+	count.min_value = 1
+	count.max_value = 500
+	count.value = 4
+	var detail := UI.label("", UI.C_MUTED, 14)
+	var show_offer := func() -> void:
+		if offers.is_empty():
+			detail.text = "لا دولة تبيعك هذا السلاح الآن."
+			return
+		var o: Dictionary = offers[clampi(sellers.selected, 0, offers.size() - 1)]
+		detail.text = "الجيل %d يصل بعد %d يوماً. %s" % [int(o["gen"]), int(o["days"]), "الحليف يسلّم جيله." if o["ally"] else "غير الحليف يسلّم جيلاً أقل من جيله."]
+	var refresh := func() -> void:
+		offers.clear()
+		sellers.clear()
+		var ut: String = type_ids[types.selected]
+		for o in Development.suppliers(s, pid, ut):
+			offers.append(o)
+			var tag := "حليف، نفس الجيل" if o["ally"] else "غير حليف، جيل أقل"
+			sellers.add_item("%s · جيل %d · %s · %s" % [s.country(o["id"])["name_ar"], int(o["gen"]), tag, UI.money(float(o["cost"]) * count.value)])
+		show_offer.call()
+	types.item_selected.connect(func(_i): refresh.call())
+	count.value_changed.connect(func(_v): refresh.call())
+	sellers.item_selected.connect(func(_i): show_offer.call())
+	refresh.call()
+	box.add_child(types)
+	box.add_child(sellers)
+	box.add_child(UI.row([UI.label("العدد:"), count]))
+	box.add_child(detail)
+	box.add_child(UI.button("اطلب الشحنة", func():
+		if offers.is_empty():
+			_toast("لا بائع متاح.")
+			return
+		var o: Dictionary = offers[sellers.selected]
+		_do(Development.import_units(s, pid, o["id"], type_ids[types.selected], count.value), "طُلبت الشحنة وتصل بعد %d يوماً." % int(o["days"]))))
+
+
 func _fill_army() -> void:
 	_update_buy_cost()
 	UI.clear(army_info)
@@ -1868,14 +1976,21 @@ func _fill_army() -> void:
 		var info: Dictionary = s.db.units[u]
 		var gen := int(p["tech"][info["branch"]])
 		var n := float(p["military"][u])
-		var line := UI.kv("%s" % info["name_ar"], "%s  ·  %s" % [s.fmt_num(n), info["gens"][gen - 1]])
-		army_info.add_child(line)
+		var batches: Array = p.get("stocks", {}).get(u, [])
+		var shown := "%s  ·  %s" % [s.fmt_num(n), info["gens"][gen - 1]]
+		if batches.size() > 1:
+			var parts := PackedStringArray()
+			for b in batches:
+				parts.append("%s · جيل %d" % [s.fmt_num(b["n"]), int(b["gen"])])
+			shown = "، ".join(parts)
+		army_info.add_child(UI.kv("%s" % info["name_ar"], shown))
 	var q: Array = p["production"]
 	if not q.is_empty():
 		army_info.add_child(UI.sep())
 		army_info.add_child(UI.section("خطوط الإنتاج", "factory"))
 		for o in q:
 			army_info.add_child(UI.kv("%s × %s" % [s.db.units[o["type"]]["name_ar"], s.fmt_num(o["count"])], "%d يوماً" % int(ceilf(float(o["days_left"]))), UI.C_MUTED))
+	_import_section(army_info, p)
 
 
 # ------------------------------------------------------------------ تبويب البحث
@@ -1906,13 +2021,13 @@ func _fill_research() -> void:
 	head.add_child(Icons.icon_rect(BRANCH_ICONS.get(focus, "research"), UI.C_ACCENT_TEXT, 24))
 	if gen_f < 5:
 		head.add_child(_nowrap(_big(_weapon_name(focus, gen_f + 1), 17)))
-		var sub := _nowrap(UI.label("%s · الجيل %d" % [s.db.branches[focus], gen_f + 1], UI.C_MUTED, 13))
+		var sub := _nowrap(UI.label("%s · الجيل %d" % [_focus_title(focus), gen_f + 1], UI.C_MUTED, 13))
 		sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(sub)
 		head.add_child(_nowrap(UI.label("يكتمل بعد", UI.C_MUTED, 13)))
 		head.add_child(_nowrap(_big(_human_months(months), 17)))
 	else:
-		var done := _nowrap(_big("وصلت لأعلى جيل في %s" % s.db.branches[focus], 17))
+		var done := _nowrap(_big("وصلت لأعلى جيل في %s" % _focus_title(focus), 17))
 		done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(done)
 	hv.add_child(head)
@@ -1936,6 +2051,11 @@ func _fill_research() -> void:
 	# 3) سلّم الأجيال لكل فرع، مع علم العدو فوق جيله
 	for br in s.db.branches:
 		box.add_child(_research_row(p, String(br), rc if rival_known else {}))
+	box.add_child(UI.sep())
+	box.add_child(UI.section("مسارات إضافية", "research"))
+	box.add_child(UI.label("الفضاء يفتح الجيل الخامس للصواريخ. البرنامج النووي في المستوى 4 يسمح بطلب رؤوس إن توفر اليورانيوم.", UI.C_MUTED, 13))
+	for tr in TRACK_ORDER:
+		box.add_child(_research_row(p, String(tr), rc if rival_known else {}))
 	var legend := UI.row()
 	legend.add_theme_constant_override("separation", 8)
 	if rival != "":
@@ -1962,7 +2082,7 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	var name_box := UI.row()
 	name_box.custom_minimum_size = Vector2(118, 0)
 	name_box.add_child(Icons.icon_rect(BRANCH_ICONS.get(br, "research"), UI.C_ACCENT_TEXT if focus else UI.C_TEXT, 22))
-	name_box.add_child(_nowrap(_big(String(s.db.branches[br]), 16)))
+	name_box.add_child(_nowrap(_big(_focus_title(br), 16)))
 	h.add_child(name_box)
 	var lad := GenLadder.new()
 	lad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1972,7 +2092,7 @@ func _research_row(p: Dictionary, br: String, rc: Dictionary) -> Control:
 	var gen := int(p["tech"][br])
 	if gen < 5:
 		lad.progress = float(p["research_progress"]) / Economy.research_cost(gen + 1) if focus else 0.0
-	lad.names = s.db.units[BRANCH_EXAMPLE[br]]["gens"]
+	lad.names = _focus_gens(br)
 	if not rc.is_empty():
 		lad.rival_gen = int(rc["tech"][br])
 		lad.rival_flag = Flags.tex(rc.get("flag", ""))
@@ -2007,15 +2127,19 @@ func _confirm_research(br: String) -> void:
 	var weapon: String = _weapon_name(br, gen + 1)
 	var cur_need := Economy.research_cost(int(p["tech"][p["research_focus"]]) + 1)
 	var lost := int(float(p["research_progress"]) * 0.5 / cur_need * 100.0)
-	var txt := "الجيل %d من %s: %s.\nيكتمل بعد %s." % [gen + 1, s.db.branches[br], weapon, _human_months(months)]
+	var title_br := _focus_title(br)
+	var txt := "الجيل %d من %s: %s.\nيكتمل بعد %s." % [gen + 1, title_br, weapon, _human_months(months)]
 	if months == -2:
 		txt = "الجيل الخامس يحتاج اقتصاداً بحجم 500 مليار على الأقل."
 	elif lost > 0:
 		txt += "\nيضيع نصف تقدمك الحالي (%d%%)." % lost
+	var gate := Development.gate_block(s, p, br, gen + 1)
+	if gate != "":
+		txt += "\n" + gate
 	var go := func():
 		s.set_research(pid, float(p["research_ratio"]), br)
 		_dirty = true
-	_show_dialog("تغيير البحث إلى %s؟" % s.db.branches[br], txt, [{"text": "ابحث هنا", "cb": go}, {"text": "تراجع"}], null, "research")
+	_show_dialog("تغيير البحث إلى %s؟" % title_br, txt, [{"text": "ابحث هنا", "cb": go}, {"text": "تراجع"}], null, "research")
 
 
 ## توصية واحدة: أين العدو متقدم، أو كيف تختصر المدة، أو لا شيء يقلق
@@ -2032,13 +2156,18 @@ func _research_advice(box: VBoxContainer, p: Dictionary, rival: String, rival_kn
 		var rc: Dictionary = s.country(rival)
 		var worst := ""
 		var gap := 0
+		var fields: Array = []
 		for br in s.db.branches:
-			var d := int(rc["tech"][br]) - int(p["tech"][br])
+			fields.append(br)
+		for tr in TRACK_ORDER:
+			fields.append(tr)
+		for br in fields:
+			var d := int(rc["tech"].get(br, 1)) - int(p["tech"].get(br, 1))
 			if d > gap:
 				gap = d
 				worst = br
 		if worst != "" and worst != p["research_focus"]:
-			text = "%s تسبقك في %s: الجيل %d مقابل %d." % [rc["name_ar"], s.db.branches[worst], int(rc["tech"][worst]), int(p["tech"][worst])]
+			text = "%s تسبقك في %s: الجيل %d مقابل %d." % [rc["name_ar"], _focus_title(worst), int(rc["tech"][worst]), int(p["tech"][worst])]
 			btn_text = "ابحث فيه"
 			cb = _confirm_research.bind(worst)
 			sev = UI.C_BAD
@@ -2116,11 +2245,27 @@ func _rival() -> String:
 
 
 ## اسم سلاح الجيل: «فئة T-90» تصبح «T-90»، و«الجيل القادم» تصبح «دبابات الجيل القادم»
+func _focus_title(br: String) -> String:
+	var s = Game.sim
+	if s.db.branches.has(br):
+		return String(s.db.branches[br])
+	return String(Development.track(s, br).get("name_ar", br))
+
+
+func _focus_gens(br: String) -> Array:
+	var s = Game.sim
+	if BRANCH_EXAMPLE.has(br):
+		return s.db.units[BRANCH_EXAMPLE[br]]["gens"]
+	return Development.track(s, br).get("gens", [])
+
+
 func _weapon_name(br: String, gen: int) -> String:
-	var u: Dictionary = Game.sim.db.units[BRANCH_EXAMPLE[br]]
-	var w: String = String(u["gens"][clampi(gen, 1, 5) - 1]).trim_prefix("فئة ")
+	var gens: Array = _focus_gens(br)
+	if gens.is_empty():
+		return _focus_title(br)
+	var w: String = String(gens[clampi(gen, 1, 5) - 1]).trim_prefix("فئة ")
 	if w.begins_with("الجيل"):
-		w = String(u["name_ar"]) + " " + w
+		w = _focus_title(br) + " " + w
 	return w
 
 
@@ -2209,6 +2354,17 @@ func _fill_diplomacy() -> void:
 		var enemy: String = w["defenders"][0] if pid in w["attackers"] else w["attackers"][0]
 		box.add_child(UI.kv("ضد %s" % s.country(enemy)["name_ar"], "النتيجة %d" % int(my), UI.C_GOOD if my >= 0.0 else UI.C_BAD))
 		box.add_child(UI.bar(my + 100.0, 200.0, UI.C_GOOD if my >= 0.0 else UI.C_BAD))
+		var tac_id := str(w.get("tactics", {}).get(pid, "balanced"))
+		var tac: Dictionary = s.db.development["tactics"][tac_id]
+		box.add_child(UI.label("تكتيكك: %s. %s" % [tac["name_ar"], tac["desc_ar"]], UI.C_TEXT, 14))
+		var wid := int(w["id"])
+		for tid in TACTIC_ORDER:
+			if tid == tac_id:
+				continue
+			var info: Dictionary = s.db.development["tactics"][tid]
+			var b := UI.button("%s — %s" % [info["name_ar"], info["desc_ar"]], _set_war_tactic.bind(wid, tid))
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(b)
 	if not s.state["last_battle"].is_empty():
 		box.add_child(UI.button("تقرير آخر معركة", _show_battle_report))
 	box.add_child(UI.sep())
@@ -2278,6 +2434,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	if not at_war:
 		act.call("تحسين العلاقات (%s)" % UI.money(maxf(0.2, float(s.player()["gdp"]) * 0.0005)), func(): _do(s.improve_relations(pid, id), "تحسنت العلاقات."))
 		act.call("استثمار ونفوذ (%s)" % UI.money(maxf(0.5, float(c["gdp"]) * 0.01)), func(): _do(s.invest(pid, id), "تم الاستثمار وزاد نفوذك."))
+		act.call("اتحاد سلمي", _confirm_union.bind(id))
 		var do_sanction := func():
 			s.toggle_sanction(pid, id)
 			_dirty = true
@@ -2343,22 +2500,58 @@ func _region_card(box: VBoxContainer, id: String) -> void:
 			rp.append("%s %s" % [Territory.RESOURCE_NAMES[k], String.num(float(res[k]), 1)])
 	if not rp.is_empty():
 		v.add_child(UI.label("الموارد: " + "، ".join(rp), UI.C_TEXT, 14))
-	var fac: Dictionary = info.get("facilities", {})
 	var pid: String = s.state["player"]
 	var enemy: bool = r["owner"] != pid and not s.war_between(pid, r["owner"]).is_empty()
 	for t in Territory.FACILITY_TYPES:
-		if int(fac.get(t, 0)) <= 0:
+		var n := Territory.facility_count(s, selected_region, t)
+		if n <= 0:
 			continue
 		var dmg := int(r.get("damaged", {}).get(t, 0))
 		var status := "معطلة %d أشهر" % dmg if dmg > 0 else "عاملة"
-		var line := UI.kv("%s × %d" % [Territory.FACILITY_NAMES[t], int(fac[t])], status, UI.C_BAD if dmg > 0 else UI.C_GOOD)
+		var line := UI.kv("%s × %d" % [Territory.FACILITY_NAMES[t], n], status, UI.C_BAD if dmg > 0 else UI.C_GOOD)
 		v.add_child(line)
 		if enemy and dmg == 0:
 			var pct := int(s.strike_chance(pid, selected_region) * 100.0)
 			var b := UI.button("اضرب %s (%d صاروخاً، فرصة %d%%)" % [Territory.FACILITY_NAMES[t], int(Simulation.STRIKE_MISSILES), pct], _strike.bind(selected_region, t))
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(b)
+	if r["owner"] == pid:
+		v.add_child(UI.label("بناء داخل هذه المنطقة", UI.C_TEXT, 14))
+		for ftype in PROJECT_ORDER:
+			var rules: Dictionary = s.db.development["projects"][ftype]
+			if rules.get("coastal", false) and not info.get("coastal", false):
+				continue
+			var cost := Development.project_cost(s, pid, ftype)
+			var build_btn := UI.button("ابنِ %s (%s، %d يوماً)" % [rules["name_ar"], UI.money(cost), int(rules["days"])], _start_region_build.bind(selected_region, ftype))
+			build_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(build_btn)
 	box.add_child(panel)
+
+
+func _start_region_build(rid: String, ftype: String) -> void:
+	var s = Game.sim
+	_do(Development.start_build(s, s.state["player"], rid, ftype), "بدأ البناء في %s." % s.db.regions[rid]["name_ar"])
+
+
+func _confirm_union(id: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var why: String = Development.can_union(s, pid, id)
+	if why != "":
+		_toast(why)
+		return
+	var keep := int(float(s.db.development["union"]["army_keep"]) * 100.0)
+	var go := func():
+		_do(Development.unite(s, pid, id), "تم الاتحاد السلمي.")
+	_show_dialog("اتحاد سلمي مع %s؟" % s.country(id)["name_ar"],
+		"تندمج أرضها في دولتك، وينضم %d%% من جيشها. دولتها تزول. هذا ليس جعلاً لها تابعة." % keep,
+		[{"text": "اتحد", "cb": go}, {"text": "تراجع"}])
+
+
+func _set_war_tactic(war_id: int, tac: String) -> void:
+	var s = Game.sim
+	var info: Dictionary = s.db.development["tactics"][tac]
+	_do(Development.set_tactic(s, s.state["player"], war_id, tac), "التكتيك: %s." % info["name_ar"])
 
 
 func _strike(rid: String, ftype: String) -> void:
@@ -2836,6 +3029,13 @@ func _confirm_war(id: String) -> void:
 			v.add_child(UI.kv("وصول أسطولك", "%d%% بسبب مضيق" % int(sea_reach * 100.0), UI.C_BAD, "port"))
 		if int(mth["front_divisions"]) == 0:
 			v.add_child(UI.label("لا فرق لك على الجبهة بعد: حرّكها أولاً أو فعّل التوزيع التلقائي.", UI.C_WARN, 13))
+	if float(f.get("atgm", 0.0)) >= 0.02:
+		v.add_child(UI.label("مضاد دروع المدافع يعيق %d%% من دباباتك." % int(float(f["atgm"]) * 100.0), UI.C_WARN, 14))
+	var ew := float(f.get("ew", 0.5))
+	if ew >= 0.58:
+		v.add_child(UI.label("حربك الإلكترونية تغلب تشويش العدو (%d%%)." % int(ew * 100.0), UI.C_GOOD, 14))
+	elif ew <= 0.42:
+		v.add_child(UI.label("تشويش العدو أقوى: حصتك %d%%." % int(ew * 100.0), UI.C_BAD, 14))
 	if not f.get("land_front", true):
 		v.add_child(UI.label("لا جبهة برية: التقدم يحتاج تفوقاً بحرياً للإنزال، والإمداد أضعف.", UI.C_WARN, 13))
 	v.add_child(UI.label("الحرب تُخاض منطقة بمنطقة، وتخفض النمو والاستقرار، وتغضب حلفاء العدو.", UI.C_MUTED, 13))

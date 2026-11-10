@@ -78,8 +78,12 @@ static func unit_factor(c: Dictionary, utype: String) -> float:
 			return float(l["air"]) * float(l["fuel"])
 		"ships", "submarines":
 			return float(l["sea"]) * float(l["fuel"])
-		"infantry", "armor":
+		"infantry", "armor", "atgm":
 			return float(l["fuel"])
+		"ashm":
+			return float(l["sea"]) * float(l["fuel"])
+		"ew":
+			return float(l["air"])
 	return 1.0
 
 

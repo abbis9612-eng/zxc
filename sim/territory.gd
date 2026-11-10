@@ -67,7 +67,30 @@ static func efficiency(r: Dictionary) -> float:
 
 ## عدد منشآت نوع معين في منطقة، والعامل منها
 static func facility_count(sim, rid: String, ftype: String) -> int:
-	return int(sim.db.regions[rid].get("facilities", {}).get(ftype, 0))
+	var base := int(sim.db.regions[rid].get("facilities", {}).get(ftype, 0))
+	return base + int(sim.state["regions"][rid].get("built", {}).get(ftype, 0))
+
+
+static func add_facility(sim, rid: String, ftype: String) -> void:
+	var r: Dictionary = sim.state["regions"][rid]
+	if not r.has("built"):
+		r["built"] = {}
+	r["built"][ftype] = int(r["built"].get(ftype, 0)) + 1
+	recompute(sim, r["owner"])
+
+
+## نقل كل أرض دولة إلى أخرى بلا تخريب حرب: الاتحاد السلمي
+static func transfer_all(sim, from_id: String, to_id: String) -> void:
+	for rid in sim.db.region_ids:
+		var r: Dictionary = sim.state["regions"][rid]
+		if r["owner"] != from_id:
+			continue
+		r["owner"] = to_id
+		r["occupied_months"] = 0
+		r["loyalty"] = 80.0
+	recompute(sim, from_id)
+	recompute(sim, to_id)
+	sim.mark_borders_dirty()
 
 
 static func facility_working(sim, rid: String, ftype: String) -> bool:
@@ -116,13 +139,21 @@ static func _accumulate(sim, acc: Dictionary) -> void:
 		for k in res:
 			a["res"][k] += float(res[k]) * eff
 		var fac: Dictionary = info.get("facilities", {})
+		var dmg: Dictionary = r.get("damaged", {})
 		if not fac.is_empty():
-			var dmg: Dictionary = r.get("damaged", {})
 			for t in fac:
 				var n := int(fac[t])
 				a["fac"][t]["total"] += n
 				if not dmg.has(t):
 					a["fac"][t]["working"] += n
+		var built: Dictionary = r.get("built", {})
+		for t in built:
+			var extra := int(built[t])
+			if extra <= 0 or not a["fac"].has(t):
+				continue
+			a["fac"][t]["total"] += extra
+			if not dmg.has(t):
+				a["fac"][t]["working"] += extra
 
 
 static func _apply_acc(sim, id: String, a: Dictionary) -> void:
@@ -138,11 +169,14 @@ static func _apply_acc(sim, id: String, a: Dictionary) -> void:
 
 
 ## النمو الشهري لكل الدول في مرور واحد
-static func grow_all(sim, growth_by_id: Dictionary) -> void:
+static func grow_all(sim, growth_by_id: Dictionary, pop_by_id: Dictionary = {}) -> void:
 	for rid in sim.db.region_ids:
 		var r: Dictionary = sim.state["regions"][rid]
-		var g: float = growth_by_id.get(r["owner"], 0.0)
+		var own: String = r["owner"]
+		var g: float = growth_by_id.get(own, 0.0)
 		r["gdp"] = maxf(0.001, float(r["gdp"]) * (1.0 + g / 1200.0))
+		var pg: float = pop_by_id.get(own, 0.0)
+		r["pop"] = maxf(0.001, float(r["pop"]) * (1.0 + pg))
 	recompute_all(sim)
 
 

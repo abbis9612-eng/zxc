@@ -18,6 +18,7 @@ var factions: Dictionary = {}
 var intel: Dictionary = {}
 var military: Dictionary = {}
 var straits: Dictionary = {}
+var development: Dictionary = {}
 var regions: Dictionary = {}          # id -> بيانات المنطقة الثابتة
 var region_ids: Array = []            # ترتيب ثابت للمناطق (للحتمية)
 var regions_by_country: Dictionary = {}
@@ -47,11 +48,13 @@ func load_all() -> bool:
 	var it: Variant = read_json(DATA_DIR + "intel.json")
 	var ml: Variant = read_json(DATA_DIR + "military.json")
 	var sr: Variant = read_json(DATA_DIR + "straits.json")
-	if c == null or u == null or g == null or a == null or e == null or r == null or mk == null or fc == null or it == null or ml == null or sr == null:
+	var dv: Variant = read_json(DATA_DIR + "development.json")
+	if c == null or u == null or g == null or a == null or e == null or r == null or mk == null or fc == null or it == null or ml == null or sr == null or dv == null:
 		return false
 	intel = it
 	military = ml
 	straits = sr
+	development = dv
 	market = mk
 	factions = fc
 	countries = c["countries"]
