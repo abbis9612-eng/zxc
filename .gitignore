@@ -1,0 +1,10 @@
+# Godot
+.godot/
+/android/
+*.tmp
+export/
+build/
+# أسرار التوقيع
+*.keystore
+export_credentials.cfg
+.DS_Store

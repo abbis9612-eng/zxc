@@ -1,0 +1,17 @@
+{
+  "governments": {
+    "presidential":  {"name_ar":"جمهورية رئاسية","growth":0.2,"stability":0,"tax_tolerance":0.0,"war_support":5,"research":0.05},
+    "parliamentary": {"name_ar":"ديمقراطية برلمانية","growth":0.5,"stability":5,"tax_tolerance":0.05,"war_support":-10,"research":0.10},
+    "monarchy":      {"name_ar":"ملكية","growth":0.3,"stability":8,"tax_tolerance":-0.03,"war_support":0,"research":0.0},
+    "islamic":       {"name_ar":"دولة إسلامية (نظام الشورى)","growth":0.0,"stability":6,"tax_tolerance":0.0,"war_support":10,"research":0.0},
+    "military":      {"name_ar":"حكم عسكري","growth":-0.5,"stability":-5,"tax_tolerance":0.03,"war_support":15,"research":-0.05},
+    "one_party":     {"name_ar":"حزب واحد","growth":0.3,"stability":4,"tax_tolerance":0.05,"war_support":8,"research":0.05}
+  },
+  "policies": {
+    "conscription": {"name_ar":"تجنيد إجباري","desc_ar":"قوة بشرية أكبر للجيش، مع استياء الشارع وتباطؤ الاقتصاد.","growth":-0.3,"stability":-4,"military_cost":-0.15,"recruit":1.5},
+    "war_economy":  {"name_ar":"اقتصاد حرب","desc_ar":"تصنيع حربي أسرع وأرخص على حساب النمو المدني.","growth":-0.8,"stability":-2,"production_speed":1.5,"military_cost":-0.10},
+    "open_economy": {"name_ar":"انفتاح اقتصادي","desc_ar":"نمو أعلى واستثمار أجنبي، لكن تأثر أكبر بالعقوبات والأزمات.","growth":1.0,"stability":-1,"sanction_effect":1.5},
+    "censorship":   {"name_ar":"رقابة إعلامية","desc_ar":"استقرار أعلى في الحرب، مع إبطاء البحث وغضب الدول الديمقراطية.","growth":0.0,"stability":6,"research":-0.15},
+    "subsidies":    {"name_ar":"دعم السلع الأساسية","desc_ar":"رضا الشارع يرتفع، والميزانية تتحمل 2% من الناتج سنوياً.","growth":0.0,"stability":8,"budget_gdp":0.02}
+  }
+}

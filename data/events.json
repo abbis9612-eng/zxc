@@ -1,0 +1,12 @@
+{
+  "_note": "chance احتمال الحدوث شهرياً لكل دولة مؤهلة (أو للعالم إن كان global).",
+  "events": [
+    {"id":"oil_crisis","global":true,"chance":0.008,"title_ar":"أزمة نفط عالمية","text_ar":"أسعار النفط ترتفع بشدة. الدول المصدّرة تربح، والمستوردة تتضرر.","oil_price":1.4,"months":6},
+    {"id":"recession","global":true,"chance":0.006,"title_ar":"ركود اقتصادي عالمي","text_ar":"الأسواق العالمية تتراجع، والنمو ينخفض في كل الدول.","growth":-2.0,"months":12},
+    {"id":"pandemic","global":true,"chance":0.002,"title_ar":"وباء عالمي","text_ar":"وباء ينتشر في العالم ويضرب الاقتصاد والاستقرار.","growth":-3.0,"stability":-5,"months":10},
+    {"id":"earthquake","global":false,"chance":0.002,"title_ar":"زلزال مدمّر","text_ar":"زلزال قوي يضرب البلاد ويدمر جزءاً من البنية التحتية.","gdp":-0.01,"stability":-3},
+    {"id":"discovery","global":false,"chance":0.002,"title_ar":"اكتشاف حقل نفط جديد","text_ar":"اكتشاف حقل نفطي كبير يرفع الموارد والدخل.","oil":15,"gdp":0.01},
+    {"id":"protests","global":false,"chance":0.004,"min_instability":true,"title_ar":"احتجاجات واسعة","text_ar":"الشارع غاضب من الأوضاع المعيشية.","stability":-6},
+    {"id":"peace_summit","global":true,"chance":0.004,"title_ar":"قمة سلام دولية","text_ar":"قمة دولية تخفف التوترات وتحسن العلاقات بين الدول.","relations":5}
+  ]
+}

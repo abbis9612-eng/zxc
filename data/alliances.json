@@ -1,0 +1,17 @@
+{
+  "alliances": {
+    "nato": {"name_ar":"حلف الناتو","members":["USA","GBR","FRA","DEU","POL","TUR","CAN"]},
+    "csto": {"name_ar":"معاهدة الأمن الجماعي","members":["RUS"]},
+    "gcc":  {"name_ar":"مجلس التعاون الخليجي","members":["SAU","ARE"]}
+  },
+  "relations": [
+    ["USA","RUS",-60],["USA","CHN",-35],["USA","IRN",-85],["USA","PRK",-90],["USA","ISR",80],["USA","JPN",80],["USA","KOR",80],["USA","SAU",45],["USA","UKR",50],["USA","GBR",90],["USA","MEX",40],["USA","CAN",70],
+    ["RUS","UKR",-95],["RUS","CHN",55],["RUS","IRN",50],["RUS","PRK",60],["RUS","POL",-70],["RUS","GBR",-70],["RUS","DEU",-55],["RUS","FRA",-50],["RUS","SYR",20],["RUS","IND",45],["RUS","DZA",45],
+    ["CHN","IND",-30],["CHN","JPN",-40],["CHN","PAK",70],["CHN","PRK",50],["CHN","KOR",-10],["CHN","IRN",35],
+    ["IND","PAK",-80],["KOR","PRK",-90],["JPN","PRK",-70],
+    ["IRN","ISR",-100],["IRN","SAU",-20],["IRN","IRQ",50],["IRN","SYR",-20],["IRN","ARE",-10],
+    ["ISR","SYR",-60],["ISR","EGY",15],["ISR","JOR",10],["ISR","TUR",-40],
+    ["SAU","ARE",70],["SAU","EGY",60],["SAU","JOR",55],["IRQ","JOR",50],["IRQ","SYR",20],["IRQ","TUR",10],["IRQ","SAU",30],
+    ["TUR","SYR",35],["DZA","FRA",-20],["EGY","DZA",30],["UKR","POL",60]
+  ]
+}
