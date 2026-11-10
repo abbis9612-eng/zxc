@@ -14,6 +14,8 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
+const Development := preload("res://sim/development.gd")
+const Arsenal := preload("res://sim/arsenal.gd")
 
 var db: DataDB
 var failures := 0
@@ -34,6 +36,7 @@ func _init() -> void:
 		test_market()
 		test_trade_pacts()
 		test_straits()
+		test_reference_systems()
 		test_factions()
 		test_intel()
 		test_divisions()
@@ -457,6 +460,94 @@ func test_straits() -> void:
 		Straits.monthly(a)
 		Straits.monthly(b)
 	check(a.checksum() == b.checksum(), "قرار الممر عند الذكاء الاصطناعي حتمي")
+
+
+func test_reference_systems() -> void:
+	print("الأنظمة المرجعية")
+	var s := new_sim("IRQ", 30)
+	var known_ok := true
+	for id in s.state["order"]:
+		var c: Dictionary = s.country(id)
+		if str(c.get("known_ar", "")) == "" or not s.db.development["doctrines"].has(c["doctrine"]):
+			known_ok = false
+		if float(c["military"]["atgm"]) < 1.0 or float(c["military"].get("ew", 0.0)) < 1.0:
+			known_ok = false
+	check(known_ok, "لكل دولة تعريف واتجاه ومضاد دروع وحرب إلكترونية")
+	var plain := Combat.forecast(s, "TUR", "SYR")
+	Arsenal.scale_types(s.country("SYR"), ["atgm"], 8.0)
+	var blocked := Combat.forecast(s, "TUR", "SYR")
+	check(float(blocked["atgm"]) > float(plain["atgm"]), "مضاد الدروع يظهر في التوقع ويرتفع مع عدده (%.2f)" % float(blocked["atgm"]))
+	check(float(blocked["land"]) < float(plain["land"]), "مضاد الدروع يخفض فرصة الاختراق البري")
+	var ew0 := Combat.forecast(s, "USA", "IRN")
+	Arsenal.scale_types(s.country("USA"), ["ew"], 6.0)
+	var ew1 := Combat.forecast(s, "USA", "IRN")
+	check(float(ew1["ew"]) > float(ew0["ew"]), "الحرب الإلكترونية ترفع حصة التشويش")
+	var sea0 := Combat.forecast(s, "USA", "IRN")
+	Arsenal.scale_types(s.country("IRN"), ["ashm"], 10.0)
+	var sea1 := Combat.forecast(s, "USA", "IRN")
+	check(float(sea1["sea"]) < float(sea0["sea"]), "مضاد السفن يخفض السيطرة البحرية للمهاجم")
+	var blitz := Combat.forecast(s, "TUR", "SYR", "blitz")
+	var sead := Combat.forecast(s, "TUR", "SYR", "sead")
+	check(float(blitz["land"]) > float(sead["land"]), "تكتيك الاختراق البري أقوى على الأرض من إخماد الدفاع")
+	var cost0 := s.unit_cost(s.country("IRQ"), "armor")
+	check(s.player()["doctrine"] == "eco_inv", "العراق يبدأ بالقوة الاقتصادية")
+	check(Development.set_doctrine(s, "IRQ", "mil_ind") == "", "تغيير الاتجاه إلى التصنيع العسكري")
+	check(s.unit_cost(s.country("IRQ"), "armor") < cost0, "التصنيع العسكري يرخص السلاح")
+	check(Development.set_doctrine(s, "IRQ", "balanced") != "", "لا تغيير ثانٍ قبل مرور سنة")
+	s.set_relation("IRQ", "USA", 40.0)
+	var offers: Array = Development.suppliers(s, "IRQ", "fighters")
+	var usa := {}
+	for o in offers:
+		if o["id"] == "USA":
+			usa = o
+	check(not usa.is_empty(), "أمريكا تبيع مقاتلات للعراق")
+	check(int(usa["gen"]) == int(s.country("USA")["tech"]["air"]) - 1, "غير الحليف يستلم جيلاً أقل (%d)" % int(usa["gen"]))
+	s.player()["treasury"] = 5000.0
+	var before_n := float(s.player()["military"]["fighters"])
+	check(Development.import_units(s, "IRQ", "USA", "fighters", 4.0) == "", "طلب الاستيراد")
+	run_days(s, int(usa["days"]) + 1)
+	check(float(s.player()["military"]["fighters"]) > before_n, "الشحنة تصل وتُضاف للمخزون")
+	var gens := {}
+	for b in s.player()["stocks"]["fighters"]:
+		gens[int(b["gen"])] = true
+	check(gens.size() >= 2, "المخزون يحتفظ بجيل الاستيراد منفصلاً عن جيل الدولة")
+	var missile := int(s.country("PRK")["tech"]["missile"])
+	s.country("PRK")["tech"]["missile"] = 4
+	s.country("PRK")["tech"]["space"] = 1
+	s.country("PRK")["research_focus"] = "missile"
+	s.country("PRK")["research_progress"] = Economy.research_cost(5)
+	s.country("PRK")["gdp"] = 800.0
+	Economy.monthly(s, s.country("PRK"))
+	check(int(s.country("PRK")["tech"]["missile"]) == 4, "الجيل الخامس للصواريخ يُمنع بلا فضاء")
+	s.country("PRK")["tech"]["space"] = 2
+	s.country("PRK")["research_progress"] = Economy.research_cost(5)
+	Economy.monthly(s, s.country("PRK"))
+	check(int(s.country("PRK")["tech"]["missile"]) == 5, "الفضاء المستوى 2 يفتح الجيل الخامس")
+	s.country("PRK")["tech"]["missile"] = missile
+	var bsim := new_sim("IRQ", 31)
+	var basra := _region_by_name("IRQ", "Al-Basrah")
+	var ref0 := Territory.facility_count(bsim, basra, "refinery")
+	bsim.player()["treasury"] = 5000.0
+	check(Development.start_build(bsim, "IRQ", basra, "refinery") == "", "بناء مصفاة في البصرة")
+	run_days(bsim, 200)
+	check(Territory.facility_count(bsim, basra, "refinery") > ref0, "المصفاة تُضاف إلى المنطقة")
+	var psim := new_sim("CAN", 32)
+	check(Development.pop_rate(psim, psim.country("CAN")) > 0.0, "دولة شبعانة في السلم ينمو سكانها")
+	psim.declare_war("CAN", "MEX")
+	psim.country("CAN")["logistics"]["food"] = 5.0
+	check(Development.pop_rate(psim, psim.country("CAN")) < 0.0, "الجوع مع الحرب ينقص السكان")
+	var usim := new_sim("IRQ", 33)
+	var jor := usim.country("JOR")
+	jor["influence"]["IRQ"] = 100.0
+	usim.set_relation("IRQ", "JOR", 80.0)
+	var jor_army := float(jor["military"]["infantry"])
+	var irq_army := float(usim.player()["military"]["infantry"])
+	check(Development.can_union(usim, "IRQ", "JOR") == "", "شروط الاتحاد مع الأردن متحققة")
+	check(Development.unite(usim, "IRQ", "JOR") == "", "الاتحاد السلمي")
+	check(usim.country("JOR").get("annexed", false), "الأردن يندمج ولا يبقى دولة مستقلة")
+	check(usim.country("JOR").get("overlord", "") == "", "الاتحاد ليس تبعية")
+	check(float(usim.player()["military"]["infantry"]) > irq_army + jor_army * 0.5, "معظم جيش الأردن ينضم إلى العراق")
+	check(Territory.region(usim, usim.db.capitals["JOR"])["owner"] == "IRQ", "أرض الأردن أصبحت عراقية")
 
 
 func _target(s: Simulation, c: Dictionary, f: String) -> float:

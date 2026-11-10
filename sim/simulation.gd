@@ -15,8 +15,10 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
+const Arsenal := preload("res://sim/arsenal.gd")
+const Development := preload("res://sim/development.gd")
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const START_YEAR := 2026
 const START_MONTH := 10
 const MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -93,6 +95,15 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		c["last_budget"] = {}
 		for k in db.units:
 			c["military"][k] = float(c["military"].get(k, 0))
+		for tr in db.development["tracks"]:
+			if not c["tech"].has(tr):
+				c["tech"][tr] = 1
+		if not db.development["doctrines"].has(c.get("doctrine", "")):
+			c["doctrine"] = "balanced"
+		c["doctrine_until"] = 0
+		c["imports"] = []
+		c["projects"] = []
+		Arsenal.init_country(self, c)
 		state["countries"][c["id"]] = c
 		state["order"].append(c["id"])
 	Territory.init_state(self)
@@ -221,6 +232,7 @@ func advance_day() -> void:
 	state["date"] = {"y": year, "m": month, "d": day}
 
 	_daily_production()
+	Development.daily(self)
 	Divisions.daily(self)
 	if int(state["day"]) % 7 == 0:
 		# توزيع الفرق: الذكاء الاصطناعي دائماً، واللاعب إن اختار التوزيع التلقائي.
@@ -248,6 +260,7 @@ static func days_in_month(m: int, y: int) -> int:
 
 func _monthly() -> void:
 	Straits.monthly(self)
+	Development.monthly(self)
 	_global_modifiers_tick()
 	# النمو أولاً لكل الدول في مرور واحد على المناطق، ثم الميزانيات
 	var growths := {}
@@ -257,7 +270,10 @@ func _monthly() -> void:
 		c["growth_now"] = g
 		growths[id] = g
 	Territory.monthly(self)          # الاندماج والإصلاح والمقاومة (بلا إعادة حساب)
-	Territory.grow_all(self, growths)  # النمو ثم إعادة حساب كل الدول مرة واحدة
+	var pop_rates := {}
+	for id in alive_ids():
+		pop_rates[id] = Development.pop_rate(self, country(id))
+	Territory.grow_all(self, growths, pop_rates)  # النمو ثم إعادة حساب كل الدول مرة واحدة
 	Market.monthly(self)               # الأسعار ودخل التجارة قبل الميزانيات
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
@@ -279,7 +295,7 @@ func _daily_production() -> void:
 		var queue: Array = c["production"]
 		if queue.is_empty() or c.get("annexed", false):
 			continue
-		var speed := float(c.get("logistics", {}).get("production", 1.0))
+		var speed := float(c.get("logistics", {}).get("production", 1.0)) * (1.0 + Development.num(self, c, "production"))
 		if "war_economy" in c["policies"]:
 			speed *= float(db.policies["war_economy"].get("production_speed", 1.0))
 		var i := queue.size() - 1
@@ -288,7 +304,7 @@ func _daily_production() -> void:
 			o["days_left"] = float(o["days_left"]) - speed
 			if float(o["days_left"]) <= 0.0:
 				queue.remove_at(i)
-				c["military"][o["type"]] = float(c["military"][o["type"]]) + float(o["count"])
+				Arsenal.add(c, o["type"], float(o["count"]), int(c["tech"][db.units[o["type"]]["branch"]]))
 				if is_player(id):
 					add_news("اكتمل تصنيع %s %s." % [fmt_num(o["count"]), db.units[o["type"]]["name_ar"]], "good")
 			i -= 1
@@ -380,8 +396,7 @@ func _apply_event(e: Dictionary, target: String) -> void:
 # ------------------------------------------------------------------ القوة العسكرية
 
 func unit_power(c: Dictionary, utype: String) -> float:
-	var u: Dictionary = db.units[utype]
-	return float(c["military"].get(utype, 0.0)) * float(u["power"]) * db.combat_multiplier(int(c["tech"][u["branch"]])) * Logistics.unit_factor(c, utype) * float(c.get("quality", 1.0))
+	return Arsenal.power(self, c, utype) * Development.combat_mult(self, c, utype)
 
 
 func military_power(c: Dictionary) -> float:
@@ -452,7 +467,10 @@ func declare_war(a: String, b: String) -> Dictionary:
 	for v in vassals(a):
 		if not (v in defenders):
 			attackers.append(v)
-	var w := {"id": state["next_war_id"], "attackers": attackers, "defenders": defenders, "score": 0.0, "start_day": state["day"], "battles": 0, "active": true}
+	var tactics := {}
+	for id in attackers + defenders:
+		tactics[id] = Development.pick_tactic(self, country(id))
+	var w := {"id": state["next_war_id"], "attackers": attackers, "defenders": defenders, "score": 0.0, "start_day": state["day"], "battles": 0, "active": true, "tactics": tactics}
 	state["next_war_id"] = int(state["next_war_id"]) + 1
 	state["wars"].append(w)
 	set_relation(a, b, minf(relation(a, b), -80.0) - 10.0)
@@ -490,8 +508,7 @@ func capitulate(w: Dictionary, loser: String, winner: String) -> void:
 	var l := country(loser)
 	l["overlord"] = winner
 	l["stability"] = maxf(10.0, float(l["stability"]) - 10.0)
-	for k in l["military"]:
-		l["military"][k] = float(l["military"][k]) * 0.6
+	Arsenal.scale(l, 0.6)
 	# الدول التابعة للخاسر تتحرر
 	for v in vassals(loser):
 		country(v)["overlord"] = ""
@@ -511,7 +528,7 @@ func capitulate(w: Dictionary, loser: String, winner: String) -> void:
 
 
 ## ضم دولة لم يبق لها أي منطقة
-func annex(id: String, by: String) -> void:
+func annex(id: String, by: String, peaceful: bool = false) -> void:
 	var c := country(id)
 	c["annexed"] = true
 	c["overlord"] = ""
@@ -526,13 +543,13 @@ func annex(id: String, by: String) -> void:
 			w["active"] = false
 	_cleanup_wars()
 	Divisions.cleanup(self)
-	var text := "%s تُضم بالكامل إلى %s." % [c["name_ar"], country(by)["name_ar"]]
-	add_news(text, "war")
+	var text := "%s تتحد سلمياً مع %s في دولة واحدة." % [c["name_ar"], country(by)["name_ar"]] if peaceful else "%s تُضم بالكامل إلى %s." % [c["name_ar"], country(by)["name_ar"]]
+	add_news(text, "peace" if peaceful else "war")
 	if is_player(id):
 		state["game_over"] = "occupied"
 		push_event("game_over", "خسارة بالاحتلال", text, true)
 	elif is_player(by):
-		push_event("victory", "ضم كامل", text, true)
+		push_event("victory", "اتحاد سلمي" if peaceful else "ضم كامل", text, true)
 
 
 ## الحدود: لكل دولة مناطقها، ولكل منطقة من يجاورها من الدول الأخرى
@@ -557,6 +574,11 @@ func border_info() -> Array:
 
 
 ## تستدعيها Territory عند انتقال منطقة: الفرق تنسحب أو تتقدم
+func mark_borders_dirty() -> void:
+	_borders_dirty = true
+	map_version += 1
+
+
 func on_region_captured(rid: String, new_owner: String) -> void:
 	_borders_dirty = true
 	map_version += 1
@@ -586,7 +608,7 @@ func nuclear_strike(a: String, b: String) -> Dictionary:
 		return {}
 	var ca := country(a)
 	var cb := country(b)
-	ca["military"]["nukes"] = float(ca["military"]["nukes"]) - 1.0
+	Arsenal.remove(ca, "nukes", 1.0)
 	state["global"]["nuclear_strikes"] = int(state["global"]["nuclear_strikes"]) + 1
 	var ad_gen := int(cb["tech"]["air_defense"])
 	var intercept := clampf(0.05 * ad_gen * minf(1.0, float(cb["military"]["air_defense"]) / 20.0), 0.0, 0.3)
@@ -596,8 +618,7 @@ func nuclear_strike(a: String, b: String) -> Dictionary:
 		Territory.scale_gdp(self, b, 0.88)
 		Territory.scale_pop(self, b, 0.97)
 		cb["stability"] = maxf(0.0, float(cb["stability"]) - 20.0)
-		for k in ["infantry", "armor", "artillery"]:
-			cb["military"][k] = float(cb["military"][k]) * 0.85
+		Arsenal.scale_types(cb, ["infantry", "armor", "artillery"], 0.85)
 		var w := war_between(a, b)
 		if not w.is_empty():
 			var dir := 1.0 if a in w["attackers"] else -1.0
@@ -629,7 +650,7 @@ func set_tax(id: String, rate: float) -> void:
 func set_research(id: String, ratio: float, focus: String) -> void:
 	var c := country(id)
 	c["research_ratio"] = clampf(ratio, 0.0, 0.05)
-	if db.branches.has(focus):
+	if db.branches.has(focus) or db.development["tracks"].has(focus):
 		if focus != c["research_focus"]:
 			c["research_progress"] = float(c["research_progress"]) * 0.5
 		c["research_focus"] = focus
@@ -677,6 +698,7 @@ func unit_cost(c: Dictionary, utype: String) -> float:
 	var cost := float(u["cost"]) / 1000.0 * db.gen_multiplier(int(c["tech"][u["branch"]]))
 	if "war_economy" in c["policies"]:
 		cost *= 0.9
+	cost *= 1.0 - Development.num(self, c, "unit_discount")
 	return cost
 
 
@@ -685,8 +707,10 @@ func order_units(id: String, utype: String, count: float) -> String:
 	if not db.units.has(utype) or count <= 0.0:
 		return "طلب غير صالح."
 	if utype == "nukes":
-		if Territory.working_facilities(self, [id], "nuclear").is_empty():
-			return "تحتاج منشأة نووية عاملة."
+		var ready := not Territory.working_facilities(self, [id], "nuclear").is_empty()
+		ready = ready or int(c["tech"].get("nuclear", 1)) >= int(db.development["nuclear_order_level"])
+		if not ready:
+			return "تحتاج منشأة نووية عاملة، أو برنامج نووي في المستوى %d." % int(db.development["nuclear_order_level"])
 		if float(c["resources"].get("uranium", 0.0)) < 5.0:
 			return "تحتاج يورانيوم (5 على الأقل)."
 	var total := unit_cost(c, utype) * count
@@ -816,7 +840,7 @@ func strike_facility(a: String, rid: String, ftype: String) -> Dictionary:
 	if can_strike_facility(a, rid, ftype) != "":
 		return {}
 	var ca := country(a)
-	ca["military"]["missiles"] = float(ca["military"]["missiles"]) - STRIKE_MISSILES
+	Arsenal.remove(ca, "missiles", STRIKE_MISSILES)
 	var owner: String = Territory.region(self, rid)["owner"]
 	var hit := rng.chance(strike_chance(a, rid))
 	var place: String = db.regions[rid]["name_ar"]

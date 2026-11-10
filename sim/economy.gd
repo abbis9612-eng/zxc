@@ -4,6 +4,7 @@ extends RefCounted
 
 const Territory := preload("res://sim/territory.gd")
 const Market := preload("res://sim/market.gd")
+const Development := preload("res://sim/development.gd")
 
 const RESEARCH_BASE_COST := 4.0   # مليار × (الجيل التالي)²
 const EQUIPMENT_FACTOR := 3.0
@@ -68,7 +69,7 @@ static func research_months(sim, c: Dictionary, branch: String, ratio: float) ->
 	if gen + 1 >= 5 and float(c["gdp"]) < 500.0:
 		return -2
 	var gov: Dictionary = sim.db.governments[c["government"]]
-	var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research"))
+	var mult := maxf(0.2, 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research"))
 	var per_month := float(c["gdp"]) * ratio / 12.0 * mult
 	var prog := float(c["research_progress"])
 	if branch != c["research_focus"]:
@@ -108,6 +109,7 @@ static func growth_rate(sim, c: Dictionary) -> float:
 	# الاتفاقيات التجارية تنشط الاقتصاد
 	growth += Market.pact_growth(sim, c["id"])
 	growth += float(c["resources"].get("oil", 0.0)) / 100.0 * (float(g["oil_price"]) - 1.0) * 6.0
+	growth += Development.num(sim, c, "growth")
 	return growth
 
 
@@ -165,16 +167,21 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 
 	# البحث
 	var focus: String = c["research_focus"]
-	var gen := int(c["tech"][focus])
-	if gen < 5 and not dry:
-		var mult := 1.0 + float(gov["research"]) + policy_sum(sim, c, "research")
+	var track_name: String = sim.db.branches.get(focus, Development.track(sim, focus).get("name_ar", ""))
+	if track_name != "" and int(c["tech"].get(focus, 1)) < 5 and not dry:
+		var gen := int(c["tech"][focus])
+		var mult := 1.0 + float(gov["research"]) + policy_sum(sim, c, "research") + Development.num(sim, c, "research")
 		c["research_progress"] = float(c["research_progress"]) + research * maxf(0.2, mult)
 		var need := research_cost(gen + 1)
 		var industry_ok := gen + 1 < 5 or gdp >= 500.0
-		if float(c["research_progress"]) >= need and industry_ok:
+		var blocked := Development.gate_block(sim, c, focus, gen + 1)
+		if float(c["research_progress"]) >= need and industry_ok and blocked == "":
 			c["tech"][focus] = gen + 1
 			c["research_progress"] = 0.0
-			sim.add_news("%s تصل إلى الجيل %d في %s." % [c["name_ar"], gen + 1, sim.db.branches[focus]], "good" if sim.is_player(c["id"]) else "info")
+			sim.add_news("%s تصل إلى الجيل %d في %s." % [c["name_ar"], gen + 1, track_name], "good" if sim.is_player(c["id"]) else "info")
+		elif blocked != "" and float(c["research_progress"]) >= need and sim.is_player(c["id"]) and not c.get("gate_told", false):
+			c["gate_told"] = true
+			sim.add_news(blocked, "info")
 
 	# الاستقرار
 	var tol := tax_tolerance(sim, c)
@@ -196,6 +203,7 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	target -= float(c.get("logistics", {}).get("food_penalty", 0.0))
 	# رضا الفئات الداخلية الموزون حسب نظام الحكم
 	target += float(c.get("faction_delta", 0.0)) * float(sim.db.factions.get("stability_weight", 0.0))
+	target += Development.num(sim, c, "stability")
 	target = clampf(target, 0.0, 100.0)
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 

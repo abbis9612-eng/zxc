@@ -1,0 +1,148 @@
+{
+  "_note": "اتجاه الدولة، الاستيراد، التكتيك، مسارات البحث، بناء المنشآت، السكان، والاتحاد السلمي. الأرقام تقديرات اللعبة.",
+  "counters": {
+    "ew_ad_cut": 0.35,
+    "ew_intercept": 0.8,
+    "atgm_block_cap": 0.55,
+    "atgm_armor_weight": 180,
+    "ashm_weight": 1.0
+  },
+  "doctrine_change_days": 365,
+  "doctrine_stability_cost": 4,
+  "affinity": ["DZA", "EGY", "IRN", "IRQ", "JOR", "PAK", "SAU", "SYR", "TUR", "ARE"],
+  "doctrines": {
+    "balanced": {
+      "name_ar": "تنمية متوازنة",
+      "desc_ar": "تطوير متوازن للجيش والاقتصاد والبحث: نمو +0.15، وتصنيع وبحث أسرع قليلاً.",
+      "growth": 0.15,
+      "production": 0.08,
+      "research": 0.08,
+      "stability": 0,
+      "unit_discount": 0,
+      "ew_boost": 0,
+      "def_boost": 0,
+      "morale": 0,
+      "unity": false,
+      "relation_monthly": 0
+    },
+    "mil_ind": {
+      "name_ar": "تصنيع عسكري",
+      "desc_ar": "المصانع أسرع 30% والسلاح المحلي أرخص 15%. النمو المدني لا يزيد.",
+      "growth": 0,
+      "production": 0.3,
+      "research": 0,
+      "stability": 0,
+      "unit_discount": 0.15,
+      "ew_boost": 0,
+      "def_boost": 0,
+      "morale": 0,
+      "unity": false,
+      "relation_monthly": 0
+    },
+    "sci_tech": {
+      "name_ar": "نهضة علمية",
+      "desc_ar": "البحث أسرع 25%، والحرب الإلكترونية أقوى 20%.",
+      "growth": 0,
+      "production": 0,
+      "research": 0.25,
+      "stability": 0,
+      "unit_discount": 0,
+      "ew_boost": 0.2,
+      "def_boost": 0,
+      "morale": 0,
+      "unity": false,
+      "relation_monthly": 0
+    },
+    "eco_inv": {
+      "name_ar": "قوة اقتصادية",
+      "desc_ar": "النمو السنوي +0.6 نقطة. الجيش والبحث على حالهما.",
+      "growth": 0.6,
+      "production": 0,
+      "research": 0,
+      "stability": 0,
+      "unit_discount": 0,
+      "ew_boost": 0,
+      "def_boost": 0,
+      "morale": 0,
+      "unity": false,
+      "relation_monthly": 0
+    },
+    "unity": {
+      "name_ar": "مشروع الوحدة",
+      "desc_ar": "علاقة أوثق مع دول الجوار الثقافي كل شهر، معنويات +10%، واستقرار +5. الاتحاد السلمي أسهل.",
+      "growth": 0,
+      "production": 0,
+      "research": 0,
+      "stability": 5,
+      "unit_discount": 0,
+      "ew_boost": 0,
+      "def_boost": 0,
+      "morale": 0.1,
+      "unity": true,
+      "relation_monthly": 0.35
+    },
+    "def_fort": {
+      "name_ar": "الدرع الوطني",
+      "desc_ar": "مضاد الدروع ومضاد السفن والدفاع الجوي أقوى 25%، والاستقرار +4.",
+      "growth": 0,
+      "production": 0,
+      "research": 0,
+      "stability": 4,
+      "unit_discount": 0,
+      "ew_boost": 0,
+      "def_boost": 0.25,
+      "morale": 0,
+      "unity": false,
+      "relation_monthly": 0
+    }
+  },
+  "tactics": {
+    "balanced": {"name_ar": "متوازن", "desc_ar": "كل الأسلحة تشارك بوزنها الطبيعي.", "air": 1, "strike": 1, "sea": 1, "land": 1, "ew": 1, "loss": 1},
+    "sead": {"name_ar": "إخماد الدفاع", "desc_ar": "الجو والحرب الإلكترونية أقوى، والتقدم البري أضعف.", "air": 1.35, "strike": 1.1, "sea": 1, "land": 0.88, "ew": 1.15, "loss": 1},
+    "blitz": {"name_ar": "اختراق بري", "desc_ar": "البر أقوى والخسائر أعلى، والجو أضعف.", "air": 0.9, "strike": 1, "sea": 1, "land": 1.3, "ew": 1, "loss": 1.2},
+    "attrition": {"name_ar": "استنزاف", "desc_ar": "هجوم أبطأ وخسائر أقل.", "air": 1, "strike": 1, "sea": 1, "land": 0.75, "ew": 1, "loss": 0.65},
+    "strike": {"name_ar": "قصف صاروخي", "desc_ar": "الصواريخ والمسيّرات أقوى، والبر أضعف.", "air": 1, "strike": 1.3, "sea": 1, "land": 0.85, "ew": 1, "loss": 1},
+    "naval": {"name_ar": "ضغط بحري", "desc_ar": "الأسطول ومضاد السفن أقوى.", "air": 1, "strike": 1, "sea": 1.3, "land": 0.9, "ew": 1, "loss": 1},
+    "ew": {"name_ar": "حرب إلكترونية", "desc_ar": "التشويش يُعمي دفاع العدو وضرباته.", "air": 1.1, "strike": 1.1, "sea": 1, "land": 1, "ew": 1.35, "loss": 1}
+  },
+  "import": {
+    "min_relation": 20,
+    "min_gen": 2,
+    "ally_markup": 1.12,
+    "other_markup": 1.32,
+    "seller_share": 0.5,
+    "relation_gain": 3,
+    "days": 40,
+    "gen_drop": 1
+  },
+  "tracks": {
+    "space": {"name_ar": "الفضاء", "gens": ["أقمار اتصال", "أقمار تصوير", "ملاحة مستقلة", "إطلاق عسكري", "شبكة فضائية"]},
+    "cyber": {"name_ar": "السيبراني", "gens": ["حماية شبكات", "اختراق محدود", "عمليات سيبرانية", "دفاع بنية تحتية", "سيادة سيبرانية"]},
+    "nuclear": {"name_ar": "البرنامج النووي", "gens": ["بحث مدني", "تخصيب محدود", "دورة وقود", "عتبة عسكرية", "ردع نووي"]}
+  },
+  "gen_gates": [
+    {"branch": "missile", "gen": 5, "need_track": "space", "need_level": 2, "text_ar": "الجيل الخامس للصواريخ يحتاج الفضاء في المستوى 2."}
+  ],
+  "nuclear_order_level": 4,
+  "projects": {
+    "refinery": {"name_ar": "مصفاة", "cost_gdp": 0.015, "days": 160, "coastal": false},
+    "factory": {"name_ar": "مصنع", "cost_gdp": 0.012, "days": 140, "coastal": false},
+    "power_plant": {"name_ar": "محطة كهرباء", "cost_gdp": 0.01, "days": 120, "coastal": false},
+    "airbase": {"name_ar": "قاعدة جوية", "cost_gdp": 0.018, "days": 200, "coastal": false},
+    "port": {"name_ar": "ميناء", "cost_gdp": 0.016, "days": 180, "coastal": true}
+  },
+  "population": {
+    "monthly": 0.00035,
+    "food_cap": 1.15,
+    "war_factor": 0.35,
+    "starve_line": 0.45,
+    "starve_monthly": -0.0002
+  },
+  "union": {
+    "influence": 100,
+    "influence_unity": 85,
+    "relation": 70,
+    "relation_unity": 60,
+    "army_keep": 0.75
+  }
+}
