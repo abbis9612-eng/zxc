@@ -1,7 +1,8 @@
-## خريطة القيادة: خريطة مسطحة تملأ الشاشة، بحدود حقيقية وخطوط جبهة على الحد الفعلي بين المتحاربين،
-## ورقائق وحدات واضحة تتحرك بسلاسة على طريقها. التحكم المباشر: المس قواتك ثم المس الوجهة.
-## الكرة الأرضية ثلاثية الأبعاد تأتي في مرحلة لاحقة وتستبدل هذا الملف فقط.
+## خريطة القيادة: كرة أرضية ثلاثية الأبعاد بحدود حقيقية، والرقائق واللمس فوقها.
+## الخريطة المسطحة تبقى بديلاً من زر الكرة. التحكم: المس قواتك ثم المس الوجهة.
 extends Control
+
+const GlobeCam := preload("res://world/globe_cam.gd")
 
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
@@ -92,6 +93,8 @@ var sim = null:
 		_last_sig = ""
 		_world_dirty = true
 var layer: int = Layer.POLITICAL
+## الكرة هي العرض الافتراضي خارج وضع الاختبار بلا شاشة.
+var globe := true
 var selected: String = ""
 var selected_region: String = "":
 	set(v):
@@ -143,6 +146,15 @@ var _font_bold: Font
 ## _world: الأرض والحدود بإحداثيات الخريطة، تُرسم مرة وتُعاد فقط عند تغير الألوان أو تغير التكبير كثيراً.
 ## _fx: ما ينبض (الجبهات، الوجهات الممكنة، التحديد)، صغير وسريع.
 ## _over: النصوص والرقائق بإحداثيات الشاشة.
+var _holder: SubViewportContainer
+var _vp: SubViewport
+var _cam: Camera3D
+var _sun: DirectionalLight3D
+var _land: MeshInstance3D
+var _g_pos := PackedVector3Array()
+var _g_idx := PackedInt32Array()
+var _g_kind := PackedInt32Array()
+var _g_i := PackedInt32Array()
 var _world: Node2D
 var _grid_node: Node2D
 var _chunks: Array = []
@@ -189,6 +201,13 @@ func _ready() -> void:
 	_over.draw.connect(_draw_over_layer)
 	add_child(_over)
 	_zoom = 2.2
+	_setup_globe()
+	if DisplayServer.get_name() == "headless":
+		globe = false
+		if _holder != null:
+			_holder.visible = false
+		if _world != null:
+			_world.visible = true
 	resized.connect(func():
 		_world_dirty = true
 		_apply_view())
@@ -224,9 +243,223 @@ func _redraw_light() -> void:
 
 
 ## تحريك الخريطة أو تكبيرها: نحرك طبقة الأرض المرسومة مسبقاً بدل إعادة رسمها
+func set_globe(on: bool) -> void:
+	if on and _vp == null and DisplayServer.get_name() != "headless":
+		_setup_globe()
+	globe = on and _vp != null
+	if _holder != null:
+		_holder.visible = globe
+	if _world != null:
+		_world.visible = not globe
+	_world_dirty = true
+	_apply_view()
+
+
+func apply_quality(level: int) -> void:
+	if _vp == null:
+		return
+	if level <= 0:
+		_vp.msaa_3d = Viewport.MSAA_DISABLED
+	elif level == 1:
+		_vp.msaa_3d = Viewport.MSAA_2X
+	else:
+		_vp.msaa_3d = Viewport.MSAA_4X
+	if _sun != null:
+		_sun.shadow_enabled = level >= 2
+
+
+func _setup_globe() -> void:
+	_holder = SubViewportContainer.new()
+	_holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_holder.stretch = true
+	add_child(_holder)
+	move_child(_holder, 0)
+	_vp = SubViewport.new()
+	_vp.own_world_3d = true
+	_vp.transparent_bg = false
+	_vp.gui_disable_input = true
+	_vp.handle_input_locally = false
+	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_vp.size = Vector2i(8, 8)
+	_holder.add_child(_vp)
+	var envn := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.03, 0.05, 0.08)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.45, 0.5, 0.58)
+	env.ambient_light_energy = 0.72
+	envn.environment = env
+	_vp.add_child(envn)
+	_sun = DirectionalLight3D.new()
+	_sun.rotation_degrees = Vector3(-42, 28, 0)
+	_sun.light_energy = 1.15
+	_vp.add_child(_sun)
+	var ocean := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.992
+	sphere.height = 1.984
+	sphere.radial_segments = 48
+	sphere.rings = 24
+	ocean.mesh = sphere
+	var omat := StandardMaterial3D.new()
+	omat.albedo_color = Color(0.05, 0.1, 0.16)
+	omat.roughness = 0.55
+	omat.metallic = 0.08
+	ocean.material_override = omat
+	_vp.add_child(ocean)
+	_land = MeshInstance3D.new()
+	var lmat := StandardMaterial3D.new()
+	lmat.vertex_color_use_as_albedo = true
+	lmat.roughness = 0.82
+	lmat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	_land.material_override = lmat
+	_vp.add_child(_land)
+	_cam = Camera3D.new()
+	_cam.fov = GlobeCam.FOV
+	_cam.current = true
+	_vp.add_child(_cam)
+	_build_land_mesh()
+	var grid := _build_graticule()
+	_vp.add_child(grid)
+	apply_quality(1)
+
+
+func _sync_globe() -> void:
+	if _cam == null or size.x < 2.0:
+		return
+	var s := Vector2i(maxi(2, int(size.x)), maxi(2, int(size.y)))
+	if _vp.size != s:
+		_vp.size = s
+	var f := GlobeCam.frame(_center, _zoom)
+	_cam.position = f["eye"]
+	_cam.fov = GlobeCam.FOV
+	_cam.look_at(f["look"], f["up"])
+
+
+func _build_graticule() -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_LINES)
+	for lon in range(-180, 180, 30):
+		var prev := GlobeCam.on_sphere(float(lon), -80.0) * 1.004
+		for lat in range(-76, 81, 4):
+			var p := GlobeCam.on_sphere(float(lon), float(lat)) * 1.004
+			st.add_vertex(prev)
+			st.add_vertex(p)
+			prev = p
+	for lat in range(-60, 61, 30):
+		var prev2 := GlobeCam.on_sphere(-180.0, float(lat)) * 1.004
+		for lon2 in range(-176, 181, 4):
+			var p2 := GlobeCam.on_sphere(float(lon2), float(lat)) * 1.004
+			st.add_vertex(prev2)
+			st.add_vertex(p2)
+			prev2 = p2
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.45, 0.62, 0.78, 0.18)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mi.material_override = mat
+	return mi
+
+
+func _build_land_mesh() -> void:
+	_g_pos = PackedVector3Array()
+	_g_idx = PackedInt32Array()
+	_g_kind = PackedInt32Array()
+	_g_i = PackedInt32Array()
+	for i in _shapes.size():
+		var shape: Dictionary = _shapes[i]
+		if _playable.has(shape["id"]):
+			continue
+		_push_shape(shape, 1, i)
+	for i in _regions.size():
+		_push_shape(_regions[i], 0, i)
+	_commit_land()
+	if _g_idx.is_empty():
+		push_error("كرة بلا مثلثات")
+
+
+func _push_shape(shape: Dictionary, kind: int, index: int) -> void:
+	for r in shape["rings"].size():
+		var pts: PackedVector2Array = shape["rings"][r]
+		var tris: PackedInt32Array = shape["tris"][r]
+		if tris.size() < 3:
+			continue
+		var base := _g_pos.size()
+		for p in pts:
+			_g_pos.append(GlobeCam.on_sphere(p.x - 180.0, 90.0 - p.y))
+			_g_kind.append(kind)
+			_g_i.append(index)
+		for t in range(0, tris.size(), 3):
+			var ia := base + tris[t]
+			var ib := base + tris[t + 1]
+			var ic := base + tris[t + 2]
+			if _g_pos[ia].distance_to(_g_pos[ib]) > 1.15:
+				continue
+			if _g_pos[ib].distance_to(_g_pos[ic]) > 1.15:
+				continue
+			if _g_pos[ic].distance_to(_g_pos[ia]) > 1.15:
+				continue
+			_g_idx.append(ia)
+			_g_idx.append(ib)
+			_g_idx.append(ic)
+
+
+func _commit_land() -> void:
+	if _land == null or _g_pos.is_empty() or _g_idx.is_empty():
+		return
+	var cols := _land_colors()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = _g_pos
+	arrays[Mesh.ARRAY_NORMAL] = _g_pos
+	arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_INDEX] = _g_idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_land.mesh = mesh
+
+
+func _land_colors() -> PackedColorArray:
+	var cols := PackedColorArray()
+	cols.resize(_g_pos.size())
+	var cache := {}
+	for i in _g_pos.size():
+		var key := "%d:%d" % [_g_kind[i], _g_i[i]]
+		if not cache.has(key):
+			var base: Color = _region_color(_regions[_g_i[i]]) if _g_kind[i] == 0 else _fill_color(_shapes[_g_i[i]]["id"])
+			base.a = 1.0
+			cache[key] = base
+		cols[i] = cache[key]
+	return cols
+
+
+func _recolor_land() -> void:
+	if _g_pos.is_empty():
+		_build_land_mesh()
+		return
+	_commit_land()
+
+
 func _apply_view() -> void:
 	if _world == null:
 		return
+	if globe:
+		_sync_globe()
+		_world.visible = false
+		if _holder != null:
+			_holder.visible = true
+		if _fx != null:
+			_fx.position = Vector2.ZERO
+			_fx.scale = Vector2.ONE
+		_redraw_light()
+		return
+	if _holder != null:
+		_holder.visible = false
+	_world.visible = true
 	var s := _scale()
 	var offset := size * 0.5 - _center * s
 	for n in [_world, _fx]:
@@ -347,10 +580,14 @@ func _scale() -> float:
 
 
 func map_to_screen(m: Vector2) -> Vector2:
+	if globe:
+		return GlobeCam.project(_center, _zoom, size, m.x - 180.0, 90.0 - m.y)
 	return (m - _center) * _scale() + size * 0.5
 
 
 func screen_to_map(s: Vector2) -> Vector2:
+	if globe:
+		return GlobeCam.unproject(_center, _zoom, size, s)
 	return (s - size * 0.5) / _scale() + _center
 
 
@@ -438,6 +675,12 @@ func _draw() -> void:
 ## طبقة الأرض بإحداثيات الخريطة: كل العالم دفعة واحدة (بلا قص) حتى يُحرَّك بلا إعادة رسم
 ## إعادة رسم الأرض: كل مربع يرسم نفسه في الإطار التالي
 func _rebake() -> void:
+	if globe:
+		_recolor_land()
+		_world_dirty = false
+		_world_t = _time
+		_sync_globe()
+		return
 	_world_scale = _scale()
 	_world_internal = _world_scale >= 4.0
 	_world_dirty = false
@@ -628,26 +871,75 @@ func _draw_fronts(s: float) -> void:
 	var intl_w := clampf(s * 0.09, 1.3, 2.4)
 	for e in _front_cache["edges"]:
 		for pts in e["lines"]:
-			_cv.draw_polyline(pts, Color(pal("OUTLINE"), 0.9), (intl_w + 4.0) / s)
-			_cv.draw_polyline(pts, Color(pal("FRONT"), 0.65 + 0.35 * pulse), (intl_w + 2.0) / s)
+			if globe:
+				_draw_visible_line(pts, Color(pal("OUTLINE"), 0.9), 4.5)
+				_draw_visible_line(pts, Color(pal("FRONT"), 0.65 + 0.35 * pulse), 2.6)
+			else:
+				_cv.draw_polyline(pts, Color(pal("OUTLINE"), 0.9), (intl_w + 4.0) / s)
+				_cv.draw_polyline(pts, Color(pal("FRONT"), 0.65 + 0.35 * pulse), (intl_w + 2.0) / s)
 
 
 func _fill_shape(ci: RID, shape: Dictionary, col: Color) -> void:
 	for i in shape["rings"].size():
 		var pts: PackedVector2Array = shape["rings"][i]
 		var tris: PackedInt32Array = shape["tris"][i]
-		if tris.size() >= 3:
+		if tris.size() < 3:
+			continue
+		if not globe:
 			var cols := PackedColorArray()
 			cols.resize(pts.size())
 			cols.fill(col)
 			RenderingServer.canvas_item_add_triangle_array(ci, tris, pts, cols)
+			continue
+		var sp := PackedVector2Array()
+		var hidden := false
+		for p in pts:
+			var q := map_to_screen(p)
+			if q.x < -9000.0:
+				hidden = true
+				break
+			sp.append(q)
+		if not hidden:
+			var cols2 := PackedColorArray()
+			cols2.resize(sp.size())
+			cols2.fill(col)
+			RenderingServer.canvas_item_add_triangle_array(ci, tris, sp, cols2)
+			continue
+		for t in range(0, tris.size(), 3):
+			var a := map_to_screen(pts[tris[t]])
+			var b := map_to_screen(pts[tris[t + 1]])
+			var c := map_to_screen(pts[tris[t + 2]])
+			if a.x < -9000.0 or b.x < -9000.0 or c.x < -9000.0:
+				continue
+			if a.distance_to(b) > 280.0 or b.distance_to(c) > 280.0 or c.distance_to(a) > 280.0:
+				continue
+			_cv.draw_colored_polygon(PackedVector2Array([a, b, c]), col)
 
 
 func _outline(shape: Dictionary, col: Color, width: float) -> void:
 	for pts in shape["rings"]:
 		var closed: PackedVector2Array = pts.duplicate()
 		closed.append(pts[0])
-		_cv.draw_polyline(closed, col, width)
+		if globe:
+			_draw_visible_line(closed, col, maxf(width, 2.0))
+		else:
+			_cv.draw_polyline(closed, col, width)
+
+
+func _draw_visible_line(pts: PackedVector2Array, col: Color, width: float) -> void:
+	var cur := PackedVector2Array()
+	for p in pts:
+		var s := map_to_screen(p)
+		if s.x < -9000.0 or (cur.size() > 0 and cur[cur.size() - 1].distance_to(s) > 220.0):
+			if cur.size() >= 2:
+				_cv.draw_polyline(cur, col, width)
+			cur = PackedVector2Array()
+			if s.x >= -9000.0:
+				cur.append(s)
+		else:
+			cur.append(s)
+	if cur.size() >= 2:
+		_cv.draw_polyline(cur, col, width)
 
 
 func _owner_of(shape: Dictionary) -> String:
@@ -963,7 +1255,7 @@ func _dashed(pts: PackedVector2Array, col: Color, w: float, dash: float, gap: fl
 		var a := pts[i]
 		var b := pts[i + 1]
 		var L := a.distance_to(b)
-		if L < 0.5:
+		if L < 0.5 or L > size.length() * 0.45:
 			continue
 		var dir := (b - a) / L
 		var x := 0.0
@@ -1288,9 +1580,12 @@ func _gui_input(event: InputEvent) -> void:
 		if _touches.size() >= 2:
 			return
 		_drag_moved += mm.relative.length()
-		_center -= mm.relative / _scale()
-		_clamp_view()
-		_apply_view()
+		if globe:
+			_globe_pan(mm.position - mm.relative, mm.position)
+		else:
+			_center -= mm.relative / _scale()
+			_clamp_view()
+			_apply_view()
 		if _hover_rid != "":
 			_hover_rid = ""
 			hovered.emit("", Vector2.ZERO)
@@ -1309,9 +1604,12 @@ func _gui_input(event: InputEvent) -> void:
 		_zoom_at(mg.position, mg.factor)
 	elif event is InputEventPanGesture:
 		var pg := event as InputEventPanGesture
-		_center += pg.delta * 8.0 / _scale()
-		_clamp_view()
-		_apply_view()
+		if globe:
+			_globe_pan(pg.position, pg.position + pg.delta)
+		else:
+			_center += pg.delta * 8.0 / _scale()
+			_clamp_view()
+			_apply_view()
 	elif event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
@@ -1335,8 +1633,12 @@ func _gui_input(event: InputEvent) -> void:
 				_zoom_at((sd.position + other) * 0.5, new_d / old_d)
 			var mid_old := ((_touches[sd.index] as Vector2) + other) * 0.5
 			var mid_new := (sd.position + other) * 0.5
-			_center -= (mid_new - mid_old) / _scale()
-			_clamp_view()
+			if globe:
+				_globe_pan(mid_old, mid_new)
+			else:
+				_center -= (mid_new - mid_old) / _scale()
+				_clamp_view()
+				_apply_view()
 		_touches[sd.index] = sd.position
 
 
@@ -1371,8 +1673,24 @@ func zoom_by(factor: float) -> void:
 
 
 func _clamp_view() -> void:
+	if globe:
+		_center.x = fposmod(_center.x, MAP_W)
+		_center.y = clampf(_center.y, 18.0, MAP_H - 18.0)
+		return
 	_center.x = clampf(_center.x, 0.0, MAP_W)
 	_center.y = clampf(_center.y, 10.0, MAP_H - 30.0)
+
+
+func _globe_pan(from: Vector2, to: Vector2) -> void:
+	var a := screen_to_map(from)
+	var b := screen_to_map(to)
+	if a.x >= 0.0 and b.x >= 0.0:
+		_center += a - b
+	else:
+		_center.x -= (to.x - from.x) * 90.0 / maxf(size.x, 1.0)
+		_center.y -= (to.y - from.y) * 90.0 / maxf(size.y, 1.0)
+	_clamp_view()
+	_apply_view()
 
 
 func _click(screen_pos: Vector2) -> void:

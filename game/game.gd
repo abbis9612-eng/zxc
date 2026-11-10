@@ -21,6 +21,10 @@ signal game_started
 signal theme_changed
 
 var light_theme := true
+## 0 خفيف، 1 متوسط، 2 عالٍ. يغيّر نعومة الكرة وطول مشهد المعركة وظلاله.
+const QUALITY_NAMES := ["خفيف", "متوسط", "عالٍ"]
+var quality := 1
+var _quality_saved := false
 var mobile := false
 var welcomed := false
 
@@ -38,6 +42,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_settings()
 	mobile = OS.has_feature("mobile") or "--mobile-preview" in OS.get_cmdline_user_args()
+	if mobile and not _quality_saved:
+		quality = 0
 	if mobile:
 		_apply_mobile_scale()
 		get_window().size_changed.connect(_apply_mobile_scale)
@@ -57,6 +63,17 @@ func _load_settings() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(SETTINGS_PATH) == OK:
 		light_theme = bool(cf.get_value("display", "light_theme", true))
+		if cf.has_section_key("display", "quality"):
+			quality = clampi(int(cf.get_value("display", "quality", 1)), 0, 2)
+			_quality_saved = true
+
+
+func set_quality(level: int) -> void:
+	quality = clampi(level, 0, 2)
+	var cf := ConfigFile.new()
+	cf.load(SETTINGS_PATH)
+	cf.set_value("display", "quality", quality)
+	cf.save(SETTINGS_PATH)
 
 
 func set_light_theme(v: bool) -> void:
