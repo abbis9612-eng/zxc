@@ -15,6 +15,7 @@ config/description="لعبة استراتيجية كبرى عن حرب عالم�
 config/version="0.1.0"
 run/main_scene="res://ui/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
+config/icon="res://assets/icon_256.png"
 
 [autoload]
 
@@ -39,4 +40,5 @@ locale/fallback="ar"
 [rendering]
 
 renderer/rendering_method="mobile"
+rendering_device/fallback_to_opengl3=true
 textures/vram_compression/import_etc2_astc=true

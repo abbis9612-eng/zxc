@@ -54,9 +54,23 @@ tests/   الاختبارات
 docs/    وثيقة التصميم وخارطة الطريق
 ```
 
-## التصدير لأندرويد
+## بناء نسخ التشغيل
 
-عند إنشاء إعداد التصدير في Godot، أضف `*.json` إلى خانة «Filters to export non-resource files» حتى تُضمَّن ملفات البيانات.
+إعدادات التصدير جاهزة في `export_presets.cfg` (ويندوز ملف exe واحد، أندرويد 64-بت، لينكس للاختبار).
+
+```bash
+# ويندوز
+godot --headless --path . --export-release "Windows" build/windows/WW3.exe
+
+# أندرويد: تصدير بلا توقيع ثم توقيع v2
+godot --headless --path . --export-release "Android" build/android/WW3-unsigned.apk
+python3 tools/sign_apk.py build/android/WW3-unsigned.apk build/android/WW3.apk
+```
+
+- قوالب التصدير تُنزّل من صفحة إصدار Godot 4.7 (`Godot_v4.7-stable_export_templates.tpz`).
+- `tools/sign_apk.py` يوقّع بمخطط Android v2 الموثّق، وينشئ مفتاح اختبار في `tools/keys/` (خارج Git). احتفظ به: التحديثات تُثبّت فوق النسخة القديمة فقط إن وُقّعت بالمفتاح نفسه.
+- نسخة المتجر تحتاج مفتاحاً خاصاً سرياً وبناء AAB من Android Studio أو Gradle.
+- Godot يتحقق من وجود Android SDK حتى للتصدير بلا توقيع. على جهازك ثبّت Android SDK وحدد مساره في إعدادات المحرر.
 
 ## المصادر والتراخيص
 
