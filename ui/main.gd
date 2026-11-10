@@ -1918,24 +1918,49 @@ func _on_buy() -> void:
 	_dirty = true
 
 
+const DOCTRINE_ICONS := {"balanced": "stability", "mil_ind": "factory", "sci_tech": "research", "eco_inv": "economy", "unity": "handshake", "def_fort": "radar"}
+
+
+## أثر الاتجاه كوسوم قصيرة من أرقام البيانات نفسها
+func _doctrine_chips(info: Dictionary) -> Array:
+	var out: Array = []
+	if float(info.get("growth", 0.0)) > 0.0:
+		out.append(["النمو +%s" % String.num(float(info["growth"]), 2), UI.C_GOOD])
+	if float(info.get("production", 0.0)) > 0.0:
+		out.append(["التصنيع +%d%%" % roundi(float(info["production"]) * 100.0), UI.C_GOOD])
+	if float(info.get("unit_discount", 0.0)) > 0.0:
+		out.append(["السلاح أرخص %d%%" % roundi(float(info["unit_discount"]) * 100.0), UI.C_GOOD])
+	if float(info.get("research", 0.0)) > 0.0:
+		out.append(["البحث +%d%%" % roundi(float(info["research"]) * 100.0), UI.C_GOOD])
+	if float(info.get("ew_boost", 0.0)) > 0.0:
+		out.append(["الحرب الإلكترونية +%d%%" % roundi(float(info["ew_boost"]) * 100.0), UI.C_GOOD])
+	if float(info.get("def_boost", 0.0)) > 0.0:
+		out.append(["الدفاع +%d%%" % roundi(float(info["def_boost"]) * 100.0), UI.C_GOOD])
+	if float(info.get("morale", 0.0)) > 0.0:
+		out.append(["المعنويات +%d%%" % roundi(float(info["morale"]) * 100.0), UI.C_GOOD])
+	if float(info.get("stability", 0.0)) > 0.0:
+		out.append(["الاستقرار +%d" % int(info["stability"]), UI.C_GOOD])
+	if info.get("unity", false):
+		out.append(["الاتحاد السلمي أسهل", UI.C_GOOD])
+	return out
+
+
+## اتجاه الدولة: الجواب أولاً (اتجاهك وأثره ومتى يتغير)، ثم الخيارات صفوفاً بوسوم أثرها
 func _doctrine_section(box: VBoxContainer, p: Dictionary) -> void:
 	var s = Game.sim
-	var pid: String = p["id"]
-	box.add_child(UI.section("اتجاه الدولة", "state"))
-	var cur: Dictionary = s.db.development["doctrines"][p.get("doctrine", "balanced")]
-	box.add_child(UI.label("الآن: %s. %s" % [cur["name_ar"], cur["desc_ar"]], UI.C_TEXT, 14))
+	var cur_id: String = p.get("doctrine", "balanced")
+	var cur: Dictionary = s.db.development["doctrines"][cur_id]
 	var left := int(p.get("doctrine_until", 0)) - int(s.state["day"])
-	if left > 0:
-		box.add_child(UI.label("يمكن تغيير الاتجاه بعد %d يوماً. التغيير يكلف %d استقراراً." % [left, int(s.db.development["doctrine_stability_cost"])], UI.C_MUTED, 13))
-	else:
-		box.add_child(UI.label("التغيير يكلف %d استقراراً ولا يُعاد قبل سنة. الأثر مكتوب على كل خيار." % int(s.db.development["doctrine_stability_cost"]), UI.C_MUTED, 13))
+	var cost := int(s.db.development["doctrine_stability_cost"])
+	box.add_child(UI.section("اتجاه الدولة", "state"))
+	box.add_child(_answer_card(DOCTRINE_ICONS.get(cur_id, "state"), "اتجاهك الآن", cur["name_ar"], _doctrine_chips(cur),
+		_human_months(ceili(left / 30.0)) if left > 0 else "متاح", "حتى يمكن التغيير" if left > 0 else "التغيير الآن"))
+	box.add_child(_nowrap(UI.label("التغيير يكلف %d استقراراً، ثم يُقفل سنة." % cost, UI.C_MUTED, 13)))
 	for doc in DOCTRINE_ORDER:
-		if doc == p.get("doctrine", "balanced"):
+		if doc == cur_id:
 			continue
 		var info: Dictionary = s.db.development["doctrines"][doc]
-		var b := UI.button("%s — %s" % [info["name_ar"], info["desc_ar"]], _confirm_doctrine.bind(doc))
-		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(b)
+		box.add_child(_choice(DOCTRINE_ICONS.get(doc, "state"), info["name_ar"], _doctrine_chips(info), "مقفل" if left > 0 else "اختر ‹", _confirm_doctrine.bind(doc), false, left > 0))
 
 
 func _confirm_doctrine(doc: String) -> void:
@@ -1949,60 +1974,98 @@ func _confirm_doctrine(doc: String) -> void:
 	var cost := int(s.db.development["doctrine_stability_cost"])
 	var go := func():
 		_do(Development.set_doctrine(s, pid, doc), "تغيّر اتجاه الدولة.")
-	_show_dialog("اتجاه: %s؟" % info["name_ar"], "%s\nالتغيير يكلف %d استقراراً، ثم يُقفل لسنة." % [info["desc_ar"], cost], [{"text": "أختار هذا الاتجاه", "cb": go}, {"text": "تراجع"}])
+	var v := UI.col()
+	v.add_child(_chips(_doctrine_chips(info) + [["الاستقرار −%d الآن" % cost, UI.C_BAD], ["يُقفل سنة", UI.C_MUTED]]))
+	_show_dialog("اتجاه: %s؟" % info["name_ar"], "", [{"text": "أختار هذا الاتجاه", "cb": go}, {"text": "تراجع"}], v, DOCTRINE_ICONS.get(doc, "state"))
 
 
+const IMPORT_STEPS := [1, 2, 4, 8, 16, 32, 64, 128, 256]
+var import_type := "armor"
+var import_step := 2
+
+
+## استيراد السلاح: الجواب أولاً (ما في الطريق)، ثم نوع السلاح والعدد، ثم أفضل العروض صفوفاً
 func _import_section(box: VBoxContainer, p: Dictionary) -> void:
 	var s = Game.sim
 	var pid: String = p["id"]
 	box.add_child(UI.sep())
 	box.add_child(UI.section("استيراد السلاح", "trade"))
-	box.add_child(UI.label("الحليف يبيعك جيله. غير الحليف يبيع جيلاً أقل، وتحتاج علاقة 20 على الأقل.", UI.C_MUTED, 13))
-	for o in p.get("imports", []):
-		box.add_child(UI.kv("شحنة %s من %s" % [s.db.units[o["type"]]["name_ar"], s.country(o["from"])["name_ar"]], "جيل %d · %d يوماً" % [int(o["gen"]), int(ceilf(float(o["days_left"])))], UI.C_ACCENT))
-	var type_ids: Array = []
-	var types := OptionButton.new()
+	var ships: Array = p.get("imports", [])
+	if not ships.is_empty():
+		var o0: Dictionary = ships[0]
+		var more := "" if ships.size() == 1 else "و%d شحنات أخرى" % (ships.size() - 1)
+		box.add_child(_answer_card("trade", "في الطريق إليك", "%s %s من %s" % [s.fmt_num(o0["count"]) if o0.has("count") else "", s.db.units[o0["type"]]["name_ar"], s.country(o0["from"])["name_ar"]],
+			[["الجيل %d" % int(o0["gen"]), UI.C_TEXT]] + ([[more, UI.C_MUTED]] if more != "" else []), "%d يوماً" % int(ceilf(float(o0["days_left"]))), "حتى تصل"))
+	# نوع السلاح
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 4)
+	flow.add_theme_constant_override("v_separation", 4)
+	box.add_child(_nowrap(UI.label("ماذا تشتري؟", UI.C_MUTED, 13)))
 	for u in s.db.units:
 		if u == "nukes":
 			continue
-		type_ids.append(u)
-		types.add_item(s.db.units[u]["name_ar"])
-	var offers: Array = []
-	var sellers := OptionButton.new()
-	var count := SpinBox.new()
-	count.min_value = 1
-	count.max_value = 500
-	count.value = 4
-	var detail := UI.label("", UI.C_MUTED, 14)
-	var show_offer := func() -> void:
-		if offers.is_empty():
-			detail.text = "لا دولة تبيعك هذا السلاح الآن."
-			return
-		var o: Dictionary = offers[clampi(sellers.selected, 0, offers.size() - 1)]
-		detail.text = "الجيل %d يصل بعد %d يوماً. %s" % [int(o["gen"]), int(o["days"]), "الحليف يسلّم جيله." if o["ally"] else "غير الحليف يسلّم جيلاً أقل من جيله."]
-	var refresh := func() -> void:
-		offers.clear()
-		sellers.clear()
-		var ut: String = type_ids[types.selected]
-		for o in Development.suppliers(s, pid, ut):
-			offers.append(o)
-			var tag := "حليف، نفس الجيل" if o["ally"] else "غير حليف، جيل أقل"
-			sellers.add_item("%s · جيل %d · %s · %s" % [s.country(o["id"])["name_ar"], int(o["gen"]), tag, UI.money(float(o["cost"]) * count.value)])
-		show_offer.call()
-	types.item_selected.connect(func(_i): refresh.call())
-	count.value_changed.connect(func(_v): refresh.call())
-	sellers.item_selected.connect(func(_i): show_offer.call())
-	refresh.call()
-	box.add_child(types)
-	box.add_child(sellers)
-	box.add_child(UI.row([UI.label("العدد:"), count]))
-	box.add_child(detail)
-	box.add_child(UI.button("اطلب الشحنة", func():
-		if offers.is_empty():
-			_toast("لا بائع متاح.")
-			return
-		var o: Dictionary = offers[sellers.selected]
-		_do(Development.import_units(s, pid, o["id"], type_ids[types.selected], count.value), "طُلبت الشحنة وتصل بعد %d يوماً." % int(o["days"]))))
+		var on: bool = u == import_type
+		var tb := UI.button(s.db.units[u]["name_ar"].trim_suffix(" (ألف)").trim_suffix(" (بطارية)"), _pick_import_type.bind(u), "", "PrimaryButton" if on else "")
+		tb.custom_minimum_size = Vector2(0, TOUCH - 8)
+		tb.add_theme_font_size_override("font_size", 14)
+		flow.add_child(tb)
+	box.add_child(flow)
+	# العدد بخطوات تتضاعف
+	var count: int = IMPORT_STEPS[import_step]
+	var cr := UI.row()
+	cr.add_theme_constant_override("separation", 8)
+	cr.add_child(_nowrap(UI.label("العدد", UI.C_MUTED, 14)))
+	var minus := UI.button("−", _step_import.bind(-1))
+	minus.custom_minimum_size = Vector2(TOUCH, TOUCH - 6)
+	minus.disabled = import_step == 0
+	cr.add_child(minus)
+	var cl := _nowrap(_big(str(count), 18))
+	cl.custom_minimum_size = Vector2(48, 0)
+	cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cr.add_child(cl)
+	var plus := UI.button("+", _step_import.bind(1))
+	plus.custom_minimum_size = Vector2(TOUCH, TOUCH - 6)
+	plus.disabled = import_step == IMPORT_STEPS.size() - 1
+	cr.add_child(plus)
+	box.add_child(cr)
+	# العروض: أحدث جيل أولاً ثم الأرخص
+	var branch: String = s.db.units[import_type]["branch"]
+	var mine := int(p["tech"][branch])
+	var offers: Array = Development.suppliers(s, pid, import_type)
+	if offers.is_empty():
+		box.add_child(UI.label("لا دولة تبيعك هذا السلاح الآن: تحتاج حليفاً أو علاقة 20 على الأقل، ولا يبيعك حليف لعدوك.", UI.C_MUTED, 13))
+		return
+	for o in offers.slice(0, 4):
+		var c: Dictionary = s.country(o["id"])
+		var g := int(o["gen"])
+		var chips: Array = []
+		if g > mine:
+			chips.append(["الجيل %d · أحدث من جيلك" % g, UI.C_GOOD])
+		elif g == mine:
+			chips.append(["الجيل %d · مثل جيلك" % g, UI.C_MUTED])
+		else:
+			chips.append(["الجيل %d · أقدم من جيلك" % g, UI.C_BAD])
+		chips.append(["حليف" if o["ally"] else "غير حليف", UI.C_FRIENDLY if o["ally"] else UI.C_MUTED])
+		chips.append(["يصل بعد %d يوماً" % int(o["days"]), UI.C_MUTED])
+		var total := float(o["cost"]) * float(count)
+		if total > float(p["treasury"]):
+			chips.append(["الخزينة لا تكفي", UI.C_BAD])
+		box.add_child(_choice("", c["name_ar"], chips, "اشترِ · %s" % UI.money_short(total), _buy_import.bind(String(o["id"]), import_type, count, int(o["days"])), false, total > float(p["treasury"]), c.get("flag", "")))
+
+
+func _pick_import_type(u: String) -> void:
+	import_type = u
+	_dirty = true
+
+
+func _step_import(d: int) -> void:
+	import_step = clampi(import_step + d, 0, IMPORT_STEPS.size() - 1)
+	_dirty = true
+
+
+func _buy_import(seller: String, utype: String, count: int, days: int) -> void:
+	var s = Game.sim
+	_do(Development.import_units(s, s.state["player"], seller, utype, count), "تم: الشحنة تصل بعد %d يوماً." % days)
 
 
 func _fill_army() -> void:
@@ -2367,6 +2430,127 @@ static func _bold_font() -> Font:
 	return _bold_cache
 
 
+# ------------------------------------------------------------------ مكونات «الجواب أولاً»
+
+## بطاقة الجواب: أيقونة، سطر صغير، عنوان عريض، ووسوم أثر، وقيمة كبيرة على الطرف الآخر
+func _answer_card(icon: String, caption: String, title: String, chips: Array, side_big: String = "", side_small: String = "", col: Color = UI.C_ACCENT) -> PanelContainer:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _tint_box(col, 0.10, 0.45))
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 4)
+	card.add_child(v)
+	var head := UI.row()
+	head.add_theme_constant_override("separation", 10)
+	head.add_child(Icons.icon_rect(icon, col if col != UI.C_ACCENT else UI.C_ACCENT_TEXT, 26))
+	var tv := VBoxContainer.new()
+	tv.add_theme_constant_override("separation", 0)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if caption != "":
+		tv.add_child(_nowrap(UI.label(caption, UI.C_MUTED, 13)))
+	tv.add_child(_nowrap(_big(title, 18)))
+	head.add_child(tv)
+	if side_big != "":
+		var sv := VBoxContainer.new()
+		sv.add_theme_constant_override("separation", 0)
+		sv.add_child(_nowrap(_big(side_big, 17)))
+		if side_small != "":
+			sv.add_child(_nowrap(UI.label(side_small, UI.C_MUTED, 12)))
+		head.add_child(sv)
+	v.add_child(head)
+	if not chips.is_empty():
+		v.add_child(_chips(chips))
+	return card
+
+
+## وسم أثر صغير ملون: [نص، لون]
+func _chip(text: String, col: Color) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col, 0.12)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 7
+	sb.content_margin_right = 7
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 1
+	p.add_theme_stylebox_override("panel", sb)
+	var l := _nowrap(UI.label(text, col, 13))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(l)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+
+func _chips(items: Array) -> HFlowContainer:
+	var f := HFlowContainer.new()
+	f.add_theme_constant_override("h_separation", 5)
+	f.add_theme_constant_override("v_separation", 4)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for it in items:
+		f.add_child(_chip(it[0], it[1]))
+	return f
+
+
+## صف اختيار: الصف كله زر. أيقونة واسم ووسوم الأثر، وعلى الطرف نص الفعل أو الحالة
+func _choice(icon: String, title: String, chips: Array, tail: String, cb: Callable, active: bool = false, disabled: bool = false, flag: String = "") -> Button:
+	var b := Button.new()
+	b.theme_type_variation = "FlatButton"
+	if active:
+		b.add_theme_stylebox_override("normal", _tint_box(UI.C_ACCENT, 0.12, 0.6))
+		b.add_theme_stylebox_override("hover", _tint_box(UI.C_ACCENT, 0.16, 0.6))
+	else:
+		var nb := _tint_box(UI.C_TEXT, 0.0, 0.18)
+		b.add_theme_stylebox_override("normal", nb)
+		b.add_theme_stylebox_override("hover", _tint_box(UI.C_TEXT, 0.05, 0.25))
+	b.add_theme_stylebox_override("pressed", _tint_box(UI.C_ACCENT, 0.18, 0.6))
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 12)
+	for side in ["top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 8)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(v)
+	var h := UI.row()
+	h.add_theme_constant_override("separation", 8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icol: Color = UI.C_ACCENT_TEXT if active else (UI.C_DISABLED if disabled else UI.C_TEXT)
+	if flag != "":
+		h.add_child(Flags.rect(flag, 28))
+	else:
+		h.add_child(Icons.icon_rect(icon, icol, 22))
+	var t := _nowrap(_big(title, 16))
+	if disabled:
+		t.add_theme_color_override("font_color", UI.C_MUTED)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	if tail != "":
+		var tl := _nowrap(UI.label(tail, UI.C_ACCENT_TEXT if not disabled else UI.C_MUTED, 14))
+		h.add_child(tl)
+	v.add_child(h)
+	if not chips.is_empty():
+		v.add_child(_chips(chips))
+	for c in v.get_children():
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(m)
+	# ارتفاع الزر يتبع محتواه
+	m.minimum_size_changed.connect(func(): b.custom_minimum_size.y = m.get_combined_minimum_size().y)
+	b.custom_minimum_size.y = maxf(TOUCH, m.get_combined_minimum_size().y)
+	b.disabled = disabled
+	if cb.is_valid() and not disabled:
+		b.pressed.connect(cb)
+	return b
+
+
+## نسبة أثر بوسم: +30% أخضر إن كانت جيدة، أحمر إن كانت سيئة
+static func _pct_chip(label: String, factor: float, higher_good: bool = true) -> Array:
+	var d := roundi((factor - 1.0) * 100.0)
+	var good := (d > 0) == higher_good
+	return ["%s %s%d%%" % [label, "+" if d > 0 else "−", absi(d)], UI.C_GOOD if good else UI.C_BAD]
+
+
 ## خلفية ملونة خفيفة بإطار من نفس اللون
 static func _tint_box(col: Color, bg_alpha: float, border_alpha: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -2400,19 +2584,24 @@ func _fill_diplomacy() -> void:
 	for w in my_wars:
 		var my := float(w["score"]) if pid in w["attackers"] else -float(w["score"])
 		var enemy: String = w["defenders"][0] if pid in w["attackers"] else w["attackers"][0]
-		box.add_child(UI.kv("ضد %s" % s.country(enemy)["name_ar"], "النتيجة %d" % int(my), UI.C_GOOD if my >= 0.0 else UI.C_BAD))
-		box.add_child(UI.bar(my + 100.0, 200.0, UI.C_GOOD if my >= 0.0 else UI.C_BAD))
 		var tac_id := str(w.get("tactics", {}).get(pid, "balanced"))
 		var tac: Dictionary = s.db.development["tactics"][tac_id]
-		box.add_child(UI.label("تكتيكك: %s. %s" % [tac["name_ar"], tac["desc_ar"]], UI.C_TEXT, 14))
+		var col: Color = UI.C_GOOD if my >= 0.0 else UI.C_BAD
+		box.add_child(_answer_card("war", "حربك ضد %s" % s.country(enemy)["name_ar"], "تتقدم" if my >= 5.0 else ("تتراجع" if my <= -5.0 else "متكافئة"),
+			[["تكتيكك: %s" % tac["name_ar"], UI.C_ACCENT_TEXT]] + _tactic_chips(tac), "%s%d" % ["+" if my > 0 else "", int(my)], "نتيجة الحرب", col))
+		box.add_child(UI.bar(my + 100.0, 200.0, col))
+		box.add_child(_nowrap(UI.label("التكتيك (يتغير فوراً):", UI.C_MUTED, 13)))
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 6)
 		var wid := int(w["id"])
 		for tid in TACTIC_ORDER:
-			if tid == tac_id:
-				continue
 			var info: Dictionary = s.db.development["tactics"][tid]
-			var b := UI.button("%s — %s" % [info["name_ar"], info["desc_ar"]], _set_war_tactic.bind(wid, tid))
-			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			box.add_child(b)
+			var c := _choice(TACTIC_ICONS.get(tid, "war"), info["name_ar"], _tactic_chips(info), "", _set_war_tactic.bind(wid, tid), tid == tac_id)
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			grid.add_child(c)
+		box.add_child(grid)
 	if not s.state["last_battle"].is_empty():
 		box.add_child(UI.button("تقرير آخر معركة", _show_battle_report))
 	box.add_child(UI.sep())
@@ -2596,6 +2785,24 @@ func _confirm_union(id: String) -> void:
 		[{"text": "اتحد", "cb": go}, {"text": "تراجع"}])
 
 
+const TACTIC_ICONS := {"balanced": "stability", "sead": "radar", "blitz": "unit", "attrition": "stability", "strike": "target", "naval": "ship", "ew": "network"}
+
+
+## أثر التكتيك كوسوم: ما يقوى وما يضعف، والخسائر (الأعلى سيئ)
+func _tactic_chips(info: Dictionary) -> Array:
+	var out: Array = []
+	for k in [["land", "البر"], ["air", "الجو"], ["strike", "الصواريخ"], ["sea", "البحر"], ["ew", "التشويش"]]:
+		var f := float(info.get(k[0], 1.0))
+		if absf(f - 1.0) > 0.01:
+			out.append(_pct_chip(k[1], f))
+	var loss := float(info.get("loss", 1.0))
+	if absf(loss - 1.0) > 0.01:
+		out.append(_pct_chip("الخسائر", loss, false))
+	if out.is_empty():
+		out.append(["كل الأسلحة بوزنها", UI.C_MUTED])
+	return out
+
+
 func _set_war_tactic(war_id: int, tac: String) -> void:
 	var s = Game.sim
 	var info: Dictionary = s.db.development["tactics"][tac]
@@ -2659,54 +2866,75 @@ func _factions_section(box: VBoxContainer, p: Dictionary) -> void:
 
 
 ## المضائق: حالة كل ممر، وحصتك منه، وإغلاقه إن كنت من مسيطريه
+## المضائق: الجواب أولاً (أهم ممر لتجارتك وحالته، وما يُقطع منها الآن)، ثم صف قصير لكل ممر
 func _straits_section(box: VBoxContainer, p: Dictionary) -> void:
 	var s = Game.sim
 	var pid: String = s.state["player"]
 	box.add_child(UI.sep())
 	box.add_child(UI.section("المضائق والممرات", "port"))
-	var tension := float(s.state["global"].get("tension", 0.0))
-	box.add_child(UI.kv("التوتر العالمي", "%d" % int(tension), UI.C_BAD if tension >= 40.0 else UI.C_TEXT))
-	box.add_child(UI.bar(tension, 100.0, UI.C_BAD if tension >= 40.0 else UI.C_ACCENT))
-	var mine := Straits.export_loss(s, pid)
-	if mine > 0.01:
-		box.add_child(UI.kv("ما يُقطع من تجارتك البحرية", "%d%%" % int(mine * 100.0), UI.C_BAD))
-	box.add_child(UI.label("إغلاق ممر تسيطر عليه يقطع تجارة من يمر به ولا يقطع تجارتك. بعض الممرات بلا دولة ممثَّلة في هذه النسخة فتبقى مفتوحة.", UI.C_MUTED, 13))
-	var ordered: Array = s.db.straits["straits"].duplicate()
+	var defs: Array = s.db.straits["straits"].duplicate()
+	# الأهم لتجارتك أولاً، ثم ما تسيطر عليه، ثم البقية
+	defs.sort_custom(func(a, b):
+		var sa := float(a["users"].get(pid, 0.0)) + (1.0 if pid in Straits.owners(s, a) else 0.0)
+		var sb := float(b["users"].get(pid, 0.0)) + (1.0 if pid in Straits.owners(s, b) else 0.0)
+		return sa > sb)
 	if focus_strait != "":
-		ordered.sort_custom(func(a, b): return a["id"] == focus_strait and b["id"] != focus_strait)
-	for sdef in ordered:
+		defs.sort_custom(func(a, b): return a["id"] == focus_strait and b["id"] != focus_strait)
+	var top: Dictionary = defs[0]
+	var top_share := float(top["users"].get(pid, 0.0))
+	var lost := Straits.export_loss(s, pid)
+	var tension := float(s.state["global"].get("tension", 0.0))
+	var chips: Array = []
+	if lost > 0.01:
+		chips.append(["يُقطع %d%% من تجارتك البحرية الآن" % int(lost * 100.0), UI.C_BAD])
+	else:
+		chips.append(["تجارتك البحرية تمر بلا قطع", UI.C_GOOD])
+	chips.append(["التوتر العالمي %d" % int(tension), UI.C_BAD if tension >= 40.0 else UI.C_MUTED])
+	if top_share > 0.0:
+		var st0 := Straits.state_of(s, top["id"])
+		box.add_child(_answer_card("port", "أهم ممر لتجارتك", top["name_ar"], chips, Straits.names(s)[st0], "يمر به %d%% من تجارتك" % int(top_share * 100.0), UI.C_BAD if st0 == 2 else UI.C_ACCENT))
+	else:
+		box.add_child(_answer_card("port", "تجارتك البحرية", "لا تمر بممر حساس", chips))
+	for sdef in defs:
 		var sid: String = sdef["id"]
 		var st := Straits.state_of(s, sid)
-		var label: String = Straits.names(s)[st]
 		var col: Color = UI.C_BAD if st == 2 else (UI.C_WARN if st == 1 else UI.C_GOOD)
-		var by := str(Straits.entry(s, sid).get("by", ""))
-		if st == 2 and by != "" and not s.country(by).is_empty():
-			label += " — " + s.country(by)["name_ar"]
-		var title: String = sdef["name_ar"]
-		if sid == focus_strait:
-			title = "● " + title
-		box.add_child(UI.kv(title, label, col))
+		var row_chips: Array = [[Straits.names(s)[st], col]]
 		var share := float(sdef["users"].get(pid, 0.0))
 		if share > 0.0:
-			box.add_child(UI.label("يمر به %d%% من تجارتك البحرية." % int(share * 100.0), UI.C_MUTED, 13))
+			row_chips.append(["تجارتك %d%%" % int(share * 100.0), UI.C_TEXT])
 		var ow: Array = Straits.owners(s, sdef)
+		var tail := ""
+		var cb := Callable()
 		if ow.is_empty():
-			box.add_child(UI.label("لا دولة ممثَّلة تسيطر عليه.", UI.C_MUTED, 13))
+			row_chips.append(["بلا مسيطر في اللعبة", UI.C_MUTED])
 		elif pid in ow:
+			row_chips.append(["أنت تسيطر عليه", UI.C_ACCENT_TEXT])
+			var by := str(Straits.entry(s, sid).get("by", ""))
 			if st == 2 and by == pid:
-				var open_id := sid
-				box.add_child(UI.button("إعادة فتح %s" % sdef["name_ar"], func():
-					_do(s.open_strait(pid, open_id), "أُعيد فتح الممر.")))
-			elif st != 2:
-				var close_id := sid
-				var b := UI.button("إغلاق %s" % sdef["name_ar"], func(): _confirm_close_strait(close_id), "port", "DangerButton")
-				b.disabled = Straits.can_close(s, pid, sid) != ""
-				box.add_child(b)
+				tail = "افتحه ‹"
+				cb = _reopen_strait.bind(sid)
+			elif st != 2 and Straits.can_close(s, pid, sid) == "":
+				tail = "أغلقه ‹"
+				cb = _confirm_close_strait.bind(sid)
 		else:
 			var names := PackedStringArray()
 			for oid in ow:
 				names.append(s.country(oid)["name_ar"])
-			box.add_child(UI.label("المسيطر: " + "، ".join(names), UI.C_MUTED, 13))
+			row_chips.append(["المسيطر: " + "، ".join(names), UI.C_MUTED])
+		if not cb.is_valid():
+			cb = _show_strait.bind(float(sdef["lon"]), float(sdef["lat"]))
+			tail = "على الخريطة ‹"
+		box.add_child(_choice("port", sdef["name_ar"], row_chips, tail, cb, sid == focus_strait))
+
+
+func _show_strait(lon: float, lat: float) -> void:
+	map.focus_point(lon, lat)
+
+
+func _reopen_strait(sid: String) -> void:
+	var s = Game.sim
+	_do(s.open_strait(s.state["player"], sid), "تم: أُعيد فتح الممر.")
 
 
 func _confirm_close_strait(sid: String) -> void:
