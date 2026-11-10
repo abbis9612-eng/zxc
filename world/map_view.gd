@@ -5,9 +5,14 @@ extends Control
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Territory := preload("res://sim/territory.gd")
+const Icons := preload("res://ui/icons.gd")
+const C_FRIENDLY := Color("4c9be8")
+const C_HOSTILE := Color("e5534b")
+const C_NEUTRAL := Color("4fb477")
 
 signal country_selected(id: String)
 signal region_selected(rid: String)
+signal hovered(rid: String, pos: Vector2)
 
 const WORLD_FILE := "res://data/world_110m.json"
 const REGIONS_FILE := "res://data/regions.json"
@@ -42,6 +47,8 @@ var selected_region: String = ""
 var selected_division: int = -1
 var _range_cache: Dictionary = {}     # منطقة -> 0 لا شيء، 1 طيران، 2 صواريخ، 3 كلاهما
 var _range_day: int = -1
+var _hover_rid := ""
+var _hover_pos := Vector2.ZERO
 
 var _shapes: Array = []          # [{id, name_ar, rings:[PackedVector2Array], tris:[PackedInt32Array], rect:Rect2}]
 var _by_id: Dictionary = {}       # id -> index في _shapes
@@ -223,8 +230,9 @@ func _draw() -> void:
 		_draw_region_labels()
 		_draw_facilities()
 		_draw_wars()
-		_draw_divisions()
 		_draw_capitals()
+		_draw_divisions()
+	_draw_scale_bar()
 
 
 func _fill_shape(ci: RID, shape: Dictionary, col: Color) -> void:
@@ -314,15 +322,63 @@ func _rebuild_range() -> void:
 		_range_cache[rid] = code
 
 
-## رموز الفرق: مربع عسكري فيه علامة ×، بلون صاحبه، مع سهم الحركة
+## رمز فرقة بمعيار APP-6: الإطار حسب الانتماء، وداخله علامة المشاة الآلية (× مع شكل بيضاوي)،
+## وفوقه علامة مستوى الفرقة XX، وتحته شريط الجاهزية
+func _draw_unit_symbol(p: Vector2, aff: String, mine: bool, strength: float) -> void:
+	var fill: Color
+	var line: Color
+	match aff:
+		"friend":
+			fill = Color("1d3f63")
+			line = C_FRIENDLY.lightened(0.15)
+		"hostile":
+			fill = Color("5a1f1c")
+			line = C_HOSTILE.lightened(0.1)
+		_:
+			fill = Color("1f4a32")
+			line = C_NEUTRAL.lightened(0.1)
+	if mine:
+		line = C_PLAYER
+	var inner: PackedVector2Array
+	if aff == "hostile":
+		var pts := PackedVector2Array([p + Vector2(0, -11), p + Vector2(11, 0), p + Vector2(0, 11), p + Vector2(-11, 0)])
+		draw_colored_polygon(pts, fill)
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, line, 1.6, true)
+		inner = PackedVector2Array([p + Vector2(-5.5, -5.5), p + Vector2(5.5, 5.5), p + Vector2(-5.5, 5.5), p + Vector2(5.5, -5.5)])
+	else:
+		var half := Vector2(11, 7.5) if aff == "friend" else Vector2(8.5, 8.5)
+		var r := Rect2(p - half, half * 2.0)
+		draw_rect(r, fill)
+		draw_rect(r, line, false, 1.6)
+		inner = PackedVector2Array([r.position, r.end, Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)])
+	draw_line(inner[0], inner[1], line, 1.2, true)
+	draw_line(inner[2], inner[3], line, 1.2, true)
+	draw_arc(p, 3.0, 0.0, TAU, 14, line, 1.2, true)
+	# مستوى الفرقة: XX
+	var ech := "XX"
+	var ew := _font.get_string_size(ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	draw_string_outline(_font, p + Vector2(-ew * 0.5, -13), ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color(0, 0, 0, 0.8))
+	draw_string(_font, p + Vector2(-ew * 0.5, -13), ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, line)
+	# شريط الجاهزية
+	var bw := 20.0
+	draw_rect(Rect2(p + Vector2(-bw * 0.5, 12), Vector2(bw, 3)), Color(0, 0, 0, 0.7))
+	var sc: Color = Color("4cc38a") if strength >= 0.7 else (Color("e8a33d") if strength >= 0.45 else Color("e5534b"))
+	draw_rect(Rect2(p + Vector2(-bw * 0.5, 12), Vector2(bw * clampf(strength, 0.0, 1.0), 3)), sc)
+
+
+## رموز الفرق مع ضباب الحرب وأسهم الحركة
 func _draw_divisions() -> void:
 	var pid: String = sim.state["player"]
 	var screen := Rect2(Vector2(-30, -30), size + Vector2(60, 60))
-	var stack := {}
 	var mine_regions: Array = []
 	for d in sim.state.get("divisions", []):
 		if d["owner"] == pid:
 			mine_regions.append(d["region"])
+	# تجميع الفرق: رمز واحد لكل دولة في كل منطقة، مع عددها ومتوسط جاهزيتها
+	var groups := {}
+	var order: Array = []
 	for d in sim.state.get("divisions", []):
 		var owner: String = d["owner"]
 		var rid: String = d["region"]
@@ -335,33 +391,54 @@ func _draw_divisions() -> void:
 					break
 			if not near and Intel.visibility(sim, pid, owner) < 40.0:
 				continue
+		var key := rid + "|" + owner
+		if not groups.has(key):
+			groups[key] = {"rid": rid, "owner": owner, "n": 0, "str": 0.0, "sel": false, "moving": []}
+			order.append(key)
+		var g: Dictionary = groups[key]
+		g["n"] += 1
+		g["str"] += float(d["strength"])
+		if int(d["id"]) == selected_division:
+			g["sel"] = true
+		if int(d["eta"]) >= 0 and owner == pid:
+			g["moving"].append(d["target"])
+	var per_region := {}
+	for key in order:
+		var g: Dictionary = groups[key]
+		var rid: String = g["rid"]
+		var owner: String = g["owner"]
 		var info: Dictionary = sim.db.regions[rid]
 		var base := map_to_screen(to_map(float(info["lon"]), float(info["lat"])))
-		var k := int(stack.get(rid, 0))
-		stack[rid] = k + 1
-		var p := base + Vector2(14 + k * 6, -14 - k * 6)
+		var k := int(per_region.get(rid, 0))
+		per_region[rid] = k + 1
+		var p := base + Vector2(16 + k * 26, -16)
 		if not screen.has_point(p):
 			continue
-		var col := Color(0.8, 0.8, 0.8)
-		if owner == pid:
-			col = C_PLAYER
-		elif owner in sim.allies(pid) or sim.country(owner).get("overlord", "") == pid:
-			col = C_ALLY
+		# رموز APP-6: صديق مستطيل أزرق، معادٍ معيّن أحمر، محايد مربع أخضر
+		var aff := "neutral"
+		if owner == pid or owner in sim.allies(pid) or sim.country(owner).get("overlord", "") == pid:
+			aff = "friend"
 		elif owner in sim.enemies_of(pid):
-			col = C_ENEMY
-		var r := Rect2(p - Vector2(9, 6), Vector2(18, 12))
-		draw_rect(r, Color(0, 0, 0, 0.75))
-		draw_rect(r, col, false, 1.5)
-		draw_line(r.position, r.end, col, 1.2)
-		draw_line(Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y), col, 1.2)
-		if int(d["id"]) == selected_division:
-			draw_rect(r.grow(3), Color.WHITE, false, 1.5)
-		# سهم الحركة
-		if int(d["eta"]) >= 0 and owner == pid:
-			var t: Dictionary = sim.db.regions[d["target"]]
+			aff = "hostile"
+		var n := int(g["n"])
+		_draw_unit_symbol(p, aff, owner == pid, float(g["str"]) / float(n))
+		if n > 1:
+			var txt := "×%d" % n
+			var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+			var bp := p + Vector2(10, 2)
+			draw_rect(Rect2(bp - Vector2(1, 10), Vector2(tw + 4, 13)), Color(0, 0, 0, 0.8))
+			draw_string(_font, bp + Vector2(1, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
+		if g["sel"]:
+			draw_arc(p, 17.0, 0.0, TAU, 32, Color.WHITE, 1.5)
+		var col: Color = C_FRIENDLY if aff == "friend" else (C_HOSTILE if aff == "hostile" else C_NEUTRAL)
+		# أسهم الحركة لفرقك
+		for target in g["moving"]:
+			var t: Dictionary = sim.db.regions[target]
 			var tp := map_to_screen(to_map(float(t["lon"]), float(t["lat"])))
 			draw_dashed_line(p, tp, col, 1.5, 5.0)
-			draw_circle(tp, 3.0, col)
+			var dir := (tp - p).normalized()
+			draw_line(tp, tp - dir * 8.0 + dir.orthogonal() * 4.0, col, 1.5)
+			draw_line(tp, tp - dir * 8.0 - dir.orthogonal() * 4.0, col, 1.5)
 
 
 func _draw_facilities() -> void:
@@ -382,16 +459,16 @@ func _draw_facilities() -> void:
 		var dmg: Dictionary = {}
 		if sim != null:
 			dmg = sim.state["regions"][shape["id"]].get("damaged", {})
-		var x := -float(fac.size() - 1) * 9.0
+		var x := -float(fac.size() - 1) * 10.0
 		for t in fac:
 			var mark: Array = FACILITY_MARKS.get(t, ["?", Color.WHITE])
-			var p := base + Vector2(x, 16)
-			var col: Color = Color("e05a55") if dmg.has(t) else mark[1]
-			draw_circle(p, 8.0, Color(0, 0, 0, 0.7))
-			draw_circle(p, 7.0, col)
-			var w := _font.get_string_size(mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-			draw_string(_font, p + Vector2(-w * 0.5, 4), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
-			x += 18.0
+			var p := base + Vector2(x, 18)
+			var col: Color = Color("e5534b") if dmg.has(t) else mark[1]
+			# أيقونة المنشأة داخل دائرة داكنة بحافة ملونة؛ المعطلة حمراء
+			draw_circle(p, 9.0, Color("0b1118e6"))
+			draw_arc(p, 9.0, 0.0, TAU, 20, col, 1.4, true)
+			draw_texture_rect(Icons.tex(t, col, 32), Rect2(p - Vector2(6, 6), Vector2(12, 12)), false)
+			x += 20.0
 
 
 func _draw_region_labels() -> void:
@@ -477,35 +554,88 @@ func _draw_capitals() -> void:
 	var pid: String = sim.state["player"]
 	for id in sim.state["order"]:
 		var c: Dictionary = sim.country(id)
+		if c.get("annexed", false):
+			continue
 		var p := map_to_screen(to_map(float(c["lon"]), float(c["lat"])))
 		if not Rect2(Vector2(-50, -50), size + Vector2(100, 100)).has_point(p):
 			continue
-		var col := C_PLAYER if id == pid else Color(0.85, 0.95, 1.0, 0.9)
+		var col := C_PLAYER if id == pid else Color(0.88, 0.94, 1.0, 0.95)
 		if c.get("capital_fallen", false):
 			col = C_ENEMY
-		draw_circle(p, 3.0, col)
-		draw_arc(p, 6.0, 0.0, TAU, 20, Color(col, 0.4), 1.0)
+		# العاصمة نجمة بإطار داكن
+		draw_circle(p, 7.5, Color(0, 0, 0, 0.55))
+		draw_texture_rect(Icons.tex("capital", col, 32), Rect2(p - Vector2(7, 7), Vector2(14, 14)), false)
 		if s >= 6.0 or id == pid or id == selected:
 			var label: String = c["name_ar"]
 			var fs := 14 if s < 10.0 else 16
 			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			draw_string_outline(_font, p + Vector2(-w * 0.5, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.8))
-			draw_string(_font, p + Vector2(-w * 0.5, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95))
+			draw_string_outline(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85))
+			draw_string(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.97) if id != pid else C_PLAYER.lightened(0.3))
 
 
+## مقياس الرسم: طول مرجعي بالكيلومتر عند خط عرض وسط الشاشة
+func _draw_scale_bar() -> void:
+	var s := _scale()
+	var lat := deg_to_rad(90.0 - _center.y)
+	var px_per_km := s / (111.0 * maxf(0.2, cos(lat)))
+	var km := 100.0
+	for opt in [100.0, 250.0, 500.0, 1000.0, 2000.0, 5000.0]:
+		km = opt
+		if opt * px_per_km >= 70.0:
+			break
+	var w := km * px_per_km
+	var o := Vector2(16, 22)
+	draw_rect(Rect2(o - Vector2(6, 16), Vector2(w + 12, 26)), Color(0, 0, 0, 0.45))
+	draw_line(o, o + Vector2(w, 0), Color(1, 1, 1, 0.8), 2.0)
+	draw_line(o + Vector2(0, -4), o + Vector2(0, 4), Color(1, 1, 1, 0.8), 2.0)
+	draw_line(o + Vector2(w, -4), o + Vector2(w, 4), Color(1, 1, 1, 0.8), 2.0)
+	var label := "%d كم" % int(km)
+	draw_string(_font, o + Vector2(w * 0.5 - _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x * 0.5, -4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.85))
+
+
+## خط الجبهة الحقيقي: مقاطع بين المناطق المتواجهة، وعلامة سيفين عند مركز الجبهة
 func _draw_wars() -> void:
+	var pulse := 0.55 + 0.45 * sin(_time * 3.0)
 	for w in sim.state["wars"]:
-		var a: Dictionary = sim.country(w["attackers"][0])
-		var d: Dictionary = sim.country(w["defenders"][0])
-		var pa := map_to_screen(to_map(float(a["lon"]), float(a["lat"])))
-		var pd := map_to_screen(to_map(float(d["lon"]), float(d["lat"])))
-		draw_line(pa, pd, Color(C_ENEMY, 0.35), 4.0)
-		# نبضة تتحرك من المهاجم إلى المدافع
-		var t := fmod(_time * 0.5, 1.0)
-		draw_circle(pa.lerp(pd, t), 4.0, C_ENEMY)
-		var mid := pa.lerp(pd, 0.5)
-		draw_string_outline(_font, mid + Vector2(-8, -6), "⚔", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 4, Color.BLACK)
-		draw_string(_font, mid + Vector2(-8, -6), "⚔", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, C_ENEMY)
+		var A: Array = w["attackers"]
+		var D: Array = w["defenders"]
+		var front: Array = Divisions.front_regions(sim, A, D)
+		var sum := Vector2.ZERO
+		var n := 0
+		var segs := 0
+		for rid in front:
+			var pa := map_to_screen(_region_info_center(rid))
+			for nb in sim.db.regions[rid]["neighbors"]:
+				if not (sim.state["regions"][nb]["owner"] in D):
+					continue
+				var pb := map_to_screen(_region_info_center(nb))
+				var mid := pa.lerp(pb, 0.5)
+				# المقطع عمودي على خط الاتصال بين المنطقتين، كحد الجبهة
+				var dir := (pb - pa).normalized().orthogonal() * clampf(pa.distance_to(pb) * 0.35, 6.0, 26.0)
+				draw_line(mid - dir, mid + dir, Color(C_ENEMY, 0.35 + 0.4 * pulse), 4.0)
+				draw_line(mid - dir, mid + dir, Color(1, 0.85, 0.8, 0.6), 1.0)
+				sum += mid
+				n += 1
+				segs += 1
+				if segs > 80:
+					break
+		var marker: Vector2
+		if n > 0:
+			marker = sum / float(n)
+		else:
+			# بلا جبهة برية (حرب بحرية): بين العاصمتين
+			var ca: Dictionary = sim.country(A[0])
+			var cd: Dictionary = sim.country(D[0])
+			marker = map_to_screen(to_map(float(ca["lon"]), float(ca["lat"]))).lerp(map_to_screen(to_map(float(cd["lon"]), float(cd["lat"]))), 0.5)
+		if Rect2(Vector2(-30, -30), size + Vector2(60, 60)).has_point(marker):
+			draw_circle(marker, 13.0, Color(0, 0, 0, 0.7))
+			draw_arc(marker, 13.0, 0.0, TAU, 28, Color(C_ENEMY, 0.6 + 0.4 * pulse), 2.0)
+			draw_texture_rect(Icons.tex("war", C_ENEMY.lightened(0.2), 40), Rect2(marker - Vector2(9, 9), Vector2(18, 18)), false)
+
+
+func _region_info_center(rid: String) -> Vector2:
+	var r: Dictionary = _region_info[rid]
+	return to_map(float(r["lon"]), float(r["lat"]))
 
 
 # ------------------------------------------------------------------ الإدخال: فأرة ولمس
@@ -531,6 +661,16 @@ func _gui_input(event: InputEvent) -> void:
 		_center -= mm.relative / _scale()
 		_clamp_view()
 		queue_redraw()
+		if _hover_rid != "":
+			_hover_rid = ""
+			hovered.emit("", Vector2.ZERO)
+	elif event is InputEventMouseMotion:
+		var mv := event as InputEventMouseMotion
+		if mv.position.distance_to(_hover_pos) >= 3.0:
+			_hover_pos = mv.position
+			var rid := region_at(mv.position)
+			_hover_rid = rid
+			hovered.emit(rid, mv.position)
 	elif event is InputEventMagnifyGesture:
 		var mg := event as InputEventMagnifyGesture
 		_zoom_at(mg.position, mg.factor)
@@ -559,6 +699,23 @@ func _gui_input(event: InputEvent) -> void:
 			if old_d > 1.0:
 				_zoom_at((sd.position + other) * 0.5, new_d / old_d)
 		_touches[sd.index] = sd.position
+
+
+func region_at(screen_pos: Vector2) -> String:
+	var m := screen_to_map(screen_pos)
+	for shape in _regions:
+		if not (shape["rect"] as Rect2).has_point(m):
+			continue
+		for pts in shape["rings"]:
+			if Geometry2D.is_point_in_polygon(m, pts):
+				return shape["id"]
+	return ""
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT and _hover_rid != "":
+		_hover_rid = ""
+		hovered.emit("", Vector2.ZERO)
 
 
 func _zoom_at(screen_pos: Vector2, factor: float) -> void:
