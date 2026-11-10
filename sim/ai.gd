@@ -2,6 +2,8 @@
 ## الشخصيات: cautious حذرة، ambitious طموحة، opportunist انتهازية.
 extends RefCounted
 
+const Market := preload("res://sim/market.gd")
+
 const Economy := preload("res://sim/economy.gd")
 
 ## عتبة العلاقات وتفوق القوة المطلوب لإعلان الحرب، واحتمالها الشهري
@@ -84,6 +86,7 @@ static func _diplomacy(sim, c: Dictionary) -> void:
 	if not sim.wars_of(id).is_empty():
 		return
 	_ambition(sim, c)
+	_trade(sim, c)
 	# تحسين العلاقات مع أقرب دولة صديقة غير حليفة
 	if sim.rng.chance(0.15):
 		for n in c["neighbors"]:
@@ -197,3 +200,19 @@ static func _ambition(sim, c: Dictionary) -> void:
 			sim.add_news("توتر متصاعد: %s تتهم %s بتهديد أمنها." % [c["name_ar"], sim.country(rival)["name_ar"]], "world")
 	if rival != "":
 		sim.change_relation(id, rival, -RIVAL_DRIFT)
+
+
+## الاتفاقيات التجارية: توقيع مع الأصدقاء، وإلغاء مع من ساءت العلاقة به
+static func _trade(sim, c: Dictionary) -> void:
+	var id: String = c["id"]
+	for p in Market.pacts_of(sim, id):
+		if sim.relation(id, p) < 0.0:
+			Market.cancel_pact(sim, id, p, "بعد تدهور العلاقات")
+	if not sim.rng.chance(0.03) or Market.pacts_of(sim, id).size() >= 5:
+		return
+	for oid in sim.alive_ids():
+		if oid == id or sim.is_player(oid):
+			continue
+		if sim.relation(id, oid) >= 45.0 and Market.can_sign_pact(sim, id, oid) == "":
+			Market.sign_pact(sim, id, oid)
+			return

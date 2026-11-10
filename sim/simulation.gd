@@ -10,6 +10,7 @@ const Combat := preload("res://sim/combat.gd")
 const AI := preload("res://sim/ai.gd")
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
+const Market := preload("res://sim/market.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -56,7 +57,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		"alliances": db.alliances.duplicate(true),
 		"wars": [],
 		"next_war_id": 1,
-		"global": {"oil_price": 1.0, "growth_mod": 0.0, "stability_mod": 0.0, "mod_months": 0, "oil_months": 0, "nuclear_strikes": 0},
+		"global": {"oil_price": 1.0, "growth_mod": 0.0, "stability_mod": 0.0, "mod_months": 0, "nuclear_strikes": 0},
 		"news": [],
 		"game_over": "",
 		"victories": [],
@@ -84,6 +85,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		state["countries"][c["id"]] = c
 		state["order"].append(c["id"])
 	Territory.init_state(self)
+	Market.init_state(self)
 	state["truces"] = {}
 	for r in db.relations:
 		set_relation(r[0], r[1], float(r[2]))
@@ -229,6 +231,7 @@ func _monthly() -> void:
 		growths[id] = g
 	Territory.monthly(self)          # الاندماج والإصلاح والمقاومة (بلا إعادة حساب)
 	Territory.grow_all(self, growths)  # النمو ثم إعادة حساب كل الدول مرة واحدة
+	Market.monthly(self)               # الأسعار ودخل التجارة قبل الميزانيات
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
 	for id in alive_ids():
@@ -268,10 +271,6 @@ func _global_modifiers_tick() -> void:
 		if int(g["mod_months"]) == 0:
 			g["growth_mod"] = 0.0
 			g["stability_mod"] = 0.0
-	if int(g["oil_months"]) > 0:
-		g["oil_months"] = int(g["oil_months"]) - 1
-		if int(g["oil_months"]) == 0:
-			g["oil_price"] = 1.0
 
 
 func _relations_drift() -> void:
@@ -326,9 +325,8 @@ func _apply_event(e: Dictionary, target: String) -> void:
 		if e.has("stability"):
 			g["stability_mod"] = float(e["stability"])
 			g["mod_months"] = int(e.get("months", 6))
-		if e.has("oil_price"):
-			g["oil_price"] = float(e["oil_price"])
-			g["oil_months"] = int(e.get("months", 6))
+		if e.has("price_shock"):
+			Market.apply_shock(self, e["price_shock"], int(e.get("months", 6)))
 		if e.has("relations"):
 			for k in state["relations"].keys():
 				var v: float = state["relations"][k]
@@ -428,6 +426,9 @@ func declare_war(a: String, b: String) -> Dictionary:
 	state["next_war_id"] = int(state["next_war_id"]) + 1
 	state["wars"].append(w)
 	set_relation(a, b, minf(relation(a, b), -80.0) - 10.0)
+	for x in attackers:
+		for y in defenders:
+			Market.cancel_pact(self, x, y, "بسبب الحرب")
 	for id in alive_ids():
 		if id != a and id != b and b in allies(id):
 			change_relation(id, a, -30.0)
@@ -674,6 +675,7 @@ func toggle_sanction(a: String, b: String) -> void:
 	else:
 		cb["sanctions"].append(a)
 		change_relation(a, b, -25.0)
+		Market.cancel_pact(self, a, b, "بسبب العقوبات")
 		add_news("%s تفرض عقوبات على %s." % [country(a)["name_ar"], cb["name_ar"]], "info")
 
 

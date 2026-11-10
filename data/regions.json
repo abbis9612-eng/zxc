@@ -9,7 +9,7 @@
 "lat":42.19,
 "lon":-72.09,
 "pop_share":0.02212,
-"gdp_share":0.02199,
+"gdp_share":0.02181,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -40,7 +40,7 @@
 "lat":46.44,
 "lon":-94.5,
 "pop_share":0.01887,
-"gdp_share":0.01876,
+"gdp_share":0.01863,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -72,7 +72,7 @@
 "lat":46.69,
 "lon":-109.34,
 "pop_share":0.00953,
-"gdp_share":0.00947,
+"gdp_share":0.00944,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -104,7 +104,7 @@
 "lat":47.45,
 "lon":-100.46,
 "pop_share":0.00518,
-"gdp_share":0.00515,
+"gdp_share":0.00569,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -135,7 +135,7 @@
 "lat":19.59,
 "lon":-155.45,
 "pop_share":0.00395,
-"gdp_share":0.00393,
+"gdp_share":0.0039,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -157,7 +157,7 @@
 "lat":45.5,
 "lon":-115.44,
 "pop_share":0.00697,
-"gdp_share":0.00693,
+"gdp_share":0.0069,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -189,7 +189,7 @@
 "lat":47.28,
 "lon":-119.72,
 "pop_share":0.02405,
-"gdp_share":0.0239,
+"gdp_share":0.02373,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -219,7 +219,7 @@
 "lat":34.15,
 "lon":-111.68,
 "pop_share":0.02692,
-"gdp_share":0.02677,
+"gdp_share":0.02657,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -254,7 +254,7 @@
 "lat":37.26,
 "lon":-119.98,
 "pop_share":0.13443,
-"gdp_share":0.13365,
+"gdp_share":0.13276,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -286,7 +286,7 @@
 "lat":39.03,
 "lon":-105.55,
 "pop_share":0.01916,
-"gdp_share":0.01904,
+"gdp_share":0.01916,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -318,7 +318,7 @@
 "lat":38.46,
 "lon":-116.63,
 "pop_share":0.01302,
-"gdp_share":0.01295,
+"gdp_share":0.01287,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -348,7 +348,7 @@
 "lat":34.13,
 "lon":-106.05,
 "pop_share":0.01033,
-"gdp_share":0.01027,
+"gdp_share":0.01126,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -381,7 +381,7 @@
 "lat":44.12,
 "lon":-120.52,
 "pop_share":0.01492,
-"gdp_share":0.01483,
+"gdp_share":0.01474,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -411,7 +411,7 @@
 "lat":39.5,
 "lon":-111.54,
 "pop_share":0.01071,
-"gdp_share":0.01065,
+"gdp_share":0.01058,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -442,7 +442,7 @@
 "lat":42.97,
 "lon":-107.55,
 "pop_share":0.00587,
-"gdp_share":0.00584,
+"gdp_share":0.00594,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -473,7 +473,7 @@
 "lat":34.75,
 "lon":-92.46,
 "pop_share":0.00532,
-"gdp_share":0.00529,
+"gdp_share":0.00526,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -504,7 +504,7 @@
 "lat":41.94,
 "lon":-93.16,
 "pop_share":0.0077,
-"gdp_share":0.00765,
+"gdp_share":0.00761,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -535,7 +535,7 @@
 "lat":38.52,
 "lon":-98.33,
 "pop_share":0.00867,
-"gdp_share":0.00862,
+"gdp_share":0.00857,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -564,7 +564,7 @@
 "lat":38.32,
 "lon":-92.5,
 "pop_share":0.02036,
-"gdp_share":0.02024,
+"gdp_share":0.02009,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -597,7 +597,7 @@
 "lat":41.5,
 "lon":-100.03,
 "pop_share":0.0083,
-"gdp_share":0.00825,
+"gdp_share":0.0082,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -628,7 +628,7 @@
 "lat":35.35,
 "lon":-97.22,
 "pop_share":0.01077,
-"gdp_share":0.01071,
+"gdp_share":0.0111,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -659,7 +659,7 @@
 "lat":44.2,
 "lon":-100.25,
 "pop_share":0.00515,
-"gdp_share":0.00512,
+"gdp_share":0.0051,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -690,7 +690,7 @@
 "lat":30.97,
 "lon":-91.65,
 "pop_share":0.01033,
-"gdp_share":0.01027,
+"gdp_share":0.0106,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -718,7 +718,7 @@
 "lat":31.16,
 "lon":-99.64,
 "pop_share":0.07906,
-"gdp_share":0.07859,
+"gdp_share":0.0812,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -755,7 +755,7 @@
 "lat":41.53,
 "lon":-72.66,
 "pop_share":0.01308,
-"gdp_share":0.01301,
+"gdp_share":0.0129,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -810,7 +810,7 @@
 "lat":41.66,
 "lon":-71.61,
 "pop_share":0.00453,
-"gdp_share":0.0045,
+"gdp_share":0.00447,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -836,7 +836,7 @@
 "lat":43.87,
 "lon":-72.78,
 "pop_share":0.00084,
-"gdp_share":0.00084,
+"gdp_share":0.00083,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -863,7 +863,7 @@
 "lat":32.62,
 "lon":-86.73,
 "pop_share":0.00969,
-"gdp_share":0.00963,
+"gdp_share":0.00956,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -892,7 +892,7 @@
 "lat":28.06,
 "lon":-81.68,
 "pop_share":0.06757,
-"gdp_share":0.06718,
+"gdp_share":0.06663,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -922,7 +922,7 @@
 "lat":32.68,
 "lon":-83.25,
 "pop_share":0.02223,
-"gdp_share":0.0221,
+"gdp_share":0.02193,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -954,7 +954,7 @@
 "lat":32.59,
 "lon":-89.76,
 "pop_share":0.0047,
-"gdp_share":0.00467,
+"gdp_share":0.00465,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -981,7 +981,7 @@
 "lat":33.63,
 "lon":-80.57,
 "pop_share":0.00719,
-"gdp_share":0.00715,
+"gdp_share":0.0071,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1006,7 +1006,7 @@
 "lat":39.75,
 "lon":-89.46,
 "pop_share":0.04474,
-"gdp_share":0.04448,
+"gdp_share":0.04413,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1039,7 +1039,7 @@
 "lat":39.79,
 "lon":-86.17,
 "pop_share":0.01378,
-"gdp_share":0.0137,
+"gdp_share":0.0136,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1066,7 +1066,7 @@
 "lat":37.82,
 "lon":-84.74,
 "pop_share":0.00895,
-"gdp_share":0.0089,
+"gdp_share":0.00883,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1096,7 +1096,7 @@
 "lat":35.24,
 "lon":-80.42,
 "pop_share":0.01624,
-"gdp_share":0.01615,
+"gdp_share":0.01602,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1125,7 +1125,7 @@
 "lat":40.37,
 "lon":-82.71,
 "pop_share":0.02815,
-"gdp_share":0.02798,
+"gdp_share":0.02789,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1157,7 +1157,7 @@
 "lat":35.84,
 "lon":-86.33,
 "pop_share":0.01465,
-"gdp_share":0.01456,
+"gdp_share":0.01445,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1188,7 +1188,7 @@
 "lat":37.99,
 "lon":-78.47,
 "pop_share":0.01825,
-"gdp_share":0.01814,
+"gdp_share":0.018,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1219,7 +1219,7 @@
 "lat":44.9,
 "lon":-89.72,
 "pop_share":0.01395,
-"gdp_share":0.01387,
+"gdp_share":0.01377,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1248,7 +1248,7 @@
 "lat":38.93,
 "lon":-80.3,
 "pop_share":0.00269,
-"gdp_share":0.00267,
+"gdp_share":0.00283,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1302,7 +1302,7 @@
 "lat":38.9,
 "lon":-76.99,
 "pop_share":0.01468,
-"gdp_share":0.02043,
+"gdp_share":0.02026,
 "capital":true,
 "coastal":true,
 "resources":{
@@ -1326,7 +1326,7 @@
 "lat":38.83,
 "lon":-76.74,
 "pop_share":0.00895,
-"gdp_share":0.0089,
+"gdp_share":0.00883,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1354,7 +1354,7 @@
 "lat":40.14,
 "lon":-74.39,
 "pop_share":0.00333,
-"gdp_share":0.00331,
+"gdp_share":0.00329,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1380,7 +1380,7 @@
 "lat":42.92,
 "lon":-76.09,
 "pop_share":0.08169,
-"gdp_share":0.08121,
+"gdp_share":0.08055,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1416,7 +1416,7 @@
 "lat":41.15,
 "lon":-77.72,
 "pop_share":0.03506,
-"gdp_share":0.03485,
+"gdp_share":0.03501,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1451,7 +1451,7 @@
 "lat":45.27,
 "lon":-69.17,
 "pop_share":0.00279,
-"gdp_share":0.00278,
+"gdp_share":0.00276,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1477,7 +1477,7 @@
 "lat":45.02,
 "lon":-84.52,
 "pop_share":0.02677,
-"gdp_share":0.02661,
+"gdp_share":0.02642,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1510,7 +1510,7 @@
 "lat":63.09,
 "lon":-152.01,
 "pop_share":0.05161,
-"gdp_share":0.05131,
+"gdp_share":0.05142,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1543,7 +1543,7 @@
 "lat":37.69,
 "lon":102.88,
 "pop_share":0.02299,
-"gdp_share":0.02274,
+"gdp_share":0.02264,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1574,7 +1574,7 @@
 "lat":35.43,
 "lon":96.02,
 "pop_share":0.01759,
-"gdp_share":0.0174,
+"gdp_share":0.01735,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1603,7 +1603,7 @@
 "lat":23.89,
 "lon":108.99,
 "pop_share":0.02925,
-"gdp_share":0.02893,
+"gdp_share":0.02879,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1633,7 +1633,7 @@
 "lat":26.94,
 "lon":106.63,
 "pop_share":0.01989,
-"gdp_share":0.01967,
+"gdp_share":0.01958,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1663,7 +1663,7 @@
 "lat":30.19,
 "lon":107.85,
 "pop_share":0.01965,
-"gdp_share":0.01944,
+"gdp_share":0.01934,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1693,7 +1693,7 @@
 "lat":40.25,
 "lon":116.64,
 "pop_share":0.02755,
-"gdp_share":0.03815,
+"gdp_share":0.03794,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -1720,7 +1720,7 @@
 "lat":25.97,
 "lon":117.79,
 "pop_share":0.02847,
-"gdp_share":0.02816,
+"gdp_share":0.02801,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1749,7 +1749,7 @@
 "lat":32.03,
 "lon":117.16,
 "pop_share":0.03241,
-"gdp_share":0.03206,
+"gdp_share":0.03189,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1781,7 +1781,7 @@
 "lat":22.88,
 "lon":112.3,
 "pop_share":0.07434,
-"gdp_share":0.07353,
+"gdp_share":0.07347,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1813,7 +1813,7 @@
 "lat":31.89,
 "lon":87.05,
 "pop_share":0.02354,
-"gdp_share":0.02328,
+"gdp_share":0.02323,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1847,7 +1847,7 @@
 "lat":41.76,
 "lon":87.11,
 "pop_share":0.05911,
-"gdp_share":0.05847,
+"gdp_share":0.05917,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1881,7 +1881,7 @@
 "lat":19.16,
 "lon":109.58,
 "pop_share":0.00591,
-"gdp_share":0.00585,
+"gdp_share":0.00582,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -1906,7 +1906,7 @@
 "lat":37.32,
 "lon":105.98,
 "pop_share":0.0036,
-"gdp_share":0.00356,
+"gdp_share":0.00354,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1934,7 +1934,7 @@
 "lat":35.65,
 "lon":109.56,
 "pop_share":0.02217,
-"gdp_share":0.02193,
+"gdp_share":0.02292,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1968,7 +1968,7 @@
 "lat":37.66,
 "lon":112.45,
 "pop_share":0.02523,
-"gdp_share":0.02495,
+"gdp_share":0.02482,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -1997,7 +1997,7 @@
 "lat":31.17,
 "lon":112.86,
 "pop_share":0.03944,
-"gdp_share":0.03901,
+"gdp_share":0.03881,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2029,7 +2029,7 @@
 "lat":27.37,
 "lon":111.36,
 "pop_share":0.03202,
-"gdp_share":0.03167,
+"gdp_share":0.03151,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2060,7 +2060,7 @@
 "lat":30.17,
 "lon":102.27,
 "pop_share":0.04743,
-"gdp_share":0.04692,
+"gdp_share":0.04712,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2094,7 +2094,7 @@
 "lat":25.18,
 "lon":101.25,
 "pop_share":0.02292,
-"gdp_share":0.02267,
+"gdp_share":0.02257,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2123,7 +2123,7 @@
 "lat":39.34,
 "lon":115.66,
 "pop_share":0.03238,
-"gdp_share":0.03202,
+"gdp_share":0.03186,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2157,7 +2157,7 @@
 "lat":33.88,
 "lon":113.08,
 "pop_share":0.03901,
-"gdp_share":0.03858,
+"gdp_share":0.03838,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2189,7 +2189,7 @@
 "lat":41.1,
 "lon":122.39,
 "pop_share":0.05013,
-"gdp_share":0.04958,
+"gdp_share":0.04932,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2222,7 +2222,7 @@
 "lat":36.33,
 "lon":118.0,
 "pop_share":0.05766,
-"gdp_share":0.05703,
+"gdp_share":0.05726,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2254,7 +2254,7 @@
 "lat":39.41,
 "lon":117.36,
 "pop_share":0.01679,
-"gdp_share":0.01661,
+"gdp_share":0.01726,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2282,7 +2282,7 @@
 "lat":27.28,
 "lon":115.5,
 "pop_share":0.02453,
-"gdp_share":0.02426,
+"gdp_share":0.02414,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2313,7 +2313,7 @@
 "lat":32.94,
 "lon":119.95,
 "pop_share":0.04386,
-"gdp_share":0.04338,
+"gdp_share":0.04315,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2344,7 +2344,7 @@
 "lat":31.09,
 "lon":121.38,
 "pop_share":0.03313,
-"gdp_share":0.03277,
+"gdp_share":0.03259,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2372,7 +2372,7 @@
 "lat":29.18,
 "lon":119.75,
 "pop_share":0.03193,
-"gdp_share":0.03158,
+"gdp_share":0.03141,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2403,7 +2403,7 @@
 "lat":43.58,
 "lon":126.14,
 "pop_share":0.0264,
-"gdp_share":0.02612,
+"gdp_share":0.02599,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2436,7 +2436,7 @@
 "lat":45.36,
 "lon":118.36,
 "pop_share":0.04447,
-"gdp_share":0.04398,
+"gdp_share":0.04397,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2472,7 +2472,7 @@
 "lat":48.5,
 "lon":127.58,
 "pop_share":0.0462,
-"gdp_share":0.04569,
+"gdp_share":0.04618,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2524,7 +2524,7 @@
 "lat":58.4,
 "lon":81.58,
 "pop_share":0.00961,
-"gdp_share":0.00922,
+"gdp_share":0.0101,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2555,7 +2555,7 @@
 "lat":44.47,
 "lon":40.14,
 "pop_share":0.00161,
-"gdp_share":0.00155,
+"gdp_share":0.00135,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2579,7 +2579,7 @@
 "lat":43.84,
 "lon":41.71,
 "pop_share":0.00125,
-"gdp_share":0.0012,
+"gdp_share":0.00105,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2605,7 +2605,7 @@
 "lat":43.12,
 "lon":45.01,
 "pop_share":0.00094,
-"gdp_share":0.0009,
+"gdp_share":0.00079,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2632,7 +2632,7 @@
 "lat":43.46,
 "lon":43.42,
 "pop_share":0.00311,
-"gdp_share":0.00299,
+"gdp_share":0.00261,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2659,7 +2659,7 @@
 "lat":43.19,
 "lon":44.26,
 "pop_share":0.00408,
-"gdp_share":0.00392,
+"gdp_share":0.00342,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2686,7 +2686,7 @@
 "lat":44.94,
 "lon":43.67,
 "pop_share":0.00957,
-"gdp_share":0.00918,
+"gdp_share":0.00802,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2718,7 +2718,7 @@
 "lat":65.97,
 "lon":169.5,
 "pop_share":0.01022,
-"gdp_share":0.0098,
+"gdp_share":0.00903,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2748,7 +2748,7 @@
 "lat":54.82,
 "lon":21.4,
 "pop_share":0.00526,
-"gdp_share":0.00505,
+"gdp_share":0.0044,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2774,7 +2774,7 @@
 "lat":68.01,
 "lon":34.73,
 "pop_share":0.00796,
-"gdp_share":0.00764,
+"gdp_share":0.00676,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2801,7 +2801,7 @@
 "lat":58.18,
 "lon":31.82,
 "pop_share":0.00362,
-"gdp_share":0.00348,
+"gdp_share":0.00306,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2828,7 +2828,7 @@
 "lat":57.3,
 "lon":29.22,
 "pop_share":0.00356,
-"gdp_share":0.00341,
+"gdp_share":0.003,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2855,7 +2855,7 @@
 "lat":59.88,
 "lon":32.95,
 "pop_share":0.00505,
-"gdp_share":0.00484,
+"gdp_share":0.00426,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2883,7 +2883,7 @@
 "lat":59.94,
 "lon":30.37,
 "pop_share":0.04686,
-"gdp_share":0.04496,
+"gdp_share":0.03918,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2911,7 +2911,7 @@
 "lat":52.93,
 "lon":33.12,
 "pop_share":0.00591,
-"gdp_share":0.00567,
+"gdp_share":0.00496,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2940,7 +2940,7 @@
 "lat":54.75,
 "lon":32.88,
 "pop_share":0.00519,
-"gdp_share":0.00498,
+"gdp_share":0.00436,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -2968,7 +2968,7 @@
 "lat":63.66,
 "lon":33.27,
 "pop_share":0.00566,
-"gdp_share":0.00543,
+"gdp_share":0.00484,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -2997,7 +2997,7 @@
 "lat":63.59,
 "lon":41.43,
 "pop_share":0.01241,
-"gdp_share":0.0119,
+"gdp_share":0.01067,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -3028,7 +3028,7 @@
 "lat":57.06,
 "lon":41.65,
 "pop_share":0.00625,
-"gdp_share":0.006,
+"gdp_share":0.00524,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3055,7 +3055,7 @@
 "lat":58.45,
 "lon":43.83,
 "pop_share":0.00396,
-"gdp_share":0.0038,
+"gdp_share":0.00334,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3083,7 +3083,7 @@
 "lat":56.28,
 "lon":44.32,
 "pop_share":0.0184,
-"gdp_share":0.01766,
+"gdp_share":0.01542,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3114,7 +3114,7 @@
 "lat":57.25,
 "lon":35.33,
 "pop_share":0.00775,
-"gdp_share":0.00743,
+"gdp_share":0.00652,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3143,7 +3143,7 @@
 "lat":60.04,
 "lon":41.05,
 "pop_share":0.00829,
-"gdp_share":0.00795,
+"gdp_share":0.00701,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3174,7 +3174,7 @@
 "lat":57.75,
 "lon":39.08,
 "pop_share":0.00914,
-"gdp_share":0.00877,
+"gdp_share":0.00766,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3203,7 +3203,7 @@
 "lat":54.29,
 "lon":35.12,
 "pop_share":0.00504,
-"gdp_share":0.00483,
+"gdp_share":0.00423,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3232,7 +3232,7 @@
 "lat":51.67,
 "lon":36.15,
 "pop_share":0.00547,
-"gdp_share":0.00525,
+"gdp_share":0.00459,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3261,7 +3261,7 @@
 "lat":52.73,
 "lon":38.87,
 "pop_share":0.00687,
-"gdp_share":0.0066,
+"gdp_share":0.00576,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3290,7 +3290,7 @@
 "lat":55.59,
 "lon":38.9,
 "pop_share":0.01015,
-"gdp_share":0.00974,
+"gdp_share":0.00851,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3321,7 +3321,7 @@
 "lat":55.46,
 "lon":37.4,
 "pop_share":0.10561,
-"gdp_share":0.14186,
+"gdp_share":0.12362,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -3349,7 +3349,7 @@
 "lat":52.79,
 "lon":36.41,
 "pop_share":0.00449,
-"gdp_share":0.00431,
+"gdp_share":0.00376,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3377,7 +3377,7 @@
 "lat":48.09,
 "lon":40.93,
 "pop_share":0.02357,
-"gdp_share":0.02261,
+"gdp_share":0.01975,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -3410,7 +3410,7 @@
 "lat":53.9,
 "lon":37.4,
 "pop_share":0.00865,
-"gdp_share":0.0083,
+"gdp_share":0.00725,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3438,7 +3438,7 @@
 "lat":49.34,
 "lon":44.43,
 "pop_share":0.01675,
-"gdp_share":0.01607,
+"gdp_share":0.01405,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3466,7 +3466,7 @@
 "lat":50.62,
 "lon":37.25,
 "pop_share":0.00704,
-"gdp_share":0.00675,
+"gdp_share":0.0059,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3494,7 +3494,7 @@
 "lat":45.13,
 "lon":38.07,
 "pop_share":0.01977,
-"gdp_share":0.01897,
+"gdp_share":0.01656,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -3524,7 +3524,7 @@
 "lat":54.42,
 "lon":44.57,
 "pop_share":0.0037,
-"gdp_share":0.00355,
+"gdp_share":0.00311,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3552,7 +3552,7 @@
 "lat":53.17,
 "lon":44.74,
 "pop_share":0.00688,
-"gdp_share":0.0066,
+"gdp_share":0.00577,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3580,7 +3580,7 @@
 "lat":54.33,
 "lon":40.61,
 "pop_share":0.00614,
-"gdp_share":0.00589,
+"gdp_share":0.00515,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3611,7 +3611,7 @@
 "lat":52.71,
 "lon":41.59,
 "pop_share":0.00517,
-"gdp_share":0.00496,
+"gdp_share":0.00434,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3639,7 +3639,7 @@
 "lat":55.97,
 "lon":40.61,
 "pop_share":0.00621,
-"gdp_share":0.00596,
+"gdp_share":0.00521,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3667,7 +3667,7 @@
 "lat":50.82,
 "lon":40.04,
 "pop_share":0.0094,
-"gdp_share":0.00902,
+"gdp_share":0.00788,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3698,7 +3698,7 @@
 "lat":54.06,
 "lon":56.33,
 "pop_share":0.02094,
-"gdp_share":0.02009,
+"gdp_share":0.02044,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3727,7 +3727,7 @@
 "lat":54.18,
 "lon":61.53,
 "pop_share":0.02224,
-"gdp_share":0.02133,
+"gdp_share":0.01863,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3756,7 +3756,7 @@
 "lat":55.5,
 "lon":65.46,
 "pop_share":0.00502,
-"gdp_share":0.00481,
+"gdp_share":0.00423,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3782,7 +3782,7 @@
 "lat":67.84,
 "lon":56.33,
 "pop_share":0.00281,
-"gdp_share":0.0027,
+"gdp_share":0.00534,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -3810,7 +3810,7 @@
 "lat":67.58,
 "lon":69.17,
 "pop_share":0.01465,
-"gdp_share":0.01406,
+"gdp_share":0.04702,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -3824,6 +3824,7 @@
 "facilities":{
 "airbase":1,
 "port":1,
+"factory":1,
 "refinery":2
 },
 "neighbors":[
@@ -3841,7 +3842,7 @@
 "lat":63.82,
 "lon":53.09,
 "pop_share":0.01082,
-"gdp_share":0.01038,
+"gdp_share":0.01217,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3873,7 +3874,7 @@
 "lat":58.56,
 "lon":50.16,
 "pop_share":0.00801,
-"gdp_share":0.00768,
+"gdp_share":0.00676,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3905,7 +3906,7 @@
 "lat":56.58,
 "lon":47.92,
 "pop_share":0.00341,
-"gdp_share":0.00327,
+"gdp_share":0.00286,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3932,7 +3933,7 @@
 "lat":59.03,
 "lon":62.2,
 "pop_share":0.02883,
-"gdp_share":0.02766,
+"gdp_share":0.0242,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3945,7 +3946,6 @@
 },
 "facilities":{
 "airbase":1,
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -3966,7 +3966,7 @@
 "lat":57.2,
 "lon":52.76,
 "pop_share":0.01002,
-"gdp_share":0.00961,
+"gdp_share":0.0084,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -3993,7 +3993,7 @@
 "lat":47.23,
 "lon":47.63,
 "pop_share":0.00574,
-"gdp_share":0.0055,
+"gdp_share":0.00548,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4018,7 +4018,7 @@
 "lat":55.49,
 "lon":47.14,
 "pop_share":0.00585,
-"gdp_share":0.00561,
+"gdp_share":0.0049,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4046,7 +4046,7 @@
 "lat":46.51,
 "lon":45.44,
 "pop_share":0.00164,
-"gdp_share":0.00157,
+"gdp_share":0.0014,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4074,7 +4074,7 @@
 "lat":52.43,
 "lon":53.52,
 "pop_share":0.01242,
-"gdp_share":0.01192,
+"gdp_share":0.01525,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4131,7 +4131,7 @@
 "lat":51.31,
 "lon":46.59,
 "pop_share":0.01548,
-"gdp_share":0.01485,
+"gdp_share":0.01299,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4161,7 +4161,7 @@
 "lat":55.32,
 "lon":50.7,
 "pop_share":0.02291,
-"gdp_share":0.02198,
+"gdp_share":0.02586,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4195,7 +4195,7 @@
 "lat":53.73,
 "lon":47.42,
 "pop_share":0.00792,
-"gdp_share":0.0076,
+"gdp_share":0.00664,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4224,7 +4224,7 @@
 "lat":62.16,
 "lon":71.93,
 "pop_share":0.01638,
-"gdp_share":0.01571,
+"gdp_share":0.05376,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4237,6 +4237,7 @@
 },
 "facilities":{
 "airbase":1,
+"factory":1,
 "refinery":2
 },
 "neighbors":[
@@ -4257,7 +4258,7 @@
 "lat":56.0,
 "lon":73.19,
 "pop_share":0.01347,
-"gdp_share":0.01292,
+"gdp_share":0.01133,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4284,7 +4285,7 @@
 "lat":57.56,
 "lon":67.83,
 "pop_share":0.00899,
-"gdp_share":0.00863,
+"gdp_share":0.0076,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4312,7 +4313,7 @@
 "lat":52.56,
 "lon":82.67,
 "pop_share":0.01348,
-"gdp_share":0.01293,
+"gdp_share":0.01135,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4338,7 +4339,7 @@
 "lat":50.87,
 "lon":86.97,
 "pop_share":0.00139,
-"gdp_share":0.00134,
+"gdp_share":0.00121,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4366,7 +4367,7 @@
 "lat":54.51,
 "lon":86.81,
 "pop_share":0.01863,
-"gdp_share":0.01788,
+"gdp_share":0.01562,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4395,7 +4396,7 @@
 "lat":53.38,
 "lon":90.36,
 "pop_share":0.00152,
-"gdp_share":0.00146,
+"gdp_share":0.0013,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4422,7 +4423,7 @@
 "lat":55.29,
 "lon":80.03,
 "pop_share":0.01784,
-"gdp_share":0.01712,
+"gdp_share":0.015,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4449,7 +4450,7 @@
 "lat":43.25,
 "lon":45.77,
 "pop_share":0.00234,
-"gdp_share":0.00224,
+"gdp_share":0.00196,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4476,7 +4477,7 @@
 "lat":43.1,
 "lon":46.94,
 "pop_share":0.0084,
-"gdp_share":0.00806,
+"gdp_share":0.00704,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4504,7 +4505,7 @@
 "lat":57.72,
 "lon":109.0,
 "pop_share":0.02404,
-"gdp_share":0.02307,
+"gdp_share":0.02335,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4517,7 +4518,6 @@
 },
 "facilities":{
 "airbase":1,
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -4536,7 +4536,7 @@
 "lat":64.76,
 "lon":95.84,
 "pop_share":0.05357,
-"gdp_share":0.0514,
+"gdp_share":0.05122,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4573,7 +4573,7 @@
 "lat":51.73,
 "lon":94.14,
 "pop_share":0.0026,
-"gdp_share":0.00249,
+"gdp_share":0.00225,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4601,7 +4601,7 @@
 "lat":53.61,
 "lon":111.07,
 "pop_share":0.00766,
-"gdp_share":0.00735,
+"gdp_share":0.00656,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4629,7 +4629,7 @@
 "lat":52.95,
 "lon":130.2,
 "pop_share":0.00787,
-"gdp_share":0.00755,
+"gdp_share":0.00674,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4659,7 +4659,7 @@
 "lat":53.77,
 "lon":118.07,
 "pop_share":0.00875,
-"gdp_share":0.00839,
+"gdp_share":0.00751,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4690,7 +4690,7 @@
 "lat":45.37,
 "lon":135.13,
 "pop_share":0.01254,
-"gdp_share":0.01203,
+"gdp_share":0.01055,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4720,7 +4720,7 @@
 "lat":64.73,
 "lon":129.27,
 "pop_share":0.04697,
-"gdp_share":0.04507,
+"gdp_share":0.04517,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4756,7 +4756,7 @@
 "lat":48.58,
 "lon":132.66,
 "pop_share":0.00114,
-"gdp_share":0.0011,
+"gdp_share":0.00097,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4782,7 +4782,7 @@
 "lat":54.6,
 "lon":133.44,
 "pop_share":0.01772,
-"gdp_share":0.017,
+"gdp_share":0.01519,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4814,7 +4814,7 @@
 "lat":62.6,
 "lon":154.06,
 "pop_share":0.00683,
-"gdp_share":0.00656,
+"gdp_share":0.00599,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4843,7 +4843,7 @@
 "lat":50.2,
 "lon":143.02,
 "pop_share":0.0043,
-"gdp_share":0.00413,
+"gdp_share":0.00844,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4854,7 +4854,9 @@
 "uranium":0.026,
 "food":0.339
 },
-"facilities":{},
+"facilities":{
+"port":1
+},
 "neighbors":[
 "JPN_1847"
 ]
@@ -4867,7 +4869,7 @@
 "lat":45.3,
 "lon":34.25,
 "pop_share":0.00745,
-"gdp_share":0.00715,
+"gdp_share":0.00624,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4878,9 +4880,7 @@
 "uranium":0.007,
 "food":0.36
 },
-"facilities":{
-"port":1
-},
+"facilities":{},
 "neighbors":[
 "RUS_2371",
 "RUS_5482",
@@ -4895,7 +4895,7 @@
 "lat":58.89,
 "lon":56.41,
 "pop_share":0.01685,
-"gdp_share":0.01616,
+"gdp_share":0.01703,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -4923,7 +4923,7 @@
 "lat":57.9,
 "lon":159.81,
 "pop_share":0.0069,
-"gdp_share":0.00662,
+"gdp_share":0.00601,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4950,7 +4950,7 @@
 "lat":44.63,
 "lon":33.64,
 "pop_share":0.00372,
-"gdp_share":0.00357,
+"gdp_share":0.00311,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -4971,7 +4971,7 @@
 "lat":17.86,
 "lon":79.26,
 "pop_share":0.03956,
-"gdp_share":0.0386,
+"gdp_share":0.03826,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5002,7 +5002,7 @@
 "lat":33.9,
 "lon":77.44,
 "pop_share":0.00461,
-"gdp_share":0.0045,
+"gdp_share":0.00449,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5030,7 +5030,7 @@
 "lat":30.74,
 "lon":76.77,
 "pop_share":0.00373,
-"gdp_share":0.00364,
+"gdp_share":0.00361,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5053,7 +5053,7 @@
 "lat":28.65,
 "lon":77.12,
 "pop_share":0.06193,
-"gdp_share":0.08461,
+"gdp_share":0.08375,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -5081,7 +5081,7 @@
 "lat":31.81,
 "lon":77.31,
 "pop_share":0.00542,
-"gdp_share":0.00529,
+"gdp_share":0.00526,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5111,7 +5111,7 @@
 "lat":29.31,
 "lon":76.05,
 "pop_share":0.01717,
-"gdp_share":0.01675,
+"gdp_share":0.0166,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5141,7 +5141,7 @@
 "lat":33.52,
 "lon":75.29,
 "pop_share":0.0112,
-"gdp_share":0.01093,
+"gdp_share":0.01083,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5170,7 +5170,7 @@
 "lat":15.9,
 "lon":79.41,
 "pop_share":0.0568,
-"gdp_share":0.05542,
+"gdp_share":0.05558,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5203,7 +5203,7 @@
 "lat":10.54,
 "lon":76.43,
 "pop_share":0.01745,
-"gdp_share":0.01703,
+"gdp_share":0.01687,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5251,7 +5251,7 @@
 "lat":20.17,
 "lon":84.46,
 "pop_share":0.02064,
-"gdp_share":0.02014,
+"gdp_share":0.02,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5308,7 +5308,7 @@
 "lat":15.04,
 "lon":75.51,
 "pop_share":0.06477,
-"gdp_share":0.0632,
+"gdp_share":0.06264,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5342,7 +5342,7 @@
 "lat":18.82,
 "lon":75.43,
 "pop_share":0.1652,
-"gdp_share":0.16121,
+"gdp_share":0.163,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5378,7 +5378,7 @@
 "lat":12.54,
 "lon":92.86,
 "pop_share":0.00091,
-"gdp_share":0.00089,
+"gdp_share":0.00088,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5402,7 +5402,7 @@
 "lat":26.06,
 "lon":90.76,
 "pop_share":0.01067,
-"gdp_share":0.01041,
+"gdp_share":0.01146,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5432,7 +5432,7 @@
 "lat":24.76,
 "lon":93.85,
 "pop_share":0.0024,
-"gdp_share":0.00234,
+"gdp_share":0.00232,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5458,7 +5458,7 @@
 "lat":26.12,
 "lon":94.55,
 "pop_share":0.0014,
-"gdp_share":0.00137,
+"gdp_share":0.00136,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5484,7 +5484,7 @@
 "lat":25.55,
 "lon":91.27,
 "pop_share":0.00292,
-"gdp_share":0.00285,
+"gdp_share":0.00283,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5508,7 +5508,7 @@
 "lat":31.04,
 "lon":75.59,
 "pop_share":0.01991,
-"gdp_share":0.01943,
+"gdp_share":0.01925,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5537,7 +5537,7 @@
 "lat":26.62,
 "lon":73.81,
 "pop_share":0.05304,
-"gdp_share":0.05176,
+"gdp_share":0.05325,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5572,7 +5572,7 @@
 "lat":27.16,
 "lon":80.77,
 "pop_share":0.09474,
-"gdp_share":0.09245,
+"gdp_share":0.09161,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5608,7 +5608,7 @@
 "lat":30.1,
 "lon":79.31,
 "pop_share":0.00626,
-"gdp_share":0.00611,
+"gdp_share":0.00607,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5635,7 +5635,7 @@
 "lat":23.66,
 "lon":85.13,
 "pop_share":0.01862,
-"gdp_share":0.01817,
+"gdp_share":0.01802,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5663,7 +5663,7 @@
 "lat":24.39,
 "lon":88.06,
 "pop_share":0.09266,
-"gdp_share":0.09042,
+"gdp_share":0.08954,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5695,7 +5695,7 @@
 "lat":25.91,
 "lon":86.1,
 "pop_share":0.0197,
-"gdp_share":0.01923,
+"gdp_share":0.01907,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5746,7 +5746,7 @@
 "lat":20.96,
 "lon":81.51,
 "pop_share":0.01798,
-"gdp_share":0.01755,
+"gdp_share":0.01742,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5777,7 +5777,7 @@
 "lat":23.97,
 "lon":79.39,
 "pop_share":0.04768,
-"gdp_share":0.04653,
+"gdp_share":0.04618,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5808,7 +5808,7 @@
 "lat":10.9,
 "lon":79.79,
 "pop_share":0.0009,
-"gdp_share":0.00088,
+"gdp_share":0.00087,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5834,7 +5834,7 @@
 "lat":10.81,
 "lon":78.36,
 "pop_share":0.06707,
-"gdp_share":0.06544,
+"gdp_share":0.06483,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5866,7 +5866,7 @@
 "lat":22.39,
 "lon":71.95,
 "pop_share":0.06368,
-"gdp_share":0.06214,
+"gdp_share":0.06348,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5899,7 +5899,7 @@
 "lat":15.33,
 "lon":74.1,
 "pop_share":0.00046,
-"gdp_share":0.00045,
+"gdp_share":0.00044,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -5926,7 +5926,7 @@
 "lat":28.01,
 "lon":95.04,
 "pop_share":0.00548,
-"gdp_share":0.00535,
+"gdp_share":0.00533,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5952,7 +5952,7 @@
 "lat":23.22,
 "lon":92.85,
 "pop_share":0.00242,
-"gdp_share":0.00236,
+"gdp_share":0.00235,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -5978,7 +5978,7 @@
 "lat":23.74,
 "lon":91.71,
 "pop_share":0.00146,
-"gdp_share":0.00142,
+"gdp_share":0.00141,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6003,7 +6003,7 @@
 "lat":55.36,
 "lon":-4.05,
 "pop_share":0.04539,
-"gdp_share":0.04167,
+"gdp_share":0.04103,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6031,7 +6031,7 @@
 "lat":57.21,
 "lon":-2.65,
 "pop_share":0.01073,
-"gdp_share":0.00985,
+"gdp_share":0.01962,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6058,7 +6058,7 @@
 "lat":56.99,
 "lon":-4.66,
 "pop_share":0.03843,
-"gdp_share":0.03528,
+"gdp_share":0.03992,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6088,7 +6088,7 @@
 "lat":56.05,
 "lon":-4.09,
 "pop_share":0.03368,
-"gdp_share":0.03092,
+"gdp_share":0.03051,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6118,7 +6118,7 @@
 "lat":55.12,
 "lon":-2.04,
 "pop_share":0.05265,
-"gdp_share":0.04834,
+"gdp_share":0.04754,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6146,7 +6146,7 @@
 "lat":51.46,
 "lon":-0.99,
 "pop_share":0.06464,
-"gdp_share":0.05934,
+"gdp_share":0.05842,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6177,7 +6177,7 @@
 "lat":51.03,
 "lon":-2.94,
 "pop_share":0.05587,
-"gdp_share":0.05129,
+"gdp_share":0.05054,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6206,7 +6206,7 @@
 "lat":52.23,
 "lon":0.5,
 "pop_share":0.05266,
-"gdp_share":0.04834,
+"gdp_share":0.04839,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6234,7 +6234,7 @@
 "lat":52.79,
 "lon":-0.68,
 "pop_share":0.04572,
-"gdp_share":0.04197,
+"gdp_share":0.04133,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6264,7 +6264,7 @@
 "lat":53.92,
 "lon":-1.15,
 "pop_share":0.1126,
-"gdp_share":0.10336,
+"gdp_share":0.10203,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6294,7 +6294,7 @@
 "lat":51.49,
 "lon":-0.13,
 "pop_share":0.22333,
-"gdp_share":0.28702,
+"gdp_share":0.28193,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -6322,7 +6322,7 @@
 "lat":54.64,
 "lon":-6.89,
 "pop_share":0.02654,
-"gdp_share":0.02436,
+"gdp_share":0.02403,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6344,7 +6344,7 @@
 "lat":53.28,
 "lon":-4.32,
 "pop_share":0.01803,
-"gdp_share":0.01655,
+"gdp_share":0.01635,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6369,7 +6369,7 @@
 "lat":54.07,
 "lon":-2.67,
 "pop_share":0.10179,
-"gdp_share":0.09344,
+"gdp_share":0.09188,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6403,7 +6403,7 @@
 "lat":52.37,
 "lon":-3.4,
 "pop_share":0.02828,
-"gdp_share":0.02596,
+"gdp_share":0.02556,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6430,7 +6430,7 @@
 "lat":52.52,
 "lon":-2.2,
 "pop_share":0.08965,
-"gdp_share":0.0823,
+"gdp_share":0.08093,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6462,7 +6462,7 @@
 "lat":45.45,
 "lon":4.8,
 "pop_share":0.10683,
-"gdp_share":0.09424,
+"gdp_share":0.09438,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6494,7 +6494,7 @@
 "lat":49.97,
 "lon":2.86,
 "pop_share":0.05566,
-"gdp_share":0.0491,
+"gdp_share":0.04916,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6523,7 +6523,7 @@
 "lat":44.08,
 "lon":6.24,
 "pop_share":0.10197,
-"gdp_share":0.08996,
+"gdp_share":0.08981,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6552,7 +6552,7 @@
 "lat":48.79,
 "lon":5.73,
 "pop_share":0.07297,
-"gdp_share":0.06438,
+"gdp_share":0.06457,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6584,7 +6584,7 @@
 "lat":43.68,
 "lon":2.11,
 "pop_share":0.07782,
-"gdp_share":0.06866,
+"gdp_share":0.0689,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6615,7 +6615,7 @@
 "lat":49.12,
 "lon":0.02,
 "pop_share":0.04589,
-"gdp_share":0.04048,
+"gdp_share":0.04056,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6645,7 +6645,7 @@
 "lat":44.97,
 "lon":0.44,
 "pop_share":0.07455,
-"gdp_share":0.06577,
+"gdp_share":0.06613,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6678,7 +6678,7 @@
 "lat":47.64,
 "lon":1.72,
 "pop_share":0.03151,
-"gdp_share":0.0278,
+"gdp_share":0.02799,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6707,7 +6707,7 @@
 "lat":42.19,
 "lon":9.07,
 "pop_share":0.006,
-"gdp_share":0.0053,
+"gdp_share":0.00533,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6729,7 +6729,7 @@
 "lat":47.3,
 "lon":4.95,
 "pop_share":0.03014,
-"gdp_share":0.02659,
+"gdp_share":0.02685,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6758,7 +6758,7 @@
 "lat":48.17,
 "lon":-2.68,
 "pop_share":0.02612,
-"gdp_share":0.02304,
+"gdp_share":0.02316,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6783,7 +6783,7 @@
 "lat":48.67,
 "lon":2.53,
 "pop_share":0.33381,
-"gdp_share":0.41228,
+"gdp_share":0.41064,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -6814,7 +6814,7 @@
 "lat":47.42,
 "lon":-1.11,
 "pop_share":0.03673,
-"gdp_share":0.0324,
+"gdp_share":0.03252,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6843,7 +6843,7 @@
 "lat":51.42,
 "lon":7.56,
 "pop_share":0.20554,
-"gdp_share":0.1991,
+"gdp_share":0.19881,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6872,7 +6872,7 @@
 "lat":48.66,
 "lon":9.07,
 "pop_share":0.17336,
-"gdp_share":0.16793,
+"gdp_share":0.16773,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6902,7 +6902,7 @@
 "lat":50.53,
 "lon":9.03,
 "pop_share":0.10323,
-"gdp_share":0.09999,
+"gdp_share":0.09987,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -6933,7 +6933,7 @@
 "lat":53.12,
 "lon":8.8,
 "pop_share":0.02057,
-"gdp_share":0.01993,
+"gdp_share":0.01987,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6958,7 +6958,7 @@
 "lat":52.59,
 "lon":8.83,
 "pop_share":0.06431,
-"gdp_share":0.06229,
+"gdp_share":0.06251,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -6993,7 +6993,7 @@
 "lat":50.92,
 "lon":11.3,
 "pop_share":0.01867,
-"gdp_share":0.01809,
+"gdp_share":0.01816,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7020,7 +7020,7 @@
 "lat":53.57,
 "lon":9.98,
 "pop_share":0.04189,
-"gdp_share":0.04058,
+"gdp_share":0.04047,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7047,7 +7047,7 @@
 "lat":54.13,
 "lon":9.96,
 "pop_share":0.02346,
-"gdp_share":0.02273,
+"gdp_share":0.0228,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7075,7 +7075,7 @@
 "lat":49.95,
 "lon":7.26,
 "pop_share":0.02269,
-"gdp_share":0.02198,
+"gdp_share":0.02207,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7104,7 +7104,7 @@
 "lat":49.37,
 "lon":6.98,
 "pop_share":0.01959,
-"gdp_share":0.01898,
+"gdp_share":0.01894,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7128,7 +7128,7 @@
 "lat":48.92,
 "lon":12.04,
 "pop_share":0.11681,
-"gdp_share":0.11315,
+"gdp_share":0.11337,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7159,7 +7159,7 @@
 "lat":52.5,
 "lon":13.39,
 "pop_share":0.08084,
-"gdp_share":0.10963,
+"gdp_share":0.10932,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -7184,7 +7184,7 @@
 "lat":51.99,
 "lon":11.55,
 "pop_share":0.0172,
-"gdp_share":0.01666,
+"gdp_share":0.01678,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7211,7 +7211,7 @@
 "lat":50.91,
 "lon":13.51,
 "pop_share":0.04464,
-"gdp_share":0.04324,
+"gdp_share":0.04326,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7241,7 +7241,7 @@
 "lat":52.45,
 "lon":12.68,
 "pop_share":0.02492,
-"gdp_share":0.02414,
+"gdp_share":0.02432,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7273,7 +7273,7 @@
 "lat":53.8,
 "lon":12.35,
 "pop_share":0.02228,
-"gdp_share":0.02158,
+"gdp_share":0.02172,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7302,7 +7302,7 @@
 "lat":53.76,
 "lon":21.0,
 "pop_share":0.04046,
-"gdp_share":0.0384,
+"gdp_share":0.03917,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7331,7 +7331,7 @@
 "lat":54.14,
 "lon":18.07,
 "pop_share":0.08136,
-"gdp_share":0.07722,
+"gdp_share":0.07695,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7362,7 +7362,7 @@
 "lat":50.93,
 "lon":16.35,
 "pop_share":0.05373,
-"gdp_share":0.051,
+"gdp_share":0.05118,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7388,7 +7388,7 @@
 "lat":53.59,
 "lon":15.57,
 "pop_share":0.04926,
-"gdp_share":0.04675,
+"gdp_share":0.04731,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7415,7 +7415,7 @@
 "lat":52.24,
 "lon":15.29,
 "pop_share":0.01666,
-"gdp_share":0.01581,
+"gdp_share":0.01633,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7442,7 +7442,7 @@
 "lat":52.34,
 "lon":17.31,
 "pop_share":0.05972,
-"gdp_share":0.05668,
+"gdp_share":0.05736,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7473,7 +7473,7 @@
 "lat":53.0,
 "lon":18.51,
 "pop_share":0.04738,
-"gdp_share":0.04497,
+"gdp_share":0.0452,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7500,7 +7500,7 @@
 "lat":50.21,
 "lon":18.86,
 "pop_share":0.26332,
-"gdp_share":0.24993,
+"gdp_share":0.24613,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7559,7 +7559,7 @@
 "lat":52.23,
 "lon":21.49,
 "pop_share":0.13392,
-"gdp_share":0.17795,
+"gdp_share":0.17677,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -7592,7 +7592,7 @@
 "lat":50.73,
 "lon":20.8,
 "pop_share":0.02102,
-"gdp_share":0.01995,
+"gdp_share":0.02021,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7620,7 +7620,7 @@
 "lat":53.35,
 "lon":22.66,
 "pop_share":0.03287,
-"gdp_share":0.0312,
+"gdp_share":0.03187,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7646,7 +7646,7 @@
 "lat":51.3,
 "lon":22.74,
 "pop_share":0.03896,
-"gdp_share":0.03698,
+"gdp_share":0.0377,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7674,7 +7674,7 @@
 "lat":49.91,
 "lon":22.16,
 "pop_share":0.02702,
-"gdp_share":0.02565,
+"gdp_share":0.02617,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7701,7 +7701,7 @@
 "lat":50.56,
 "lon":17.8,
 "pop_share":0.01427,
-"gdp_share":0.01354,
+"gdp_share":0.01381,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7727,7 +7727,7 @@
 "lat":49.83,
 "lon":20.24,
 "pop_share":0.05887,
-"gdp_share":0.05588,
+"gdp_share":0.05573,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7752,7 +7752,7 @@
 "lat":47.41,
 "lon":31.93,
 "pop_share":0.03239,
-"gdp_share":0.03091,
+"gdp_share":0.0303,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -7778,7 +7778,7 @@
 "lat":51.36,
 "lon":31.82,
 "pop_share":0.03029,
-"gdp_share":0.0289,
+"gdp_share":0.03092,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7808,7 +7808,7 @@
 "lat":50.97,
 "lon":26.65,
 "pop_share":0.01861,
-"gdp_share":0.01776,
+"gdp_share":0.01914,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7835,7 +7835,7 @@
 "lat":48.19,
 "lon":25.72,
 "pop_share":0.01593,
-"gdp_share":0.0152,
+"gdp_share":0.01422,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7861,7 +7861,7 @@
 "lat":48.62,
 "lon":24.67,
 "pop_share":0.01544,
-"gdp_share":0.01473,
+"gdp_share":0.01507,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7887,7 +7887,7 @@
 "lat":49.52,
 "lon":26.94,
 "pop_share":0.02979,
-"gdp_share":0.02843,
+"gdp_share":0.02779,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7914,7 +7914,7 @@
 "lat":49.68,
 "lon":23.9,
 "pop_share":0.0486,
-"gdp_share":0.04638,
+"gdp_share":0.04286,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7943,7 +7943,7 @@
 "lat":49.38,
 "lon":25.52,
 "pop_share":0.01569,
-"gdp_share":0.01497,
+"gdp_share":0.01533,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7970,7 +7970,7 @@
 "lat":48.49,
 "lon":23.03,
 "pop_share":0.01111,
-"gdp_share":0.0106,
+"gdp_share":0.01146,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -7995,7 +7995,7 @@
 "lat":51.12,
 "lon":24.93,
 "pop_share":0.01978,
-"gdp_share":0.01888,
+"gdp_share":0.01998,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8020,7 +8020,7 @@
 "lat":49.35,
 "lon":31.85,
 "pop_share":0.02441,
-"gdp_share":0.02329,
+"gdp_share":0.02373,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8046,7 +8046,7 @@
 "lat":48.51,
 "lon":31.88,
 "pop_share":0.01943,
-"gdp_share":0.01854,
+"gdp_share":0.02044,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8075,7 +8075,7 @@
 "lat":50.33,
 "lon":31.46,
 "pop_share":0.02233,
-"gdp_share":0.02131,
+"gdp_share":0.02347,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8103,7 +8103,7 @@
 "lat":46.72,
 "lon":30.56,
 "pop_share":0.06075,
-"gdp_share":0.05797,
+"gdp_share":0.05444,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8130,7 +8130,7 @@
 "lat":48.94,
 "lon":28.51,
 "pop_share":0.02478,
-"gdp_share":0.02364,
+"gdp_share":0.02515,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8159,7 +8159,7 @@
 "lat":50.62,
 "lon":28.34,
 "pop_share":0.02636,
-"gdp_share":0.02515,
+"gdp_share":0.02728,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8185,7 +8185,7 @@
 "lat":51.24,
 "lon":33.64,
 "pop_share":0.03031,
-"gdp_share":0.02892,
+"gdp_share":0.02902,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8213,7 +8213,7 @@
 "lat":48.33,
 "lon":35.16,
 "pop_share":0.09164,
-"gdp_share":0.08745,
+"gdp_share":0.07856,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8245,7 +8245,7 @@
 "lat":48.05,
 "lon":37.84,
 "pop_share":0.11597,
-"gdp_share":0.11067,
+"gdp_share":0.09649,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8275,7 +8275,7 @@
 "lat":49.48,
 "lon":36.62,
 "pop_share":0.07887,
-"gdp_share":0.07527,
+"gdp_share":0.09812,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8306,7 +8306,7 @@
 "lat":48.94,
 "lon":38.89,
 "pop_share":0.03454,
-"gdp_share":0.03296,
+"gdp_share":0.03273,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8333,7 +8333,7 @@
 "lat":49.65,
 "lon":34.06,
 "pop_share":0.03428,
-"gdp_share":0.03271,
+"gdp_share":0.05885,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8362,7 +8362,7 @@
 "lat":47.19,
 "lon":35.68,
 "pop_share":0.05599,
-"gdp_share":0.05343,
+"gdp_share":0.04951,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8389,7 +8389,7 @@
 "lat":50.34,
 "lon":30.6,
 "pop_share":0.11987,
-"gdp_share":0.16014,
+"gdp_share":0.13185,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -8416,7 +8416,7 @@
 "lat":46.65,
 "lon":33.37,
 "pop_share":0.02284,
-"gdp_share":0.02179,
+"gdp_share":0.02328,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8442,7 +8442,7 @@
 "lat":37.73,
 "lon":28.07,
 "pop_share":0.00792,
-"gdp_share":0.00765,
+"gdp_share":0.00755,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8469,7 +8469,7 @@
 "lat":38.67,
 "lon":27.02,
 "pop_share":0.05872,
-"gdp_share":0.05672,
+"gdp_share":0.05578,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8499,7 +8499,7 @@
 "lat":39.8,
 "lon":27.9,
 "pop_share":0.00936,
-"gdp_share":0.00904,
+"gdp_share":0.00895,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8527,7 +8527,7 @@
 "lat":39.96,
 "lon":26.82,
 "pop_share":0.00437,
-"gdp_share":0.00422,
+"gdp_share":0.00419,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8553,7 +8553,7 @@
 "lat":41.29,
 "lon":26.64,
 "pop_share":0.00413,
-"gdp_share":0.00399,
+"gdp_share":0.00394,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8579,7 +8579,7 @@
 "lat":41.68,
 "lon":27.49,
 "pop_share":0.00503,
-"gdp_share":0.00486,
+"gdp_share":0.00481,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8605,7 +8605,7 @@
 "lat":41.03,
 "lon":27.37,
 "pop_share":0.00447,
-"gdp_share":0.00431,
+"gdp_share":0.00427,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8632,7 +8632,7 @@
 "lat":40.07,
 "lon":30.12,
 "pop_share":0.00224,
-"gdp_share":0.00216,
+"gdp_share":0.00215,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8661,7 +8661,7 @@
 "lat":40.07,
 "lon":28.92,
 "pop_share":0.03481,
-"gdp_share":0.03362,
+"gdp_share":0.03308,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8693,7 +8693,7 @@
 "lat":41.25,
 "lon":28.58,
 "pop_share":0.21687,
-"gdp_share":0.20947,
+"gdp_share":0.20585,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8723,7 +8723,7 @@
 "lat":40.89,
 "lon":29.79,
 "pop_share":0.01105,
-"gdp_share":0.01067,
+"gdp_share":0.0105,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8751,7 +8751,7 @@
 "lat":40.74,
 "lon":30.57,
 "pop_share":0.01284,
-"gdp_share":0.0124,
+"gdp_share":0.0122,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8779,7 +8779,7 @@
 "lat":40.59,
 "lon":31.63,
 "pop_share":0.00432,
-"gdp_share":0.00417,
+"gdp_share":0.00414,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8810,7 +8810,7 @@
 "lat":39.63,
 "lon":31.02,
 "pop_share":0.01458,
-"gdp_share":0.01408,
+"gdp_share":0.0139,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8839,7 +8839,7 @@
 "lat":41.42,
 "lon":33.79,
 "pop_share":0.005,
-"gdp_share":0.00482,
+"gdp_share":0.0048,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8867,7 +8867,7 @@
 "lat":36.76,
 "lon":31.94,
 "pop_share":0.02205,
-"gdp_share":0.0213,
+"gdp_share":0.02102,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -8900,7 +8900,7 @@
 "lat":38.53,
 "lon":30.62,
 "pop_share":0.00712,
-"gdp_share":0.00688,
+"gdp_share":0.00682,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8930,7 +8930,7 @@
 "lat":37.36,
 "lon":30.23,
 "pop_share":0.00323,
-"gdp_share":0.00312,
+"gdp_share":0.0031,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8958,7 +8958,7 @@
 "lat":37.68,
 "lon":29.26,
 "pop_share":0.01078,
-"gdp_share":0.01041,
+"gdp_share":0.01027,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -8987,7 +8987,7 @@
 "lat":37.9,
 "lon":30.82,
 "pop_share":0.00591,
-"gdp_share":0.00571,
+"gdp_share":0.00564,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9014,7 +9014,7 @@
 "lat":39.31,
 "lon":29.6,
 "pop_share":0.00706,
-"gdp_share":0.00682,
+"gdp_share":0.00676,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9044,7 +9044,7 @@
 "lat":38.77,
 "lon":28.14,
 "pop_share":0.00853,
-"gdp_share":0.00824,
+"gdp_share":0.00815,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9073,7 +9073,7 @@
 "lat":36.93,
 "lon":28.69,
 "pop_share":0.00424,
-"gdp_share":0.00409,
+"gdp_share":0.00408,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9100,7 +9100,7 @@
 "lat":37.82,
 "lon":38.24,
 "pop_share":0.0066,
-"gdp_share":0.00638,
+"gdp_share":0.01,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9128,7 +9128,7 @@
 "lat":38.78,
 "lon":39.94,
 "pop_share":0.00819,
-"gdp_share":0.00791,
+"gdp_share":0.00781,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9156,7 +9156,7 @@
 "lat":37.94,
 "lon":36.98,
 "pop_share":0.0117,
-"gdp_share":0.0113,
+"gdp_share":0.01117,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9186,7 +9186,7 @@
 "lat":38.49,
 "lon":37.84,
 "pop_share":0.0129,
-"gdp_share":0.01246,
+"gdp_share":0.01229,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9216,7 +9216,7 @@
 "lat":36.71,
 "lon":33.75,
 "pop_share":0.03618,
-"gdp_share":0.03495,
+"gdp_share":0.0344,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9248,7 +9248,7 @@
 "lat":39.35,
 "lon":34.09,
 "pop_share":0.00366,
-"gdp_share":0.00354,
+"gdp_share":0.0035,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9277,7 +9277,7 @@
 "lat":38.53,
 "lon":35.86,
 "pop_share":0.01717,
-"gdp_share":0.01659,
+"gdp_share":0.01637,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9306,7 +9306,7 @@
 "lat":38.87,
 "lon":34.68,
 "pop_share":0.00297,
-"gdp_share":0.00287,
+"gdp_share":0.00284,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9334,7 +9334,7 @@
 "lat":36.42,
 "lon":36.23,
 "pop_share":0.01309,
-"gdp_share":0.01264,
+"gdp_share":0.01245,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9364,7 +9364,7 @@
 "lat":40.64,
 "lon":35.88,
 "pop_share":0.00341,
-"gdp_share":0.00329,
+"gdp_share":0.00326,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9391,7 +9391,7 @@
 "lat":40.61,
 "lon":34.75,
 "pop_share":0.00721,
-"gdp_share":0.00696,
+"gdp_share":0.0069,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9422,7 +9422,7 @@
 "lat":40.56,
 "lon":38.48,
 "pop_share":0.00389,
-"gdp_share":0.00376,
+"gdp_share":0.00372,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9450,7 +9450,7 @@
 "lat":40.73,
 "lon":37.5,
 "pop_share":0.00487,
-"gdp_share":0.0047,
+"gdp_share":0.00464,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9477,7 +9477,7 @@
 "lat":41.65,
 "lon":35.03,
 "pop_share":0.0024,
-"gdp_share":0.00232,
+"gdp_share":0.00231,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9503,7 +9503,7 @@
 "lat":39.55,
 "lon":37.2,
 "pop_share":0.01292,
-"gdp_share":0.01248,
+"gdp_share":0.01238,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9536,7 +9536,7 @@
 "lat":41.29,
 "lon":35.92,
 "pop_share":0.01765,
-"gdp_share":0.01705,
+"gdp_share":0.01679,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9564,7 +9564,7 @@
 "lat":40.42,
 "lon":36.7,
 "pop_share":0.00524,
-"gdp_share":0.00506,
+"gdp_share":0.00501,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9592,7 +9592,7 @@
 "lat":41.05,
 "lon":41.88,
 "pop_share":0.00276,
-"gdp_share":0.00267,
+"gdp_share":0.00265,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9618,7 +9618,7 @@
 "lat":40.04,
 "lon":41.49,
 "pop_share":0.0152,
-"gdp_share":0.01468,
+"gdp_share":0.01453,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9654,7 +9654,7 @@
 "lat":39.55,
 "lon":39.08,
 "pop_share":0.0057,
-"gdp_share":0.0055,
+"gdp_share":0.00546,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9686,7 +9686,7 @@
 "lat":40.9,
 "lon":40.8,
 "pop_share":0.00698,
-"gdp_share":0.00675,
+"gdp_share":0.00664,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9713,7 +9713,7 @@
 "lat":40.84,
 "lon":39.77,
 "pop_share":0.0177,
-"gdp_share":0.0171,
+"gdp_share":0.01682,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9743,7 +9743,7 @@
 "lat":39.5,
 "lon":43.42,
 "pop_share":0.00447,
-"gdp_share":0.00431,
+"gdp_share":0.00428,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9773,7 +9773,7 @@
 "lat":39.01,
 "lon":40.76,
 "pop_share":0.00389,
-"gdp_share":0.00375,
+"gdp_share":0.00372,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9802,7 +9802,7 @@
 "lat":38.05,
 "lon":40.19,
 "pop_share":0.01764,
-"gdp_share":0.01704,
+"gdp_share":0.01977,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9833,7 +9833,7 @@
 "lat":39.02,
 "lon":41.94,
 "pop_share":0.00375,
-"gdp_share":0.00363,
+"gdp_share":0.0036,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9862,7 +9862,7 @@
 "lat":38.52,
 "lon":42.22,
 "pop_share":0.0052,
-"gdp_share":0.00502,
+"gdp_share":0.00498,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9890,7 +9890,7 @@
 "lat":39.68,
 "lon":32.58,
 "pop_share":0.08828,
-"gdp_share":0.11938,
+"gdp_share":0.11741,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -9925,7 +9925,7 @@
 "lat":40.69,
 "lon":33.37,
 "pop_share":0.00354,
-"gdp_share":0.00342,
+"gdp_share":0.0034,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -9954,7 +9954,7 @@
 "lat":41.31,
 "lon":31.83,
 "pop_share":0.00423,
-"gdp_share":0.00408,
+"gdp_share":0.00403,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -9981,7 +9981,7 @@
 "lat":37.94,
 "lon":32.43,
 "pop_share":0.03185,
-"gdp_share":0.03076,
+"gdp_share":0.03039,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10016,7 +10016,7 @@
 "lat":37.04,
 "lon":33.2,
 "pop_share":0.00482,
-"gdp_share":0.00466,
+"gdp_share":0.00462,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10042,7 +10042,7 @@
 "lat":38.55,
 "lon":29.34,
 "pop_share":0.00441,
-"gdp_share":0.00426,
+"gdp_share":0.0042,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10069,7 +10069,7 @@
 "lat":37.1,
 "lon":37.23,
 "pop_share":0.0242,
-"gdp_share":0.02337,
+"gdp_share":0.023,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10101,7 +10101,7 @@
 "lat":37.36,
 "lon":38.95,
 "pop_share":0.01462,
-"gdp_share":0.01412,
+"gdp_share":0.01396,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10133,7 +10133,7 @@
 "lat":37.5,
 "lon":35.43,
 "pop_share":0.03156,
-"gdp_share":0.03048,
+"gdp_share":0.03002,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -10165,7 +10165,7 @@
 "lat":39.77,
 "lon":33.64,
 "pop_share":0.00573,
-"gdp_share":0.00554,
+"gdp_share":0.00546,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10193,7 +10193,7 @@
 "lat":37.88,
 "lon":34.75,
 "pop_share":0.00363,
-"gdp_share":0.00351,
+"gdp_share":0.00347,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10250,7 +10250,7 @@
 "lat":39.61,
 "lon":35.3,
 "pop_share":0.00544,
-"gdp_share":0.00526,
+"gdp_share":0.00522,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10281,7 +10281,7 @@
 "lat":40.34,
 "lon":39.45,
 "pop_share":0.00234,
-"gdp_share":0.00226,
+"gdp_share":0.00225,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10336,7 +10336,7 @@
 "lat":40.51,
 "lon":43.06,
 "pop_share":0.00441,
-"gdp_share":0.00426,
+"gdp_share":0.00423,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10363,7 +10363,7 @@
 "lat":37.35,
 "lon":40.85,
 "pop_share":0.00733,
-"gdp_share":0.00708,
+"gdp_share":0.007,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10392,7 +10392,7 @@
 "lat":38.03,
 "lon":41.3,
 "pop_share":0.00751,
-"gdp_share":0.00726,
+"gdp_share":0.01456,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10423,7 +10423,7 @@
 "lat":37.93,
 "lon":42.23,
 "pop_share":0.00408,
-"gdp_share":0.00394,
+"gdp_share":0.00389,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10482,7 +10482,7 @@
 "lat":39.2,
 "lon":39.4,
 "pop_share":0.00265,
-"gdp_share":0.00256,
+"gdp_share":0.00255,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10510,7 +10510,7 @@
 "lat":37.44,
 "lon":43.99,
 "pop_share":0.00354,
-"gdp_share":0.00342,
+"gdp_share":0.00339,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10538,7 +10538,7 @@
 "lat":38.57,
 "lon":43.59,
 "pop_share":0.01292,
-"gdp_share":0.01248,
+"gdp_share":0.01234,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10619,7 +10619,7 @@
 "lat":36.82,
 "lon":36.96,
 "pop_share":0.0021,
-"gdp_share":0.00203,
+"gdp_share":0.002,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10722,7 +10722,7 @@
 "lat":41.17,
 "lon":32.55,
 "pop_share":0.0038,
-"gdp_share":0.00367,
+"gdp_share":0.00363,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10777,7 +10777,7 @@
 "lat":30.82,
 "lon":50.89,
 "pop_share":0.00401,
-"gdp_share":0.00371,
+"gdp_share":0.02743,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10807,7 +10807,7 @@
 "lat":28.79,
 "lon":51.48,
 "pop_share":0.00699,
-"gdp_share":0.00647,
+"gdp_share":0.10589,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -10819,6 +10819,7 @@
 "food":0.578
 },
 "facilities":{
+"port":1,
 "refinery":1
 },
 "neighbors":[
@@ -10836,7 +10837,7 @@
 "lat":32.66,
 "lon":51.48,
 "pop_share":0.074,
-"gdp_share":0.06849,
+"gdp_share":0.03742,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10870,7 +10871,7 @@
 "lat":29.42,
 "lon":53.14,
 "pop_share":0.05188,
-"gdp_share":0.04801,
+"gdp_share":0.04148,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10901,7 +10902,7 @@
 "lat":37.29,
 "lon":54.86,
 "pop_share":0.01363,
-"gdp_share":0.01262,
+"gdp_share":0.00693,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -10927,7 +10928,7 @@
 "lat":36.39,
 "lon":52.32,
 "pop_share":0.01541,
-"gdp_share":0.01426,
+"gdp_share":0.00787,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -10956,7 +10957,7 @@
 "lat":35.84,
 "lon":55.0,
 "pop_share":0.01788,
-"gdp_share":0.01655,
+"gdp_share":0.01094,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -10987,7 +10988,7 @@
 "lat":35.48,
 "lon":51.36,
 "pop_share":0.20143,
-"gdp_share":0.26098,
+"gdp_share":0.13091,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -11018,7 +11019,7 @@
 "lat":32.5,
 "lon":55.51,
 "pop_share":0.02754,
-"gdp_share":0.02549,
+"gdp_share":0.01639,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11049,7 +11050,7 @@
 "lat":31.88,
 "lon":50.71,
 "pop_share":0.00506,
-"gdp_share":0.00468,
+"gdp_share":0.00277,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11075,7 +11076,7 @@
 "lat":31.52,
 "lon":49.0,
 "pop_share":0.05538,
-"gdp_share":0.05125,
+"gdp_share":0.31843,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -11088,6 +11089,7 @@
 },
 "facilities":{
 "port":1,
+"factory":1,
 "refinery":2,
 "power_plant":1
 },
@@ -11110,7 +11112,7 @@
 "lat":33.48,
 "lon":48.45,
 "pop_share":0.01916,
-"gdp_share":0.01774,
+"gdp_share":0.00971,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11139,7 +11141,7 @@
 "lat":33.08,
 "lon":46.83,
 "pop_share":0.00612,
-"gdp_share":0.00566,
+"gdp_share":0.01777,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11170,7 +11172,7 @@
 "lat":27.17,
 "lon":55.07,
 "pop_share":0.01929,
-"gdp_share":0.01785,
+"gdp_share":0.01775,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -11199,7 +11201,7 @@
 "lat":38.43,
 "lon":47.93,
 "pop_share":0.01295,
-"gdp_share":0.01198,
+"gdp_share":0.00661,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11225,7 +11227,7 @@
 "lat":34.59,
 "lon":49.48,
 "pop_share":0.02038,
-"gdp_share":0.01886,
+"gdp_share":0.01025,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11255,7 +11257,7 @@
 "lat":34.65,
 "lon":50.98,
 "pop_share":0.02558,
-"gdp_share":0.02367,
+"gdp_share":0.01217,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11282,7 +11284,7 @@
 "lat":34.86,
 "lon":48.46,
 "pop_share":0.02006,
-"gdp_share":0.01856,
+"gdp_share":0.00988,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11311,7 +11313,7 @@
 "lat":36.39,
 "lon":48.57,
 "pop_share":0.01172,
-"gdp_share":0.01085,
+"gdp_share":0.00609,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11341,7 +11343,7 @@
 "lat":36.14,
 "lon":50.01,
 "pop_share":0.01352,
-"gdp_share":0.01251,
+"gdp_share":0.00672,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11370,7 +11372,7 @@
 "lat":37.87,
 "lon":44.77,
 "pop_share":0.02823,
-"gdp_share":0.02613,
+"gdp_share":0.01419,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11402,7 +11404,7 @@
 "lat":37.94,
 "lon":46.52,
 "pop_share":0.04744,
-"gdp_share":0.0439,
+"gdp_share":0.02337,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11430,7 +11432,7 @@
 "lat":34.46,
 "lon":46.72,
 "pop_share":0.02376,
-"gdp_share":0.02198,
+"gdp_share":0.01167,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11459,7 +11461,7 @@
 "lat":37.5,
 "lon":49.05,
 "pop_share":0.01661,
-"gdp_share":0.01538,
+"gdp_share":0.00812,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -11470,9 +11472,7 @@
 "uranium":0.028,
 "food":0.715
 },
-"facilities":{
-"port":1
-},
+"facilities":{},
 "neighbors":[
 "IRN_3214",
 "IRN_3230",
@@ -11488,7 +11488,7 @@
 "lat":35.62,
 "lon":46.91,
 "pop_share":0.01377,
-"gdp_share":0.01274,
+"gdp_share":0.00725,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11516,7 +11516,7 @@
 "lat":32.33,
 "lon":59.51,
 "pop_share":0.0183,
-"gdp_share":0.01693,
+"gdp_share":0.01083,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11543,7 +11543,7 @@
 "lat":35.34,
 "lon":59.03,
 "pop_share":0.09982,
-"gdp_share":0.09238,
+"gdp_share":0.05023,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11556,7 +11556,6 @@
 },
 "facilities":{
 "airbase":1,
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -11574,7 +11573,7 @@
 "lat":37.46,
 "lon":57.08,
 "pop_share":0.00845,
-"gdp_share":0.00782,
+"gdp_share":0.00467,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11600,7 +11599,7 @@
 "lat":28.25,
 "lon":60.78,
 "pop_share":0.04277,
-"gdp_share":0.03958,
+"gdp_share":0.02455,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -11630,7 +11629,7 @@
 "lat":29.02,
 "lon":57.21,
 "pop_share":0.04297,
-"gdp_share":0.03976,
+"gdp_share":0.02495,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11661,7 +11660,7 @@
 "lat":35.95,
 "lon":50.81,
 "pop_share":0.03587,
-"gdp_share":0.03319,
+"gdp_share":0.01673,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11688,7 +11687,7 @@
 "lat":37.03,
 "lon":43.02,
 "pop_share":0.06,
-"gdp_share":0.05441,
+"gdp_share":0.02765,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11718,7 +11717,7 @@
 "lat":35.3,
 "lon":44.06,
 "pop_share":0.03544,
-"gdp_share":0.03214,
+"gdp_share":0.08305,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11746,7 +11745,7 @@
 "lat":36.37,
 "lon":44.16,
 "pop_share":0.05385,
-"gdp_share":0.04883,
+"gdp_share":0.06025,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11778,7 +11777,7 @@
 "lat":36.02,
 "lon":42.33,
 "pop_share":0.092,
-"gdp_share":0.08344,
+"gdp_share":0.05732,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11790,7 +11789,6 @@
 "food":3.179
 },
 "facilities":{
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -11811,7 +11809,7 @@
 "lat":34.58,
 "lon":43.63,
 "pop_share":0.02277,
-"gdp_share":0.02065,
+"gdp_share":0.012,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11841,7 +11839,7 @@
 "lat":31.07,
 "lon":43.85,
 "pop_share":0.04685,
-"gdp_share":0.04248,
+"gdp_share":0.02309,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11870,7 +11868,7 @@
 "lat":32.49,
 "lon":43.77,
 "pop_share":0.02815,
-"gdp_share":0.02553,
+"gdp_share":0.01308,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11896,7 +11894,7 @@
 "lat":33.31,
 "lon":44.38,
 "pop_share":0.25665,
-"gdp_share":0.32585,
+"gdp_share":0.16297,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -11927,7 +11925,7 @@
 "lat":30.2,
 "lon":47.56,
 "pop_share":0.06502,
-"gdp_share":0.05897,
+"gdp_share":0.29913,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -11940,6 +11938,7 @@
 },
 "facilities":{
 "port":1,
+"factory":1,
 "refinery":2,
 "power_plant":1
 },
@@ -11959,7 +11958,7 @@
 "lat":30.41,
 "lon":45.38,
 "pop_share":0.03218,
-"gdp_share":0.02918,
+"gdp_share":0.01787,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -11990,7 +11989,7 @@
 "lat":31.85,
 "lon":45.13,
 "pop_share":0.02203,
-"gdp_share":0.01998,
+"gdp_share":0.01054,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12018,7 +12017,7 @@
 "lat":31.26,
 "lon":46.25,
 "pop_share":0.03727,
-"gdp_share":0.0338,
+"gdp_share":0.03956,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12046,7 +12045,7 @@
 "lat":31.97,
 "lon":47.02,
 "pop_share":0.02478,
-"gdp_share":0.02248,
+"gdp_share":0.04713,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12076,7 +12075,7 @@
 "lat":32.72,
 "lon":45.74,
 "pop_share":0.02435,
-"gdp_share":0.02208,
+"gdp_share":0.02525,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12106,7 +12105,7 @@
 "lat":35.51,
 "lon":45.36,
 "pop_share":0.04478,
-"gdp_share":0.04061,
+"gdp_share":0.03429,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12136,7 +12135,7 @@
 "lat":34.05,
 "lon":44.88,
 "pop_share":0.02584,
-"gdp_share":0.02343,
+"gdp_share":0.01301,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12167,7 +12166,7 @@
 "lat":32.86,
 "lon":41.54,
 "pop_share":0.09097,
-"gdp_share":0.0825,
+"gdp_share":0.05658,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12204,7 +12203,7 @@
 "lat":32.65,
 "lon":44.61,
 "pop_share":0.03707,
-"gdp_share":0.03362,
+"gdp_share":0.01724,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12234,7 +12233,7 @@
 "lat":35.57,
 "lon":35.98,
 "pop_share":0.04866,
-"gdp_share":0.04488,
+"gdp_share":0.02278,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -12261,7 +12260,7 @@
 "lat":34.94,
 "lon":36.08,
 "pop_share":0.01594,
-"gdp_share":0.0147,
+"gdp_share":0.00761,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -12285,7 +12284,7 @@
 "lat":35.99,
 "lon":38.91,
 "pop_share":0.04258,
-"gdp_share":0.03927,
+"gdp_share":0.02214,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12312,7 +12311,7 @@
 "lat":36.17,
 "lon":37.43,
 "pop_share":0.26752,
-"gdp_share":0.24672,
+"gdp_share":0.12593,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12343,7 +12342,7 @@
 "lat":35.29,
 "lon":37.27,
 "pop_share":0.05035,
-"gdp_share":0.04643,
+"gdp_share":0.02459,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12370,7 +12369,7 @@
 "lat":34.25,
 "lon":38.29,
 "pop_share":0.144,
-"gdp_share":0.1328,
+"gdp_share":0.12037,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12402,7 +12401,7 @@
 "lat":35.83,
 "lon":36.58,
 "pop_share":0.01712,
-"gdp_share":0.01579,
+"gdp_share":0.00866,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12427,7 +12426,7 @@
 "lat":36.44,
 "lon":40.57,
 "pop_share":0.04434,
-"gdp_share":0.0409,
+"gdp_share":0.2404,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12457,7 +12456,7 @@
 "lat":35.31,
 "lon":40.26,
 "pop_share":0.06209,
-"gdp_share":0.05726,
+"gdp_share":0.24304,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12467,6 +12466,7 @@
 "food":4.12
 },
 "facilities":{
+"factory":1,
 "refinery":1
 },
 "neighbors":[
@@ -12485,7 +12485,7 @@
 "lat":32.78,
 "lon":36.87,
 "pop_share":0.01312,
-"gdp_share":0.0121,
+"gdp_share":0.00691,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12509,7 +12509,7 @@
 "lat":33.46,
 "lon":36.84,
 "pop_share":0.06584,
-"gdp_share":0.06072,
+"gdp_share":0.03276,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12539,7 +12539,7 @@
 "lat":33.09,
 "lon":35.9,
 "pop_share":0.00097,
-"gdp_share":0.0009,
+"gdp_share":0.00052,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12564,7 +12564,7 @@
 "lat":32.83,
 "lon":36.1,
 "pop_share":0.01666,
-"gdp_share":0.01537,
+"gdp_share":0.00821,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -12591,7 +12591,7 @@
 "lat":33.51,
 "lon":36.29,
 "pop_share":0.21079,
-"gdp_share":0.27216,
+"gdp_share":0.13608,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -12599,7 +12599,6 @@
 "food":4.228
 },
 "facilities":{
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -12941,7 +12940,7 @@
 "lat":30.69,
 "lon":34.85,
 "pop_share":0.16019,
-"gdp_share":0.13583,
+"gdp_share":0.13217,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -12951,8 +12950,6 @@
 },
 "facilities":{
 "airbase":1,
-"port":1,
-"factory":1,
 "power_plant":1,
 "nuclear":1
 },
@@ -12975,7 +12972,7 @@
 "lat":32.64,
 "lon":34.98,
 "pop_share":0.15295,
-"gdp_share":0.1297,
+"gdp_share":0.15429,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -12984,7 +12981,9 @@
 "food":3.844
 },
 "facilities":{
-"airbase":1
+"airbase":1,
+"port":1,
+"factory":1
 },
 "neighbors":[
 "ISR_3055",
@@ -12999,7 +12998,7 @@
 "lat":32.09,
 "lon":34.91,
 "pop_share":0.02056,
-"gdp_share":0.01743,
+"gdp_share":0.01682,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13025,7 +13024,7 @@
 "lat":32.89,
 "lon":35.46,
 "pop_share":0.06454,
-"gdp_share":0.05473,
+"gdp_share":0.053,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13053,7 +13052,7 @@
 "lat":32.1,
 "lon":34.81,
 "pop_share":0.44826,
-"gdp_share":0.53215,
+"gdp_share":0.52016,
 "capital":true,
 "coastal":true,
 "resources":{
@@ -13080,7 +13079,7 @@
 "lat":31.74,
 "lon":35.07,
 "pop_share":0.15349,
-"gdp_share":0.13016,
+"gdp_share":0.12356,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13104,7 +13103,7 @@
 "lat":18.24,
 "lon":45.62,
 "pop_share":0.02513,
-"gdp_share":0.02264,
+"gdp_share":0.01883,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13130,7 +13129,7 @@
 "lat":23.36,
 "lon":45.23,
 "pop_share":0.27503,
-"gdp_share":0.34688,
+"gdp_share":0.27723,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -13166,7 +13165,7 @@
 "lat":23.11,
 "lon":50.32,
 "pop_share":0.22976,
-"gdp_share":0.20699,
+"gdp_share":0.35999,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13201,7 +13200,7 @@
 "lat":24.95,
 "lon":39.95,
 "pop_share":0.07104,
-"gdp_share":0.064,
+"gdp_share":0.05206,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13235,7 +13234,7 @@
 "lat":25.97,
 "lon":43.42,
 "pop_share":0.02319,
-"gdp_share":0.02089,
+"gdp_share":0.01709,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13261,7 +13260,7 @@
 "lat":27.1,
 "lon":41.75,
 "pop_share":0.02982,
-"gdp_share":0.02686,
+"gdp_share":0.02261,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13292,7 +13291,7 @@
 "lat":26.76,
 "lon":36.54,
 "pop_share":0.03648,
-"gdp_share":0.03287,
+"gdp_share":0.02706,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13319,7 +13318,7 @@
 "lat":29.79,
 "lon":42.65,
 "pop_share":0.02616,
-"gdp_share":0.02356,
+"gdp_share":0.02009,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13352,7 +13351,7 @@
 "lat":29.94,
 "lon":39.43,
 "pop_share":0.01986,
-"gdp_share":0.01789,
+"gdp_share":0.01554,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13385,7 +13384,7 @@
 "lat":20.06,
 "lon":41.31,
 "pop_share":0.00104,
-"gdp_share":0.00094,
+"gdp_share":0.00086,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13410,7 +13409,7 @@
 "lat":19.21,
 "lon":42.96,
 "pop_share":0.02088,
-"gdp_share":0.01881,
+"gdp_share":0.01569,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13438,7 +13437,7 @@
 "lat":17.34,
 "lon":42.75,
 "pop_share":0.0061,
-"gdp_share":0.00549,
+"gdp_share":0.00449,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13463,7 +13462,7 @@
 "lat":21.05,
 "lon":41.43,
 "pop_share":0.23551,
-"gdp_share":0.21217,
+"gdp_share":0.16846,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13497,7 +13496,7 @@
 "lat":25.7,
 "lon":55.97,
 "pop_share":0.04123,
-"gdp_share":0.03579,
+"gdp_share":0.02375,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13524,7 +13523,7 @@
 "lat":25.46,
 "lon":55.73,
 "pop_share":0.0115,
-"gdp_share":0.00998,
+"gdp_share":0.00663,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13549,7 +13548,7 @@
 "lat":25.44,
 "lon":56.24,
 "pop_share":0.02471,
-"gdp_share":0.02145,
+"gdp_share":0.01426,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13575,7 +13574,7 @@
 "lat":24.8,
 "lon":56.05,
 "pop_share":0.00039,
-"gdp_share":0.00034,
+"gdp_share":0.00024,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13600,7 +13599,7 @@
 "lat":25.41,
 "lon":55.55,
 "pop_share":0.00043,
-"gdp_share":0.00037,
+"gdp_share":0.00027,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13626,7 +13625,7 @@
 "lat":25.11,
 "lon":55.8,
 "pop_share":0.23994,
-"gdp_share":0.20828,
+"gdp_share":0.14137,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13658,7 +13657,7 @@
 "lat":23.8,
 "lon":53.68,
 "pop_share":0.38004,
-"gdp_share":0.46185,
+"gdp_share":0.62728,
 "capital":true,
 "coastal":true,
 "resources":{
@@ -13688,7 +13687,7 @@
 "lat":24.95,
 "lon":55.33,
 "pop_share":0.30177,
-"gdp_share":0.26195,
+"gdp_share":0.1862,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13720,7 +13719,7 @@
 "lat":30.85,
 "lon":31.02,
 "pop_share":0.01179,
-"gdp_share":0.01039,
+"gdp_share":0.00784,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13749,7 +13748,7 @@
 "lat":30.65,
 "lon":32.36,
 "pop_share":0.01963,
-"gdp_share":0.01731,
+"gdp_share":0.01313,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13760,9 +13759,7 @@
 "uranium":0.03,
 "food":0.639
 },
-"facilities":{
-"port":1
-},
+"facilities":{},
 "neighbors":[
 "EGY_1533",
 "EGY_1535",
@@ -13780,7 +13777,7 @@
 "lat":30.44,
 "lon":30.99,
 "pop_share":0.00544,
-"gdp_share":0.0048,
+"gdp_share":0.00363,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13809,7 +13806,7 @@
 "lat":30.04,
 "lon":31.57,
 "pop_share":0.33504,
-"gdp_share":0.41363,
+"gdp_share":0.3103,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -13840,7 +13837,7 @@
 "lat":30.35,
 "lon":31.21,
 "pop_share":0.00491,
-"gdp_share":0.00433,
+"gdp_share":0.00327,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -13869,7 +13866,7 @@
 "lat":30.65,
 "lon":31.73,
 "pop_share":0.00904,
-"gdp_share":0.00797,
+"gdp_share":0.0061,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13899,7 +13896,7 @@
 "lat":29.61,
 "lon":32.13,
 "pop_share":0.01615,
-"gdp_share":0.01424,
+"gdp_share":0.0267,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13928,7 +13925,7 @@
 "lat":31.05,
 "lon":31.5,
 "pop_share":0.01763,
-"gdp_share":0.01554,
+"gdp_share":0.01175,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13939,9 +13936,7 @@
 "uranium":0.019,
 "food":0.535
 },
-"facilities":{
-"port":1
-},
+"facilities":{},
 "neighbors":[
 "EGY_1530",
 "EGY_1531",
@@ -13961,7 +13956,7 @@
 "lat":31.13,
 "lon":32.39,
 "pop_share":0.01762,
-"gdp_share":0.01554,
+"gdp_share":0.0393,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -13972,7 +13967,9 @@
 "uranium":0.002,
 "food":0.451
 },
-"facilities":{},
+"facilities":{
+"port":1
+},
 "neighbors":[
 "EGY_1531",
 "EGY_1535",
@@ -13988,7 +13985,7 @@
 "lat":31.35,
 "lon":31.68,
 "pop_share":0.00856,
-"gdp_share":0.00755,
+"gdp_share":0.02871,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14012,7 +14009,7 @@
 "lat":29.66,
 "lon":27.37,
 "pop_share":0.03703,
-"gdp_share":0.03266,
+"gdp_share":0.08976,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14026,6 +14023,7 @@
 "facilities":{
 "airbase":1,
 "port":1,
+"factory":1,
 "refinery":1,
 "power_plant":1
 },
@@ -14044,7 +14042,7 @@
 "lat":30.7,
 "lon":30.4,
 "pop_share":0.0165,
-"gdp_share":0.01455,
+"gdp_share":0.01122,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14073,7 +14071,7 @@
 "lat":29.33,
 "lon":30.57,
 "pop_share":0.01014,
-"gdp_share":0.00894,
+"gdp_share":0.00686,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14098,7 +14096,7 @@
 "lat":30.85,
 "lon":29.76,
 "pop_share":0.11759,
-"gdp_share":0.10369,
+"gdp_share":0.07783,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14111,7 +14109,6 @@
 },
 "facilities":{
 "port":1,
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -14127,7 +14124,7 @@
 "lat":29.02,
 "lon":29.41,
 "pop_share":0.08306,
-"gdp_share":0.07324,
+"gdp_share":0.05589,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14164,7 +14161,7 @@
 "lat":28.18,
 "lon":30.1,
 "pop_share":0.03061,
-"gdp_share":0.02699,
+"gdp_share":0.02073,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14192,7 +14189,7 @@
 "lat":29.06,
 "lon":30.93,
 "pop_share":0.01474,
-"gdp_share":0.013,
+"gdp_share":0.00987,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14219,7 +14216,7 @@
 "lat":31.3,
 "lon":30.9,
 "pop_share":0.01038,
-"gdp_share":0.00915,
+"gdp_share":0.02538,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14245,7 +14242,7 @@
 "lat":23.64,
 "lon":32.82,
 "pop_share":0.02038,
-"gdp_share":0.01798,
+"gdp_share":0.01386,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14271,7 +14268,7 @@
 "lat":27.23,
 "lon":31.11,
 "pop_share":0.01235,
-"gdp_share":0.01089,
+"gdp_share":0.00823,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14298,7 +14295,7 @@
 "lat":24.8,
 "lon":28.93,
 "pop_share":0.09076,
-"gdp_share":0.08003,
+"gdp_share":0.07117,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14333,7 +14330,7 @@
 "lat":25.71,
 "lon":32.74,
 "pop_share":0.01202,
-"gdp_share":0.0106,
+"gdp_share":0.00804,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14361,7 +14358,7 @@
 "lat":26.53,
 "lon":31.76,
 "pop_share":0.021,
-"gdp_share":0.01852,
+"gdp_share":0.01396,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14388,7 +14385,7 @@
 "lat":25.68,
 "lon":33.67,
 "pop_share":0.04316,
-"gdp_share":0.03806,
+"gdp_share":0.08853,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14426,7 +14423,7 @@
 "lat":28.82,
 "lon":33.9,
 "pop_share":0.00669,
-"gdp_share":0.0059,
+"gdp_share":0.02885,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14439,6 +14436,7 @@
 },
 "facilities":{
 "airbase":1,
+"port":1,
 "refinery":1
 },
 "neighbors":[
@@ -14457,7 +14455,7 @@
 "lat":30.4,
 "lon":33.63,
 "pop_share":0.01067,
-"gdp_share":0.00941,
+"gdp_share":0.00776,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14486,7 +14484,7 @@
 "lat":25.71,
 "lon":32.65,
 "pop_share":0.01713,
-"gdp_share":0.01511,
+"gdp_share":0.01133,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14508,7 +14506,7 @@
 "lat":25.37,
 "lon":-2.06,
 "pop_share":0.04954,
-"gdp_share":0.04547,
+"gdp_share":0.05387,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14540,7 +14538,7 @@
 "lat":35.36,
 "lon":-0.98,
 "pop_share":0.00018,
-"gdp_share":0.00017,
+"gdp_share":0.00015,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14567,7 +14565,7 @@
 "lat":35.59,
 "lon":-0.73,
 "pop_share":0.05352,
-"gdp_share":0.04912,
+"gdp_share":0.02464,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14597,7 +14595,7 @@
 "lat":34.82,
 "lon":-0.59,
 "pop_share":0.01464,
-"gdp_share":0.01343,
+"gdp_share":0.00695,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14626,7 +14624,7 @@
 "lat":34.71,
 "lon":-1.28,
 "pop_share":0.01623,
-"gdp_share":0.01489,
+"gdp_share":0.00774,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14652,7 +14650,7 @@
 "lat":30.26,
 "lon":-2.29,
 "pop_share":0.02545,
-"gdp_share":0.02336,
+"gdp_share":0.01659,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14679,7 +14677,7 @@
 "lat":33.22,
 "lon":-0.81,
 "pop_share":0.00704,
-"gdp_share":0.00646,
+"gdp_share":0.00417,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14707,7 +14705,7 @@
 "lat":27.52,
 "lon":-5.92,
 "pop_share":0.01433,
-"gdp_share":0.01315,
+"gdp_share":0.011,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14732,7 +14730,7 @@
 "lat":36.84,
 "lon":7.55,
 "pop_share":0.03376,
-"gdp_share":0.03098,
+"gdp_share":0.01554,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14761,7 +14759,7 @@
 "lat":36.67,
 "lon":8.05,
 "pop_share":0.00026,
-"gdp_share":0.00024,
+"gdp_share":0.00021,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14787,7 +14785,7 @@
 "lat":36.73,
 "lon":5.97,
 "pop_share":0.01011,
-"gdp_share":0.00928,
+"gdp_share":0.00472,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14815,7 +14813,7 @@
 "lat":36.75,
 "lon":6.87,
 "pop_share":0.01542,
-"gdp_share":0.01416,
+"gdp_share":0.00721,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -14843,7 +14841,7 @@
 "lat":26.97,
 "lon":7.87,
 "pop_share":0.01734,
-"gdp_share":0.01591,
+"gdp_share":0.11361,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14870,7 +14868,7 @@
 "lat":24.09,
 "lon":4.96,
 "pop_share":0.08769,
-"gdp_share":0.08048,
+"gdp_share":0.05742,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14883,7 +14881,6 @@
 },
 "facilities":{
 "airbase":1,
-"factory":1,
 "refinery":1,
 "power_plant":1
 },
@@ -14902,7 +14899,7 @@
 "lat":32.58,
 "lon":1.1,
 "pop_share":0.01068,
-"gdp_share":0.0098,
+"gdp_share":0.00698,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14932,7 +14929,7 @@
 "lat":33.25,
 "lon":7.06,
 "pop_share":0.01607,
-"gdp_share":0.01475,
+"gdp_share":0.0088,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14960,7 +14957,7 @@
 "lat":31.21,
 "lon":3.04,
 "pop_share":0.01723,
-"gdp_share":0.01582,
+"gdp_share":0.01018,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -14989,7 +14986,7 @@
 "lat":33.73,
 "lon":2.65,
 "pop_share":0.01008,
-"gdp_share":0.00925,
+"gdp_share":0.08002,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15016,7 +15013,7 @@
 "lat":30.94,
 "lon":6.64,
 "pop_share":0.04062,
-"gdp_share":0.03728,
+"gdp_share":0.26531,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15029,6 +15026,7 @@
 },
 "facilities":{
 "airbase":1,
+"factory":1,
 "refinery":2,
 "power_plant":1
 },
@@ -15048,7 +15046,7 @@
 "lat":36.72,
 "lon":3.11,
 "pop_share":0.22397,
-"gdp_share":0.28777,
+"gdp_share":0.14389,
 "capital":true,
 "coastal":true,
 "resources":{
@@ -15078,7 +15076,7 @@
 "lat":36.76,
 "lon":3.57,
 "pop_share":0.00012,
-"gdp_share":0.00011,
+"gdp_share":9e-05,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15105,7 +15103,7 @@
 "lat":36.69,
 "lon":4.27,
 "pop_share":0.00988,
-"gdp_share":0.00907,
+"gdp_share":0.00462,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15131,7 +15129,7 @@
 "lat":36.59,
 "lon":2.3,
 "pop_share":0.00019,
-"gdp_share":0.00017,
+"gdp_share":0.00015,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15158,7 +15156,7 @@
 "lat":36.15,
 "lon":2.09,
 "pop_share":0.00044,
-"gdp_share":0.0004,
+"gdp_share":0.00035,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15186,7 +15184,7 @@
 "lat":36.19,
 "lon":1.26,
 "pop_share":0.0304,
-"gdp_share":0.0279,
+"gdp_share":0.01408,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15216,7 +15214,7 @@
 "lat":35.4,
 "lon":0.2,
 "pop_share":0.00777,
-"gdp_share":0.00713,
+"gdp_share":0.00374,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15246,7 +15244,7 @@
 "lat":36.01,
 "lon":0.33,
 "pop_share":0.01279,
-"gdp_share":0.01173,
+"gdp_share":0.00594,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15273,7 +15271,7 @@
 "lat":35.82,
 "lon":0.92,
 "pop_share":0.00046,
-"gdp_share":0.00042,
+"gdp_share":0.00037,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15301,7 +15299,7 @@
 "lat":34.54,
 "lon":0.38,
 "pop_share":0.01035,
-"gdp_share":0.0095,
+"gdp_share":0.00504,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15329,7 +15327,7 @@
 "lat":34.9,
 "lon":1.6,
 "pop_share":0.01418,
-"gdp_share":0.01301,
+"gdp_share":0.00714,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15360,7 +15358,7 @@
 "lat":35.77,
 "lon":1.81,
 "pop_share":0.00028,
-"gdp_share":0.00026,
+"gdp_share":0.00023,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15388,7 +15386,7 @@
 "lat":36.1,
 "lon":4.67,
 "pop_share":0.00973,
-"gdp_share":0.00893,
+"gdp_share":0.00459,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15415,7 +15413,7 @@
 "lat":36.56,
 "lon":4.79,
 "pop_share":0.02604,
-"gdp_share":0.0239,
+"gdp_share":0.01206,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15445,7 +15443,7 @@
 "lat":36.53,
 "lon":2.98,
 "pop_share":0.03433,
-"gdp_share":0.0315,
+"gdp_share":0.01582,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15476,7 +15474,7 @@
 "lat":36.26,
 "lon":3.92,
 "pop_share":0.00778,
-"gdp_share":0.00714,
+"gdp_share":0.00371,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15506,7 +15504,7 @@
 "lat":34.43,
 "lon":4.74,
 "pop_share":0.01542,
-"gdp_share":0.01415,
+"gdp_share":0.00772,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15534,7 +15532,7 @@
 "lat":34.31,
 "lon":3.24,
 "pop_share":0.01465,
-"gdp_share":0.01344,
+"gdp_share":0.00782,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15565,7 +15563,7 @@
 "lat":35.97,
 "lon":3.01,
 "pop_share":0.01071,
-"gdp_share":0.00983,
+"gdp_share":0.0052,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15595,7 +15593,7 @@
 "lat":35.13,
 "lon":4.22,
 "pop_share":0.01166,
-"gdp_share":0.0107,
+"gdp_share":0.0059,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15625,7 +15623,7 @@
 "lat":36.11,
 "lon":5.56,
 "pop_share":0.01893,
-"gdp_share":0.01737,
+"gdp_share":0.00888,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15654,7 +15652,7 @@
 "lat":35.34,
 "lon":5.74,
 "pop_share":0.01987,
-"gdp_share":0.01824,
+"gdp_share":0.0095,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15683,7 +15681,7 @@
 "lat":36.36,
 "lon":6.66,
 "pop_share":0.04061,
-"gdp_share":0.03727,
+"gdp_share":0.01871,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15713,7 +15711,7 @@
 "lat":36.38,
 "lon":7.39,
 "pop_share":0.00861,
-"gdp_share":0.0079,
+"gdp_share":0.00407,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15742,7 +15740,7 @@
 "lat":34.92,
 "lon":6.91,
 "pop_share":0.00091,
-"gdp_share":0.00084,
+"gdp_share":0.00073,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15770,7 +15768,7 @@
 "lat":36.26,
 "lon":6.17,
 "pop_share":0.00033,
-"gdp_share":0.00031,
+"gdp_share":0.00027,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15799,7 +15797,7 @@
 "lat":35.82,
 "lon":7.17,
 "pop_share":0.00733,
-"gdp_share":0.00672,
+"gdp_share":0.00356,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15829,7 +15827,7 @@
 "lat":36.15,
 "lon":7.85,
 "pop_share":0.00939,
-"gdp_share":0.00862,
+"gdp_share":0.00444,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15856,7 +15854,7 @@
 "lat":35.04,
 "lon":7.8,
 "pop_share":0.01272,
-"gdp_share":0.01167,
+"gdp_share":0.00626,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15883,7 +15881,7 @@
 "lat":28.48,
 "lon":65.62,
 "pop_share":0.10054,
-"gdp_share":0.09993,
+"gdp_share":0.11066,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -15914,7 +15912,7 @@
 "lat":33.98,
 "lon":73.9,
 "pop_share":0.00286,
-"gdp_share":0.00284,
+"gdp_share":0.00262,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15942,7 +15940,7 @@
 "lat":33.65,
 "lon":73.05,
 "pop_share":0.01529,
-"gdp_share":0.02128,
+"gdp_share":0.01899,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -15966,7 +15964,7 @@
 "lat":35.77,
 "lon":74.84,
 "pop_share":0.02012,
-"gdp_share":0.02,
+"gdp_share":0.01828,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -15995,7 +15993,7 @@
 "lat":33.0,
 "lon":69.98,
 "pop_share":0.00756,
-"gdp_share":0.00752,
+"gdp_share":0.00689,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -16022,7 +16020,7 @@
 "lat":30.86,
 "lon":72.27,
 "pop_share":0.40349,
-"gdp_share":0.40104,
+"gdp_share":0.38012,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -16059,7 +16057,7 @@
 "lat":26.15,
 "lon":68.76,
 "pop_share":0.32032,
-"gdp_share":0.31837,
+"gdp_share":0.32843,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -16091,7 +16089,7 @@
 "lat":34.07,
 "lon":72.44,
 "pop_share":0.12981,
-"gdp_share":0.12903,
+"gdp_share":0.13402,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18056,7 +18054,7 @@
 "lat":54.51,
 "lon":-97.22,
 "pop_share":0.03611,
-"gdp_share":0.03164,
+"gdp_share":0.02861,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18086,7 +18084,7 @@
 "lat":54.41,
 "lon":-105.93,
 "pop_share":0.02876,
-"gdp_share":0.02519,
+"gdp_share":0.03053,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18098,6 +18096,7 @@
 "food":3.694
 },
 "facilities":{
+"factory":1,
 "refinery":1
 },
 "neighbors":[
@@ -18117,7 +18116,7 @@
 "lat":54.48,
 "lon":-115.0,
 "pop_share":0.09851,
-"gdp_share":0.0863,
+"gdp_share":0.15567,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18147,7 +18146,7 @@
 "lat":54.5,
 "lon":-125.0,
 "pop_share":0.13401,
-"gdp_share":0.11739,
+"gdp_share":0.11301,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18179,7 +18178,7 @@
 "lat":66.02,
 "lon":-100.1,
 "pop_share":0.06199,
-"gdp_share":0.05431,
+"gdp_share":0.04958,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18210,7 +18209,7 @@
 "lat":65.29,
 "lon":-121.41,
 "pop_share":0.03314,
-"gdp_share":0.02903,
+"gdp_share":0.02649,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18221,8 +18220,7 @@
 "food":8.698
 },
 "facilities":{
-"airbase":1,
-"factory":1
+"airbase":1
 },
 "neighbors":[
 "CAN_630",
@@ -18241,7 +18239,7 @@
 "lat":64.83,
 "lon":-136.81,
 "pop_share":0.01126,
-"gdp_share":0.00986,
+"gdp_share":0.00899,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18266,7 +18264,7 @@
 "lat":49.27,
 "lon":-87.17,
 "pop_share":0.35383,
-"gdp_share":0.43395,
+"gdp_share":0.39092,
 "capital":true,
 "coastal":true,
 "resources":{
@@ -18299,7 +18297,7 @@
 "lat":53.91,
 "lon":-73.35,
 "pop_share":0.2013,
-"gdp_share":0.17634,
+"gdp_share":0.15906,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18333,7 +18331,7 @@
 "lat":46.57,
 "lon":-66.26,
 "pop_share":0.00982,
-"gdp_share":0.0086,
+"gdp_share":0.00775,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18358,7 +18356,7 @@
 "lat":44.74,
 "lon":-64.33,
 "pop_share":0.01652,
-"gdp_share":0.01448,
+"gdp_share":0.01304,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18381,7 +18379,7 @@
 "lat":49.12,
 "lon":-56.74,
 "pop_share":0.01321,
-"gdp_share":0.01157,
+"gdp_share":0.01513,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18407,7 +18405,7 @@
 "lat":46.51,
 "lon":-63.62,
 "pop_share":0.00154,
-"gdp_share":0.00135,
+"gdp_share":0.00122,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18428,7 +18426,7 @@
 "lat":30.35,
 "lon":-115.24,
 "pop_share":0.04033,
-"gdp_share":0.03699,
+"gdp_share":0.03478,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18439,9 +18437,7 @@
 "uranium":0.394,
 "food":2.789
 },
-"facilities":{
-"port":1
-},
+"facilities":{},
 "neighbors":[
 "MEX_2707",
 "MEX_2712",
@@ -18457,7 +18453,7 @@
 "lat":25.44,
 "lon":-111.54,
 "pop_share":0.01113,
-"gdp_share":0.0102,
+"gdp_share":0.00974,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18481,7 +18477,7 @@
 "lat":27.23,
 "lon":-102.28,
 "pop_share":0.04449,
-"gdp_share":0.0408,
+"gdp_share":0.03857,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18514,7 +18510,7 @@
 "lat":28.69,
 "lon":-106.07,
 "pop_share":0.05709,
-"gdp_share":0.05236,
+"gdp_share":0.04966,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18548,7 +18544,7 @@
 "lat":24.58,
 "lon":-104.59,
 "pop_share":0.02309,
-"gdp_share":0.02117,
+"gdp_share":0.02013,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18577,7 +18573,7 @@
 "lat":24.76,
 "lon":-107.4,
 "pop_share":0.02577,
-"gdp_share":0.02363,
+"gdp_share":0.02225,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18604,7 +18600,7 @@
 "lat":29.41,
 "lon":-110.51,
 "pop_share":0.04326,
-"gdp_share":0.03967,
+"gdp_share":0.0376,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18617,7 +18613,6 @@
 },
 "facilities":{
 "port":1,
-"factory":1,
 "power_plant":1
 },
 "neighbors":[
@@ -18636,7 +18631,7 @@
 "lat":23.11,
 "lon":-103.21,
 "pop_share":0.01204,
-"gdp_share":0.01104,
+"gdp_share":0.01052,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18667,7 +18662,7 @@
 "lat":25.49,
 "lon":-99.62,
 "pop_share":0.05234,
-"gdp_share":0.048,
+"gdp_share":0.04505,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18698,7 +18693,7 @@
 "lat":22.87,
 "lon":-101.12,
 "pop_share":0.02247,
-"gdp_share":0.0206,
+"gdp_share":0.01943,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18730,7 +18725,7 @@
 "lat":24.94,
 "lon":-98.34,
 "pop_share":0.0419,
-"gdp_share":0.03842,
+"gdp_share":0.03784,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18761,7 +18756,7 @@
 "lat":22.06,
 "lon":-102.32,
 "pop_share":0.01087,
-"gdp_share":0.00997,
+"gdp_share":0.00934,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18786,7 +18781,7 @@
 "lat":19.11,
 "lon":-103.94,
 "pop_share":0.00563,
-"gdp_share":0.00516,
+"gdp_share":0.00484,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18811,7 +18806,7 @@
 "lat":20.86,
 "lon":-103.16,
 "pop_share":0.06322,
-"gdp_share":0.05797,
+"gdp_share":0.0544,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18846,7 +18841,7 @@
 "lat":19.16,
 "lon":-101.65,
 "pop_share":0.02311,
-"gdp_share":0.02119,
+"gdp_share":0.01996,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18875,7 +18870,7 @@
 "lat":21.87,
 "lon":-104.87,
 "pop_share":0.00741,
-"gdp_share":0.00679,
+"gdp_share":0.00642,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18902,7 +18897,7 @@
 "lat":19.33,
 "lon":-89.91,
 "pop_share":0.01023,
-"gdp_share":0.00938,
+"gdp_share":0.05073,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18914,6 +18909,8 @@
 "food":1.342
 },
 "facilities":{
+"port":1,
+"factory":1,
 "refinery":1
 },
 "neighbors":[
@@ -18931,7 +18928,7 @@
 "lat":17.17,
 "lon":-96.12,
 "pop_share":0.01919,
-"gdp_share":0.0176,
+"gdp_share":0.0167,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -18958,7 +18955,7 @@
 "lat":19.36,
 "lon":-97.43,
 "pop_share":0.03583,
-"gdp_share":0.03286,
+"gdp_share":0.0308,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -18988,7 +18985,7 @@
 "lat":17.95,
 "lon":-92.07,
 "pop_share":0.00852,
-"gdp_share":0.00781,
+"gdp_share":0.01994,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -19016,7 +19013,7 @@
 "lat":19.42,
 "lon":-98.1,
 "pop_share":0.00636,
-"gdp_share":0.00584,
+"gdp_share":0.00547,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19042,7 +19039,7 @@
 "lat":19.31,
 "lon":-99.15,
 "pop_share":0.22603,
-"gdp_share":0.29021,
+"gdp_share":0.27123,
 "capital":true,
 "coastal":false,
 "resources":{
@@ -19070,7 +19067,7 @@
 "lat":20.89,
 "lon":-101.27,
 "pop_share":0.03296,
-"gdp_share":0.03023,
+"gdp_share":0.02833,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19098,7 +19095,7 @@
 "lat":17.59,
 "lon":-99.92,
 "pop_share":0.02051,
-"gdp_share":0.01881,
+"gdp_share":0.01776,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -19126,7 +19123,7 @@
 "lat":20.49,
 "lon":-99.19,
 "pop_share":0.00591,
-"gdp_share":0.00542,
+"gdp_share":0.00513,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19155,7 +19152,7 @@
 "lat":19.35,
 "lon":-99.8,
 "pop_share":0.03647,
-"gdp_share":0.03344,
+"gdp_share":0.03132,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19186,7 +19183,7 @@
 "lat":18.75,
 "lon":-99.08,
 "pop_share":0.0104,
-"gdp_share":0.00954,
+"gdp_share":0.00893,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19213,7 +19210,7 @@
 "lat":20.79,
 "lon":-100.02,
 "pop_share":0.01433,
-"gdp_share":0.01314,
+"gdp_share":0.01231,
 "capital":false,
 "coastal":false,
 "resources":{
@@ -19241,7 +19238,7 @@
 "lat":19.82,
 "lon":-96.87,
 "pop_share":0.03765,
-"gdp_share":0.03452,
+"gdp_share":0.0363,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -19273,7 +19270,7 @@
 "lat":16.27,
 "lon":-92.24,
 "pop_share":0.01925,
-"gdp_share":0.01765,
+"gdp_share":0.01669,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -19300,7 +19297,7 @@
 "lat":19.76,
 "lon":-88.49,
 "pop_share":0.01393,
-"gdp_share":0.01278,
+"gdp_share":0.01206,
 "capital":false,
 "coastal":true,
 "resources":{
@@ -19325,7 +19322,7 @@
 "lat":20.63,
 "lon":-89.05,
 "pop_share":0.01829,
-"gdp_share":0.01678,
+"gdp_share":0.01578,
 "capital":false,
 "coastal":true,
 "resources":{

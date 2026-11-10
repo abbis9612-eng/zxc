@@ -9,6 +9,7 @@ const Economy := preload("res://sim/economy.gd")
 const Combat := preload("res://sim/combat.gd")
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
+const Market := preload("res://sim/market.gd")
 
 var db: DataDB
 var failures := 0
@@ -26,6 +27,8 @@ func _init() -> void:
 		test_peace_returns_regions()
 		test_resources()
 		test_facilities()
+		test_market()
+		test_trade_pacts()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -296,16 +299,17 @@ func test_facilities() -> void:
 			ports_ok = false
 	check(ports_ok, "الموانئ في مناطق ساحلية فقط")
 	check(int(s.country("ISR")["facilities"]["nuclear"]["total"]) == 1 and int(s.country("IRQ")["facilities"]["nuclear"]["total"]) == 0, "المنشأة النووية لمن يملك سلاحاً نووياً فقط")
-	# ضرب كل القواعد الجوية يضعف سلاح الجو
-	var air_before: float = s.unit_power(s.country("SYR"), "fighters")
-	for rid in Territory.working_facilities(s, ["SYR"], "airbase"):
+	# ضرب كل القواعد الجوية يضعف سلاح الجو (كندا: بعيدة عن حروب الذكاء الاصطناعي)
+	var air_before: float = s.unit_power(s.country("CAN"), "fighters")
+	for rid in Territory.working_facilities(s, ["CAN"], "airbase"):
 		Territory.damage_facility(s, rid, "airbase", 2)
-	var air_after: float = s.unit_power(s.country("SYR"), "fighters")
+	var air_after: float = s.unit_power(s.country("CAN"), "fighters")
 	check(air_after < air_before * 0.5, "تعطيل القواعد الجوية يضعف المقاتلات (%.0f ← %.0f)" % [air_before, air_after])
-	check(float(s.country("SYR")["logistics"]["air"]) < 0.4, "كفاءة القواعد تنخفض")
+	check(float(s.country("CAN")["logistics"]["air"]) < 0.4, "كفاءة القواعد تنخفض")
 	run_days(s, 70)
-	check(float(s.country("SYR")["logistics"]["air"]) > 0.99, "القواعد تُصلح بعد شهرين")
-	# الضربة الصاروخية على منشأة
+	check(float(s.country("CAN")["logistics"]["air"]) > 0.99, "القواعد تُصلح بعد شهرين")
+	# الضربة الصاروخية على منشأة (عالم جديد بلا معارك بعد)
+	s = new_sim("JOR", 9)
 	var w := s.declare_war("TUR", "SYR")
 	var target: String = Territory.working_facilities(s, ["SYR"], "refinery")[0]
 	check(s.can_strike_facility("TUR", target, "refinery") == "", "تركيا تستطيع ضرب مصفاة سورية")
@@ -321,3 +325,59 @@ func test_facilities() -> void:
 	s.country("SYR")["blockade_until"] = int(s.state["day"]) + 10
 	check(Logistics.import_capacity(s, s.country("SYR")) < 0.3, "الحصار يقطع معظم الواردات")
 	s.make_peace(w)
+
+
+func test_market() -> void:
+	print("السوق العالمي")
+	var s := new_sim("JOR", 12)
+	var ok := true
+	Market.monthly(s)
+	for k in Market.commodities(s):
+		if absf(Market.price(s, k) - 1.0) > 0.03:
+			ok = false
+			print("    سعر غير متوازن في البداية: %s %.2f" % [k, Market.price(s, k)])
+	check(ok, "الأسعار متوازنة في البداية")
+	var inc_ok := true
+	for id in s.state["order"]:
+		if absf(float(s.country(id)["trade_income"])) > float(s.country(id)["gdp"]) * 0.002:
+			inc_ok = false
+	check(inc_ok, "لا أثر للتجارة على الميزانية في عالم بلا اضطرابات")
+	# حصار وعقوبات على السعودية: النفط يرتفع، المصدرون يربحون، المستوردون يدفعون
+	var sau := s.country("SAU")
+	for i in 6:
+		sau["blockade_until"] = int(s.state["day"]) + 30
+		Market.monthly(s)
+	check(Market.price(s, "oil") > 1.15, "حصار السعودية يرفع سعر النفط (%.2f)" % Market.price(s, "oil"))
+	check(float(s.country("IRQ")["trade_income"]) > 0.0, "العراق المصدّر يربح من ارتفاع النفط (%.2f)" % float(s.country("IRQ")["trade_income"]))
+	check(float(s.country("JPN")["trade_income"]) < 0.0, "اليابان المستوردة تدفع أكثر (%.2f)" % float(s.country("JPN")["trade_income"]))
+	check(float(sau["trade_income"]) < 0.0, "السعودية المحاصرة تخسر صادراتها")
+	# فقدان البصرة يُفقد العراق ريع نفطها مع ناتجها
+	var s2 := new_sim("JOR", 12)
+	var gdp0 := float(s2.country("IRQ")["gdp"])
+	Territory.capture(s2, _region_by_name("IRQ", "Al-Basrah"), "IRN")
+	check(float(s2.country("IRQ")["gdp"]) < gdp0 * 0.75, "فقدان البصرة يُفقد العراق أكثر من ربع ناتجه (%.0f ← %.0f)" % [gdp0, float(s2.country("IRQ")["gdp"])])
+	# بعد خسارة البصرة لم يعد العراق يربح من ارتفاع النفط بنفس القدر
+	Market.apply_shock(s, {"oil": 1.0}, 1)
+	var flows: Dictionary = Market.net_flows(s2, s2.country("IRQ"), Market.world_gdp(s2))
+	check(float(flows["oil"]) < 50.0, "صادرات العراق النفطية تنخفض بعد خسارة البصرة (%.0f)" % float(flows["oil"]))
+	# صدمة سعرية من حدث عالمي
+	var s3 := new_sim("JOR", 12)
+	Market.apply_shock(s3, {"food": 1.5}, 6)
+	for i in 4:
+		Market.monthly(s3)
+	check(Market.price(s3, "food") > 1.3, "صدمة الجفاف ترفع الغذاء (%.2f)" % Market.price(s3, "food"))
+
+
+func test_trade_pacts() -> void:
+	print("الاتفاقيات التجارية")
+	var s := new_sim("IRQ", 13)
+	check(Market.has_pact(s, "FRA", "DEU"), "اتفاقيات البداية قائمة (الاتحاد الأوروبي)")
+	var g0 := Economy.growth_rate(s, s.country("IRQ"))
+	var imp0 := Logistics.import_capacity(s, s.country("IRQ"))
+	check(Market.sign_pact(s, "IRQ", "JOR") == "", "توقيع اتفاقية مع الأردن")
+	check(Economy.growth_rate(s, s.country("IRQ")) > g0, "الاتفاقية ترفع النمو")
+	check(Logistics.import_capacity(s, s.country("IRQ")) > imp0, "الاتفاقية ترفع قدرة الاستيراد")
+	check(Market.sign_pact(s, "IRQ", "IRN") == "" or s.relation("IRQ", "IRN") >= 25.0, "الشروط تُحترم")
+	check(Market.sign_pact(s, "IRQ", "ISR") != "", "لا اتفاقية مع دولة معادية")
+	s.declare_war("IRQ", "JOR")
+	check(not Market.has_pact(s, "IRQ", "JOR"), "الحرب تلغي الاتفاقية")

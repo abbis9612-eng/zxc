@@ -3,6 +3,7 @@
 extends RefCounted
 
 const Territory := preload("res://sim/territory.gd")
+const Market := preload("res://sim/market.gd")
 
 const RESEARCH_BASE_COST := 4.0   # مليار × (الجيل التالي)²
 const EQUIPMENT_FACTOR := 3.0
@@ -76,6 +77,8 @@ static func growth_rate(sim, c: Dictionary) -> float:
 		growth -= 1.0
 	# محطات الكهرباء المعطلة تبطئ الاقتصاد
 	growth -= float(c.get("logistics", {}).get("growth_penalty", 0.0))
+	# الاتفاقيات التجارية تنشط الاقتصاد
+	growth += Market.pact_growth(sim, c["id"])
 	growth += float(c["resources"].get("oil", 0.0)) / 100.0 * (float(g["oil_price"]) - 1.0) * 6.0
 	return growth
 
@@ -107,7 +110,9 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	var subsidies := gdp * policy_sum(sim, c, "budget_gdp") / 12.0
 	var research := gdp * float(c["research_ratio"]) / 12.0
 	var interest := float(c["debt"]) * 0.04 / 12.0
-	var balance := revenue - tribute - military - civil - subsidies - research - interest
+	# التجارة: أثر أسعار الموارد وفقدانها أو كسبها (الفرق عن وضع البداية)
+	var trade := float(c.get("trade_income", 0.0))
+	var balance := revenue + trade - tribute - military - civil - subsidies - research - interest
 	c["treasury"] = float(c["treasury"]) + balance
 	if float(c["treasury"]) < 0.0:
 		c["debt"] = float(c["debt"]) - float(c["treasury"])
@@ -160,7 +165,7 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 
 	c["last_budget"] = {
-		"revenue": revenue, "tribute": tribute, "military": military, "civil": civil,
+		"revenue": revenue, "trade": trade, "tribute": tribute, "military": military, "civil": civil,
 		"subsidies": subsidies, "research": research, "interest": interest,
 		"balance": balance, "growth": growth, "stability_target": target,
 	}

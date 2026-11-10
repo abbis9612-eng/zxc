@@ -38,6 +38,8 @@ func _run() -> void:
 	for ch in main.overlay.get_children():
 		ch.queue_free()
 	main.dialog_open = false
+	# صدمة نفطية حتى يظهر أثر السوق في الرسوم
+	load("res://sim/market.gd").apply_shock(game.sim, {"oil": 1.6}, 3)
 	for i in 95:
 		game.step_day()
 	main.dialog_queue.clear()
@@ -65,6 +67,9 @@ func _run() -> void:
 		main.tabs.current_tab = t
 		main._refresh()
 		await _shot("04_tab_%d_%s" % [t, names[t]])
+		if names[t] == "economy":
+			(main.tabs.get_child(t) as ScrollContainer).scroll_vertical = 820
+			await _shot("04_tab_1b_market")
 	main._on_country_selected("SYR")
 	main._refresh()
 	await _shot("05_select_syria")

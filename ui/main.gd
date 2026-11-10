@@ -9,6 +9,8 @@ const Combat := preload("res://sim/combat.gd")
 const Simulation := preload("res://sim/simulation.gd")
 const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
+const Market := preload("res://sim/market.gd")
+const Sparkline := preload("res://ui/sparkline.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الأخبار"]
@@ -481,6 +483,19 @@ func _update_advisor() -> void:
 		items.append([65, "%d من منشآتك معطلة بالضربات." % broken, Tab.ARMY, ""])
 	if float(p["treasury"]) > gdp * 0.03:
 		items.append([40, "في الخزينة فائض %s: استثمر أو صنّع سلاحاً." % UI.money(float(p["treasury"])), Tab.ARMY, ""])
+	var gm := float(p["gdp"]) / 12.0
+	var tinc := float(p.get("trade_income", 0.0))
+	if tinc < -gm * 0.004:
+		items.append([72, "أسعار الموارد تكلفك %s شهرياً. ابحث عن موارد أو اتفاقيات." % UI.money(-tinc), Tab.ECONOMY, ""])
+	elif tinc > gm * 0.004:
+		items.append([35, "ارتفاع أسعار صادراتك يربحك %s شهرياً." % UI.money(tinc), Tab.ECONOMY, ""])
+	if float(p.get("trade_lost", 0.0)) > gm * 0.003:
+		items.append([78, "الحصار والعقوبات يمنعان صادرات بقيمة %s شهرياً." % UI.money(float(p["trade_lost"])), Tab.ECONOMY, ""])
+	if Market.pacts_of(s, pid).size() < 3:
+		for oid in s.alive_ids():
+			if oid != pid and Market.can_sign_pact(s, pid, oid) == "":
+				items.append([30, "يمكنك توقيع اتفاقية تجارية مع %s." % s.country(oid)["name_ar"], Tab.DIPLOMACY, oid])
+				break
 	if items.is_empty():
 		items.append([0, "الوضع مستقر. راقب جيرانك وطوّر اقتصادك.", Tab.ECONOMY, ""])
 	items.sort_custom(func(a, c): return a[0] > c[0])
@@ -619,11 +634,15 @@ func _fill_economy() -> void:
 		eco_info.add_child(UI.sep())
 		eco_info.add_child(UI.title("ميزانية الشهر الماضي", 18))
 		eco_info.add_child(UI.kv("الإيرادات", UI.money(float(b["revenue"])), UI.C_GOOD))
+		var tr := float(b.get("trade", 0.0))
+		if absf(tr) >= 0.001:
+			eco_info.add_child(UI.kv("أثر أسعار الموارد والتجارة", ("+" if tr > 0.0 else "−") + UI.money(absf(tr)), UI.C_GOOD if tr > 0.0 else UI.C_BAD))
 		for row in [["الرواتب والخدمات", "civil"], ["صيانة الجيش", "military"], ["الدعم", "subsidies"], ["البحث", "research"], ["فوائد الدين", "interest"], ["جزية للمتبوع", "tribute"]]:
 			if float(b[row[1]]) > 0.0:
 				eco_info.add_child(UI.kv(row[0], "−" + UI.money(float(b[row[1]])), UI.C_BAD))
 		var bal := float(b["balance"])
 		eco_info.add_child(UI.kv("الرصيد", UI.money(bal), UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
+	_market_section(eco_info, p)
 	eco_info.add_child(UI.sep())
 	eco_info.add_child(UI.title("الموارد (من مناطقك)", 18))
 	eco_info.add_child(UI.label("كل مورد يأتي من مناطق محددة: خسارة منطقة نفطية تُفقدك نفطها، واحتلال منطقة يمنحك مواردها تدريجياً.", UI.C_MUTED, 13))
@@ -636,8 +655,6 @@ func _fill_economy() -> void:
 		eco_info.add_child(UI.kv(Territory.RESOURCE_NAMES[r], txt, UI.C_TEXT if v + 0.5 >= base else UI.C_BAD))
 		eco_info.add_child(UI.bar(v, 100.0, UI.C_LINE))
 	_logistics_section(eco_info, p)
-	var oil := float(s.state["global"]["oil_price"])
-	eco_info.add_child(UI.kv("مؤشر سعر النفط العالمي", "%.2f" % oil, UI.C_ACCENT))
 
 
 # ------------------------------------------------------------------ تبويب الجيش
@@ -806,7 +823,14 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 		var do_sanction := func():
 			s.toggle_sanction(pid, id)
 			_dirty = true
-		act.call("رفع العقوبات" if pid in c["sanctions"] else "فرض عقوبات", do_sanction)
+		act.call("رفع العقوبات" if pid in c["sanctions"] else "فرض عقوبات (−15% من صادراتها)", do_sanction)
+		if Market.has_pact(s, pid, id):
+			act.call("إلغاء الاتفاقية التجارية", func():
+				Market.cancel_pact(s, pid, id, "بقرار منك")
+				_dirty = true)
+		else:
+			var tp: Dictionary = s.db.market["trade_pact"]
+			act.call("اتفاقية تجارية (+%.2f%% نمو، +%d%% استيراد)" % [float(tp["growth"]), int(float(tp["import_bonus"]) * 100.0)], func(): _do(Market.sign_pact(s, pid, id), "وُقعت الاتفاقية التجارية."))
 		if not (id in s.allies(pid)):
 			act.call("عرض تحالف", func(): _do(s.propose_alliance(pid, id), "تم التحالف!"))
 		act.call("⚔ إعلان الحرب", func(): _confirm_war(id))
@@ -889,6 +913,42 @@ func _core_resource(id: String, k: String) -> float:
 	for rid in Game.sim.db.regions_by_country.get(id, []):
 		t += float(Game.sim.db.regions[rid].get("resources", {}).get(k, 0.0))
 	return t
+
+
+## السوق العالمي: الأسعار وتاريخها، ومركزك تصديراً واستيراداً، واتفاقياتك
+func _market_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	box.add_child(UI.sep())
+	box.add_child(UI.title("السوق العالمي", 18))
+	box.add_child(UI.label("الأسعار تتغير مع العرض والحروب والعقوبات والأحداث. المصدّر يربح من ارتفاعها والمستورد يدفع.", UI.C_MUTED, 13))
+	var flows: Dictionary = p.get("trade_flows", {})
+	for k in Market.commodities(s):
+		var pr := Market.price(s, k)
+		var ago := Market.price_year_ago(s, k)
+		var ch := (pr / maxf(0.01, ago) - 1.0) * 100.0
+		var arrow := "▲" if ch > 1.0 else ("▼" if ch < -1.0 else "•")
+		var cname: String = s.db.market["commodities"][k]["name_ar"]
+		var net := float(flows.get(k, 0.0))
+		var pos := "مصدّر %d" % int(roundf(net)) if net > 0.5 else ("مستورد %d" % int(roundf(-net)) if net < -0.5 else "مكتفٍ")
+		var row := UI.row()
+		var lbl := UI.label("%s  %.2f %s%d%%" % [cname, pr, arrow, int(roundf(absf(ch)))], UI.C_BAD if pr > 1.15 else (UI.C_GOOD if pr < 0.9 else UI.C_TEXT))
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		var sl := Sparkline.new()
+		sl.values = s.state["market"]["history"][k]
+		sl.color = UI.C_ACCENT
+		row.add_child(sl)
+		var lp := UI.label(pos, UI.C_GOOD if net > 0.5 else (UI.C_MUTED if net > -0.5 else UI.C_ACCENT), 14)
+		lp.custom_minimum_size = Vector2(90, 0)
+		row.add_child(lp)
+		box.add_child(row)
+	var pacts: Array = Market.pacts_of(s, p["id"])
+	var names := PackedStringArray(pacts.map(func(x): return s.country(x)["name_ar"]))
+	box.add_child(UI.kv("الاتفاقيات التجارية", ("، ".join(names) if not names.is_empty() else "لا يوجد"), UI.C_TEXT))
+	if not pacts.is_empty():
+		box.add_child(UI.label("تمنحك +%.2f%% نمواً سنوياً، وقدرة استيراد أعلى." % Market.pact_growth(s, p["id"]), UI.C_GOOD, 13))
+	if float(p.get("trade_lost", 0.0)) > 0.0:
+		box.add_child(UI.kv("صادرات منعها الحصار والعقوبات", UI.money(float(p["trade_lost"])) + " شهرياً", UI.C_BAD))
 
 
 ## الإمداد: كيف تؤثر الموارد والمنشآت في الجيش والاقتصاد

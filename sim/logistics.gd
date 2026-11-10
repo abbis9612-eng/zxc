@@ -5,6 +5,7 @@ extends RefCounted
 const NEED := 40.0           # حاجة الدولة من المورد (بمقياس التقييم 0-100)
 const FOOD_NEED := 35.0
 const BASE_IMPORT := 0.9
+const MAX_IMPORT := 1.0
 const BLOCKADE_DAYS := 14
 
 
@@ -23,11 +24,13 @@ static func blockaded(sim, c: Dictionary) -> bool:
 ## قدرة الاستيراد: العقوبات والحصار يقطعانها
 static func import_capacity(sim, c: Dictionary) -> float:
 	var cap: float = BASE_IMPORT - 0.12 * c.get("sanctions", []).size()
+	# الاتفاقيات التجارية تفتح الأسواق
+	cap += _pact_count(sim, c["id"]) * float(sim.db.market.get("trade_pact", {}).get("import_bonus", 0.0))
 	if blockaded(sim, c):
 		cap *= 0.3
 	if ratio(c, "port") <= 0.0 and c.get("facilities", {}).get("port", {}).get("total", 0) > 0:
 		cap *= 0.6   # فقدت كل موانئها
-	return clampf(cap, 0.05, BASE_IMPORT)
+	return clampf(cap, 0.05, MAX_IMPORT)
 
 
 static func _effective(supply: float, need: float, imp: float) -> float:
@@ -73,3 +76,12 @@ static func unit_factor(c: Dictionary, utype: String) -> float:
 		"infantry", "armor":
 			return float(l["fuel"])
 	return 1.0
+
+
+static func _pact_count(sim, id: String) -> int:
+	var n := 0
+	for k in sim.state.get("trade_pacts", {}):
+		var parts: PackedStringArray = String(k).split("|")
+		if parts[0] == id or parts[1] == id:
+			n += 1
+	return n

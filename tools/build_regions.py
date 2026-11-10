@@ -73,6 +73,10 @@ NAME_FIXES = {
 }
 # جوار حقيقي تفوته فجوات صغيرة في بيانات المصدر
 EXTRA_NEIGHBORS = [("IRQ", "Baghdad", "Wasit")]
+# ريع الموارد السنوي بالمليار دولار لكل نقطة من تقييم المورد (تقدير اللعبة)
+OIL_RENT = 2.0
+GAS_RENT = 0.7
+MAX_RENT_SHARE = 0.5
 RESOURCES = ["oil", "gas", "steel", "rare_earth", "uranium", "food"]
 NAME_PREFIXES = ["محافظة ", "ولاية ", "مقاطعة ", "إقليم ", "منطقة ", "محافظه "]
 
@@ -200,6 +204,13 @@ def main(admin_path, places_path, coast_path):
         sw, sg = sum(weights.values()), sum(gdp_w.values())
         country_area = sum(regions[i]["geom"].area for i in idxs)
         res = distribute_resources(cc, c, idxs, regions, weights, gdp_w, sw, sg, total_area)
+        # ريع النفط والغاز جزء من ناتج مناطق الإنتاج: البصرة تحمل نصف اقتصاد العراق لا 6% فقط
+        rent = {i: res[i].get("oil", 0.0) * OIL_RENT + res[i].get("gas", 0.0) * GAS_RENT for i in idxs}
+        rent_total = sum(rent.values())
+        frac = min(MAX_RENT_SHARE, rent_total / c["gdp"]) if rent_total > 0 else 0.0
+        if frac > 0:
+            gdp_w = {i: (1.0 - frac) * gdp_w[i] / sg + frac * rent[i] / rent_total for i in idxs}
+            sg = 1.0
         fac = place_facilities(c, idxs, regions, weights, gdp_w, coastal, res, cap_i)
         tol = 0.02 if country_area < 50 else (0.05 if country_area < 500 else 0.12)
         for i in idxs:
