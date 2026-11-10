@@ -28,7 +28,7 @@ static func init_state(sim) -> void:
 
 
 static func _create(sim, owner: String, rid: String) -> Dictionary:
-	var d := {"id": int(sim.state["next_division_id"]), "owner": owner, "region": rid, "strength": 1.0, "exp": 0.0, "target": "", "eta": -1}
+	var d := {"id": int(sim.state["next_division_id"]), "owner": owner, "region": rid, "strength": 1.0, "exp": 0.0, "target": "", "eta": -1, "depart": -1}
 	sim.state["next_division_id"] = int(sim.state["next_division_id"]) + 1
 	sim.state["divisions"].append(d)
 	return d
@@ -199,6 +199,21 @@ static func path(sim, owner: String, from: String, to: String) -> Array:
 	return []
 
 
+## كل المناطق التي تصلها الفرقة براً وعدد القفزات إليها (للعرض: تظليل الوجهات الممكنة)
+static func reachable(sim, owner: String, from: String) -> Dictionary:
+	var ok_owners: Array = [owner] + sim.allies(owner) + sim.vassals(owner)
+	var hops := {from: 0}
+	var queue: Array = [from]
+	while not queue.is_empty():
+		var cur: String = queue.pop_front()
+		for n in sim.db.regions[cur]["neighbors"]:
+			if hops.has(n) or not (sim.state["regions"][n]["owner"] in ok_owners):
+				continue
+			hops[n] = int(hops[cur]) + 1
+			queue.append(n)
+	return hops
+
+
 static func can_move(sim, d: Dictionary, to: String) -> String:
 	if not sim.state["regions"].has(to):
 		return "منطقة غير معروفة."
@@ -234,6 +249,7 @@ static func move(sim, div_id: int, to: String) -> String:
 	if why != "":
 		return why
 	d["target"] = to
+	d["depart"] = int(sim.state["day"])
 	d["eta"] = int(sim.state["day"]) + travel_days(sim, d, to)
 	return ""
 

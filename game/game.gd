@@ -112,6 +112,13 @@ func _process(delta: float) -> void:
 			break
 
 
+## الجزء المنقضي من اليوم الحالي (0..1): للعرض فقط، حتى تتحرك الفرق بسلاسة بين الأيام
+func day_fraction() -> float:
+	if paused or not is_running():
+		return 0.0
+	return clampf(_acc / float(SPEEDS[speed]), 0.0, 1.0)
+
+
 ## يتقدم يوماً واحداً ويرسل الإشارات. تستخدمه الواجهة وزر "يوم واحد".
 func step_day() -> void:
 	var month_before := int(sim.state["date"]["m"])

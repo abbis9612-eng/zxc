@@ -105,6 +105,58 @@ def flat_polys(geom, min_area):
     return out
 
 
+def build_edges(regions, nbrs, by_country):
+    """الحدود المشتركة بين كل منطقتين متجاورتين، خطوطاً جاهزة للرسم.
+
+    الخريطة ترسم منها الحدود الدولية الحقيقية (حيث يختلف المالك) وخطوط الجبهة على الحد الفعلي
+    بين المتحاربين، بدل رسم إطار كل منطقة مرتين.
+    """
+    area = {cc: sum(regions[i]["geom"].area for i in idxs) for cc, idxs in by_country.items()}
+
+    def tol_of(cc):
+        a = area[cc]
+        return 0.02 if a < 50 else (0.05 if a < 500 else 0.12)
+
+    edges = []
+    for i in sorted(nbrs):
+        for j in sorted(nbrs[i]):
+            if j <= i:
+                continue
+            ri, rj = regions[i], regions[j]
+            line = ri["geom"].boundary.intersection(rj["geom"].boundary)
+            if line.is_empty:
+                continue
+            parts = []
+            geoms = list(getattr(line, "geoms", [line]))
+            for g in geoms:
+                if g.geom_type in ("LineString", "LinearRing"):
+                    parts.append(g)
+                elif g.geom_type == "MultiLineString":
+                    parts.extend(g.geoms)
+            if not parts:
+                continue
+            from shapely.ops import linemerge
+            merged = linemerge(parts) if len(parts) > 1 else parts[0]
+            tol = max(tol_of(ri["country"]), tol_of(rj["country"]))
+            lines = []
+            for g in getattr(merged, "geoms", [merged]):
+                g = g.simplify(tol)
+                if g.length < tol * 0.5:
+                    continue
+                flat = []
+                for x, y in g.coords:
+                    flat += [round(x, 2), round(y, 2)]
+                if len(flat) >= 4:
+                    lines.append(flat)
+            if lines:
+                a, b = sorted([ri["id"], rj["id"]])
+                edges.append([a, b, lines])
+    edges.sort(key=lambda e: (e[0], e[1]))
+    json.dump({"_source": "حدود مشتركة محسوبة من Natural Earth 1:10m admin-1 (ملكية عامة)", "edges": edges},
+              open(f"{ROOT}/data/region_edges.json", "w"), ensure_ascii=False, separators=(",", ":"))
+    print("حدود مشتركة:", len(edges))
+
+
 def main(admin_path, places_path, coast_path):
     countries = json.load(open(f"{ROOT}/data/countries.json"))["countries"]
     playable = {c["id"]: c for c in countries}
@@ -236,6 +288,7 @@ def main(admin_path, places_path, coast_path):
     meta = "Natural Earth 1:10m admin-1 + populated places (public domain). حصص السكان والاقتصاد تقديرات اللعبة."
     json.dump({"_source": meta, "regions": out_regions}, open(f"{ROOT}/data/regions.json", "w"), ensure_ascii=False, indent=0, separators=(",", ":"))
     json.dump({"_source": meta, "shapes": out_geo}, open(f"{ROOT}/data/regions_geo.json", "w"), ensure_ascii=False, separators=(",", ":"))
+    build_edges(regions, nbrs, by_country)
 
     counts = defaultdict(int)
     for r in out_regions:

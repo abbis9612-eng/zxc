@@ -373,6 +373,25 @@ static func money(billions: float) -> String:
 	return "%s مليون $" % _num(x * 1000.0, 0)
 
 
+## مبلغ مختصر بلا رمز العملة: للشريط العلوي والبطاقات الصغيرة
+static func money_short(billions: float) -> String:
+	var x := absf(billions)
+	if x >= 1000.0:
+		return "%s ترليون" % _num(billions / 1000.0, 2)
+	if x >= 1.0:
+		return "%s مليار" % _num(billions, 1 if x < 100.0 else 0)
+	return "%s مليون" % _num(billions * 1000.0, 0)
+
+
+## لوحة عائمة فوق الخريطة: خلفية شبه معتمة وظل ناعم وزوايا مدورة
+static func float_box(radius: int = 14, pad: int = 8, bg: Color = Color.TRANSPARENT) -> StyleBoxFlat:
+	var s := _box(bg if bg.a > 0.0 else C_PANEL, C_LINE_2 if not light else Color(C_LINE_2, 0.7), radius, 1, pad)
+	s.shadow_color = C_SHADOW
+	s.shadow_size = 10
+	s.shadow_offset = Vector2(0, 2)
+	return s
+
+
 static func _num(x: float, decimals: int) -> String:
 	if decimals <= 0:
 		return str(int(roundf(x)))

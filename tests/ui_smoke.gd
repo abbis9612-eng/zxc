@@ -48,20 +48,37 @@ func _run() -> void:
 	main.dialog_open = false
 	main._dirty = true
 	await _shot("03_state")
-	# الضغط على بغداد في الخريطة يُظهر المنطقة ومحافظات العراق الـ18
+	# لمس بغداد: بطاقة السياق بأهم الأرقام والأفعال
 	var map: Control = main.map
 	map.focus_point(44.0, 33.0)
 	await _wait(3)
 	map._click(map.map_to_screen(map.to_map(44.4, 33.3)))
-	main._refresh()
-	await _shot("03b_iraq_regions")
-	# البصرة: مواردها ومنشآتها، وطبقة الموارد على الخريطة
-	map.focus_point(46.5, 31.5)
-	map._click(map.map_to_screen(map.to_map(47.4, 30.6)))
-	map.set_layer(4)
-	main._refresh()
-	await _shot("03c_basra_resources")
-	map.set_layer(0)
+	await _shot("03b_context_baghdad")
+	# وضع التحريك: الوجهات الممكنة مظللة، ومعاينة الطريق مع المدة
+	var pid: String = game.sim.state["player"]
+	var divs: Array = load("res://sim/divisions.gd").of(game.sim, pid)
+	var from: String = divs[0]["region"]
+	main._start_move([int(divs[0]["id"])], from)
+	map.preview_target = ""
+	for rid in map.move_reach:
+		if rid != from and game.sim.db.regions[rid]["name_en"] == "Al-Basrah":
+			map.preview_target = rid
+	await _shot("03c_move_preview")
+	var target: String = map.preview_target
+	if target != "":
+		main._move_to(target)
+		game.step_day()
+		game.step_day()
+		map.focus_point(45.5, 32.0)
+		await _shot("03d_moving")
+	# طبقة الموارد ومفتاحها
+	main._pick_layer(4)
+	await _shot("03e_resources_layer")
+	main._pick_layer(0)
+	main._toggle_alerts()
+	main._update_advisor()
+	await _shot("03f_alerts")
+	main._toggle_alerts()
 	var names := ["state", "economy", "army", "research", "diplomacy", "intel", "news"]
 	for t in names.size():
 		main._open_tab(t)
@@ -73,6 +90,14 @@ func _run() -> void:
 		if names[t] == "economy":
 			(main.tabs.get_child(t) as ScrollContainer).scroll_vertical = 820
 			await _shot("04_tab_1b_market")
+	main._close_sheet()
+	await _wait(12)
+	# لمس سوريا على الخريطة: بطاقة دولة أجنبية
+	map.focus_point(38.0, 35.0)
+	await _wait(3)
+	game.sim.player()["intel"]["SYR"] = 55.0
+	map._click(map.map_to_screen(map.to_map(38.9, 35.0)))
+	await _shot("05a_context_syria")
 	main._on_country_selected("SYR")
 	game.sim.player()["intel"]["SYR"] = 55.0
 	main._refresh()
@@ -100,9 +125,14 @@ func _run() -> void:
 		ch.queue_free()
 	main.dialog_open = false
 	map.focus_point(39.0, 34.5)
+	map._zoom = 3.5
 	main._refresh()
 	await _shot("08_front")
 	# تبويب الجيش: الفرق، وطبقة المدى
+	main._close_sheet()
+	await _wait(12)
+	map.focus_point(39.0, 34.5)
+	await _shot("08b_front_closeup")
 	main._open_tab(2)
 	main._refresh()
 	await _shot("09_divisions")
