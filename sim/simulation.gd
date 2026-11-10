@@ -44,6 +44,11 @@ const BATTLE_FEED_MAX := 64
 var map_version := 0
 var _owned_regions: Dictionary = {}     # دولة -> مناطقها
 var _region_border_owners: Dictionary = {}   # منطقة -> مالكو المناطق المجاورة (غير مالكها)
+## ذاكرة مؤقتة لقوة الجيوش والحلفاء أثناء دور الذكاء الاصطناعي الشهري فقط (لا تُحفظ)
+var _ai_cache_on := false
+var _power_cache: Dictionary = {}
+var _allies_cache: Dictionary = {}
+var _order_index: Dictionary = {}
 
 
 func _init(database: DataDB = null) -> void:
@@ -158,6 +163,39 @@ static func rel_key(a: String, b: String) -> String:
 	return a + "|" + b if a < b else b + "|" + a
 
 
+## ترتيب الدولة في state["order"] لفرز النتائج بترتيب حتمي
+func order_index(id: String) -> int:
+	if _order_index.size() != state["order"].size():
+		_order_index = {}
+		for i in state["order"].size():
+			_order_index[state["order"][i]] = i
+	return int(_order_index.get(id, 1 << 30))
+
+
+## الدول التي علاقتها بـ id أقل من حد معين، بترتيب state["order"] (يمر على العلاقات المخزنة فقط)
+func relations_below(id: String, limit: float) -> Array:
+	var key := "below%f" % limit
+	if _ai_cache_on and _allies_cache.has(key):
+		return _allies_cache[key].get(id, [])
+	var by: Dictionary = {}
+	var rels: Dictionary = state["relations"]
+	for k in rels:
+		if float(rels[k]) >= limit:
+			continue
+		var parts: PackedStringArray = k.split("|")
+		if not by.has(parts[0]):
+			by[parts[0]] = []
+		if not by.has(parts[1]):
+			by[parts[1]] = []
+		by[parts[0]].append(parts[1])
+		by[parts[1]].append(parts[0])
+	for c in by:
+		by[c].sort_custom(func(x, y): return order_index(x) < order_index(y))
+	if _ai_cache_on:
+		_allies_cache[key] = by
+	return by.get(id, []).duplicate()
+
+
 func relation(a: String, b: String) -> float:
 	if a == b:
 		return 100.0
@@ -183,11 +221,15 @@ func alliance_of(id: String) -> Array:
 
 
 func allies(id: String) -> Array:
+	if _ai_cache_on and _allies_cache.has(id):
+		return _allies_cache[id]
 	var out: Array = []
 	for aid in alliance_of(id):
 		for m in state["alliances"][aid]["members"]:
 			if m != id and not (m in out):
 				out.append(m)
+	if _ai_cache_on:
+		_allies_cache[id] = out
 	return out
 
 
@@ -284,9 +326,13 @@ func _monthly() -> void:
 	for id in alive_ids():
 		Factions.monthly(self, country(id))
 	Intel.monthly(self)
+	_power_cache = {}
+	_allies_cache = {}
+	_ai_cache_on = true
 	for id in alive_ids():
 		if not is_player(id):
 			AI.monthly(self, country(id))
+	_ai_cache_on = false
 	_relations_drift()
 	_border_incidents()
 	_random_events()
@@ -404,9 +450,13 @@ func unit_power(c: Dictionary, utype: String) -> float:
 
 
 func military_power(c: Dictionary) -> float:
+	if _ai_cache_on and _power_cache.has(c["id"]):
+		return _power_cache[c["id"]]
 	var total := 0.0
 	for k in db.units:
 		total += unit_power(c, k)
+	if _ai_cache_on:
+		_power_cache[c["id"]] = total
 	return total
 
 
@@ -519,6 +569,7 @@ func capitulate(w: Dictionary, loser: String, winner: String) -> void:
 	# الخروج من التحالفات
 	for aid in alliance_of(loser):
 		state["alliances"][aid]["members"].erase(loser)
+		_allies_cache = {}
 	var winner_side: Array = w["attackers"] if winner in w["attackers"] else w["defenders"]
 	var text := "%s تستسلم وتصبح تابعة لـ%s، وتبقى المناطق المحتلة بيد المنتصر." % [l["name_ar"], country(winner)["name_ar"]]
 	make_peace(w, text, loser, winner_side)
@@ -540,6 +591,7 @@ func annex(id: String, by: String, peaceful: bool = false) -> void:
 		country(v)["overlord"] = ""
 	for aid in alliance_of(id):
 		state["alliances"][aid]["members"].erase(id)
+		_allies_cache = {}
 	for w in state["wars"]:
 		w["attackers"].erase(id)
 		w["defenders"].erase(id)
@@ -755,6 +807,7 @@ func invest(a: String, b: String) -> String:
 		cb["overlord"] = a
 		for aid in alliance_of(b):
 			state["alliances"][aid]["members"].erase(b)
+			_allies_cache = {}
 		add_news("%s تصبح دولة تابعة لـ%s عبر النفوذ الاقتصادي." % [cb["name_ar"], ca["name_ar"]], "good")
 		if is_player(a):
 			push_event("victory", "تبعية سلمية", "%s أصبحت تابعة لك بفضل استثماراتك ونفوذك." % cb["name_ar"], true)

@@ -175,9 +175,13 @@ static func has_pact(sim, a: String, b: String) -> bool:
 
 static func pacts_of(sim, id: String) -> Array:
 	var out: Array = []
-	for oid in sim.state["order"]:
-		if oid != id and has_pact(sim, id, oid):
-			out.append(oid)
+	for k in sim.state.get("trade_pacts", {}):
+		var parts: PackedStringArray = k.split("|")
+		if parts[0] == id:
+			out.append(parts[1])
+		elif parts[1] == id:
+			out.append(parts[0])
+	out.sort_custom(func(x, y): return sim.order_index(x) < sim.order_index(y))
 	return out
 
 

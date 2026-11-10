@@ -157,6 +157,65 @@ def build_edges(regions, nbrs, by_country):
     print("حدود مشتركة:", len(edges))
 
 
+# رموز Natural Earth التي تختلف عن رموز اللعبة
+GAME_CODE = {"PSX": "PSE", "SDS": "SSD"}
+# الدول المضبوطة يدوياً: مناطقها كما هي دون دمج (أرقامها واختباراتها مبنية عليها)
+KEEP_FULL = {"USA", "CHN", "RUS", "IND", "GBR", "FRA", "DEU", "POL", "UKR", "TUR", "IRN", "IRQ", "SYR", "JOR", "ISR",
+             "SAU", "ARE", "EGY", "DZA", "PAK", "JPN", "KOR", "PRK", "CAN", "MEX"}
+
+
+def target_count(c, area):
+    """عدد المناطق المستهدف لدولة جديدة: يكبر مع الاقتصاد والمساحة، حتى يبقى العالم كله خفيفاً على الهاتف"""
+    n = 2 + math.sqrt(float(c["gdp"])) / 8.0 + math.sqrt(area) / 5.0
+    return int(max(1, min(14, round(n))))
+
+
+def merge_small(regions, playable, places_path):
+    """يدمج محافظات الدول الجديدة المتجاورة حتى تصل للعدد المستهدف: الأصغر مساحة يندمج بأصغر جيرانه.
+    الاسم من المحافظة التي فيها أكبر مدينة، والرمز أصغر رموز الأعضاء (ثابت بين البناءات)."""
+    places = json.load(open(places_path))["features"]
+    pts = [(Point(pl["geometry"]["coordinates"]), float(pl["properties"].get("pop_max") or 0)) for pl in places]
+    pt_tree = STRtree([p for p, _ in pts])
+    by_cc = defaultdict(list)
+    for r in regions:
+        by_cc[r["country"]].append(r)
+    out = []
+    for cc in sorted(by_cc):
+        rs = by_cc[cc]
+        if cc in KEEP_FULL:
+            out += rs
+            continue
+        for r in rs:
+            r["city"] = 0.0
+            for j in pt_tree.query(r["geom"]):
+                p, pop = pts[int(j)]
+                if pop > r["city"] and r["geom"].contains(p):
+                    r["city"] = pop
+        area = sum(r["geom"].area for r in rs)
+        n = min(len(rs), target_count(playable[cc], area))
+        groups = [{"id": r["id"], "members": [r], "geom": r["geom"], "area": r["geom"].area} for r in rs]
+        while len(groups) > n:
+            groups.sort(key=lambda g: (g["area"], g["id"]))
+            small = groups[0]
+            sg = small["geom"].buffer(0.05)
+            cands = [g for g in groups[1:] if sg.intersects(g["geom"])]
+            if not cands:
+                c0 = small["geom"].representative_point()
+                cands = [min(groups[1:], key=lambda g: (g["geom"].distance(c0), g["id"]))]
+            tgt = min(cands, key=lambda g: (g["area"], g["id"]))
+            tgt["members"] += small["members"]
+            tgt["geom"] = unary_union([tgt["geom"], small["geom"]]).buffer(0)
+            tgt["area"] = tgt["geom"].area
+            tgt["id"] = min(tgt["id"], small["id"])
+            groups.remove(small)
+        for g in groups:
+            lead = max(g["members"], key=lambda r: (r["city"], r["geom"].area))
+            out.append({"id": g["id"], "country": cc, "name_ar": lead["name_ar"], "name_en": lead["name_en"], "geom": g["geom"]})
+    out.sort(key=lambda r: (r["country"], r["id"]))
+    print("مناطق بعد الدمج:", len(out))
+    return out
+
+
 def main(admin_path, places_path, coast_path):
     countries = json.load(open(f"{ROOT}/data/countries.json"))["countries"]
     playable = {c["id"]: c for c in countries}
@@ -166,7 +225,7 @@ def main(admin_path, places_path, coast_path):
     groups = {}
     for f in feats:
         p = f["properties"]
-        cc = p["adm0_a3"]
+        cc = GAME_CODE.get(p["adm0_a3"], p["adm0_a3"])
         if cc not in playable or not p.get("name"):
             continue
         reg = p.get("region")
@@ -196,6 +255,8 @@ def main(admin_path, places_path, coast_path):
             "country": g["country"], "name_ar": g["name_ar"], "name_en": g["name_en"],
             "geom": geom,
         })
+
+    regions = merge_small(regions, playable, places_path)
 
     # الجوار: مناطق تتلامس حدودها (داخل الدولة وعبر الحدود)
     geoms = [r["geom"].buffer(0.05) for r in regions]

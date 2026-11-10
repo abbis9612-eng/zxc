@@ -247,8 +247,8 @@ static func _intel(sim, c: Dictionary) -> void:
 	var rival: String = c.get("rival", "")
 	if rival != "" and not (rival in targets):
 		targets.append(rival)
-	for oid in sim.alive_ids():
-		if oid != id and not (oid in targets) and sim.relation(id, oid) < -60.0:
+	for oid in sim.relations_below(id, -60.0):
+		if not (oid in targets) and not sim.country(oid).get("annexed", false):
 			targets.append(oid)
 	# مكافحة التجسس حسب الخطر
 	var lv := 1

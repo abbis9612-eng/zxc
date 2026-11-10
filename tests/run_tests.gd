@@ -443,7 +443,8 @@ func test_market() -> void:
 	for i in 6:
 		sau["blockade_until"] = int(s.state["day"]) + 30
 		Market.monthly(s)
-	check(Market.price(s, "oil") > 1.15, "حصار السعودية يرفع سعر النفط (%.2f)" % Market.price(s, "oil"))
+	# في عالم بكل الدول تقل حصة السعودية من النفط، فالأثر أصغر لكنه واضح
+	check(Market.price(s, "oil") > 1.08, "حصار السعودية يرفع سعر النفط (%.2f)" % Market.price(s, "oil"))
 	check(float(s.country("IRQ")["trade_income"]) > 0.0, "العراق المصدّر يربح من ارتفاع النفط (%.2f)" % float(s.country("IRQ")["trade_income"]))
 	check(float(s.country("JPN")["trade_income"]) < 0.0, "اليابان المستوردة تدفع أكثر (%.2f)" % float(s.country("JPN")["trade_income"]))
 	check(float(sau["trade_income"]) < 0.0, "السعودية المحاصرة تخسر صادراتها")
