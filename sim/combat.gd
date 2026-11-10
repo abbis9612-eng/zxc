@@ -271,6 +271,9 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var pid: String = sim.state["player"]
 	if pid in A or pid in D:
 		sim.state["last_battle"] = report
+	sim.battle_feed.append(report)
+	if sim.battle_feed.size() > sim.BATTLE_FEED_MAX:
+		sim.battle_feed.pop_front()
 
 	_check_outcome(sim, w, A, D)
 	return report

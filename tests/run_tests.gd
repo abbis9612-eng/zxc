@@ -264,8 +264,16 @@ func test_regional_war() -> void:
 	var w := s.declare_war("TUR", "SYR")
 	var captured := false
 	var capital_fell := false
+	var feed_ok := true
+	var feed_taken := 0
 	for week in 52:
+		s.battle_feed.clear()
 		run_days(s, 7)
+		# كل معركة تصل للخريطة بتقرير كامل: الأطراف والمأخوذ والضربات
+		for r in s.battle_feed:
+			if not (r.has("attackers") and r.has("defenders") and r.has("taken") and r.has("hits_a") and r.has("phases")):
+				feed_ok = false
+			feed_taken += r["taken"].size()
 		if Territory.occupied_share(s, "SYR", ["TUR"]) > 0.0:
 			captured = true
 		if s.country("SYR").get("capital_fallen", false):
@@ -273,6 +281,7 @@ func test_regional_war() -> void:
 		if not w.get("active", true):
 			break
 	check(captured, "تركيا تحتل مناطق سورية")
+	check(feed_ok and feed_taken > 0, "تقارير المعارك تصل للخريطة كاملة (%d منطقة سقطت)" % feed_taken)
 	check(capital_fell or s.country("SYR")["overlord"] == "TUR", "التقدم يصل إلى دمشق أو استسلام سوريا")
 	var syr := s.country("SYR")
 	if syr["overlord"] == "TUR" or syr.get("annexed", false):

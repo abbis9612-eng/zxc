@@ -10,6 +10,7 @@ const Territory := preload("res://sim/territory.gd")
 const Icons := preload("res://ui/icons.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Flags := preload("res://ui/flags.gd")
+const BattleFx := preload("res://world/battle_fx.gd")
 
 signal country_selected(id: String)
 signal region_selected(rid: String)
@@ -91,6 +92,8 @@ var sim = null:
 		sim = v
 		_last_sig = ""
 		_world_dirty = true
+		if _bfx != null:
+			_bfx.fx = []
 var layer: int = Layer.POLITICAL
 var selected: String = ""
 var selected_region: String = "":
@@ -144,6 +147,7 @@ var _font_bold: Font
 ## _fx: ما ينبض (الجبهات، الوجهات الممكنة، التحديد)، صغير وسريع.
 ## _over: النصوص والرقائق بإحداثيات الشاشة.
 var _world: Node2D
+var _bfx = null   # المعركة على الخريطة (world/battle_fx.gd)
 var _grid_node: Node2D
 var _chunks: Array = []
 const CHUNK_DEG := 30.0
@@ -188,6 +192,7 @@ func _ready() -> void:
 	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_over.draw.connect(_draw_over_layer)
 	add_child(_over)
+	_bfx = BattleFx.new(self)
 	_zoom = 2.2
 	resized.connect(func():
 		_world_dirty = true
@@ -410,8 +415,14 @@ func _process(delta: float) -> void:
 		if _world_dirty:
 			_rebake()
 		return
-	# إعادة الرسم للحركة فقط: الجبهات تنبض، والفرق تنزلق، ونبضة اللمس. حتى 30 مرة في الثانية.
-	var anim: bool = not sim.state.get("wars", []).is_empty() or not move_ids.is_empty() or _ping_t >= 0.0
+	# المعارك التي حسبتها المحاكاة تُعرض على الخريطة
+	if not sim.battle_feed.is_empty():
+		for r in sim.battle_feed:
+			_bfx.spawn(r)
+		sim.battle_feed.clear()
+	_bfx.cleanup()
+	# إعادة الرسم للحركة فقط: الجبهات تنبض، والفرق تنزلق، والمعارك، ونبضة اللمس. حتى 30 مرة في الثانية.
+	var anim: bool = not sim.state.get("wars", []).is_empty() or not move_ids.is_empty() or _ping_t >= 0.0 or _bfx.active() or _bfx.has_fires()
 	if not anim and Game.is_running() and not Game.paused:
 		for d in sim.state.get("divisions", []):
 			if int(d["eta"]) >= 0:
@@ -540,6 +551,7 @@ func _draw_fx_layer() -> void:
 			_fill_shape(ci, shape, Color(pal("REACH"), pulse))
 			_outline(shape, Color(pal("REACH"), 0.8), 1.5 / s)
 	_draw_fronts(s)
+	_bfx.draw_capture_fill(ci)
 	if selected_region != "" and _region_idx.has(selected_region):
 		var sh: Dictionary = _regions[_region_idx[selected_region]]
 		_fill_shape(ci, sh, Color(1, 1, 1, 0.14))
@@ -562,6 +574,9 @@ func _draw_over_layer() -> void:
 		_draw_move_preview()
 		_draw_divisions()
 		_draw_capitals()
+		_bfx.draw_ground(_over)
+		_bfx.draw_fires(_over)
+		_bfx.draw_air(_over)
 		_draw_facilities()
 		_draw_region_labels()
 		_draw_straits()
