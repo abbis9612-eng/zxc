@@ -15,6 +15,7 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Icons := preload("res://ui/icons.gd")
+const Flags := preload("res://ui/flags.gd")
 
 enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
 const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
@@ -25,6 +26,14 @@ const NEWS_COLORS := {"war": "#e05a55", "nuke": "#ff7b29", "peace": "#4cc38a", "
 
 var mobile := false
 var portrait := false
+var compact := false             # هاتف أفقي: الخريطة كاملة واللوحة درج
+var side_panel: Control
+var adv_open := true
+var adv_items: VBoxContainer
+var adv_toggle: Button
+var country_flag: TextureRect
+var speed_cycle: Button
+var theme_btn: Button
 var map: MapView
 var tabs: TabContainer
 var tab_boxes: Array = []        # VBox لكل تبويب
@@ -35,7 +44,6 @@ var _keep_tab := false
 
 # الشريط العلوي
 var lbl_country: Label
-var iso_badge: PanelContainer
 var ready_segs: Array = []
 var lbl_ready: Label
 var chip_date: PanelContainer
@@ -86,10 +94,13 @@ var _dirty := true
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mobile = OS.has_feature("mobile") or get_viewport_rect().size.x < 900.0
-	# الترتيب العمودي فقط للشاشات الطولية، والموبايل الأفقي يأخذ تخطيط الكمبيوتر بخطوط أكبر
+	UI.apply_palette(Game.light_theme)
+	MapView.apply_palette(Game.light_theme)
+	mobile = Game.mobile or get_viewport_rect().size.x < 900.0
+	# الترتيب العمودي فقط للشاشات الطولية، والموبايل الأفقي مضغوط: الخريطة كاملة واللوحة درج يُفتح ويُغلق
 	var vp := get_viewport_rect().size
 	portrait = vp.y > vp.x
+	compact = mobile and not portrait
 	theme = UI.make_theme(mobile)
 	layout_direction = Control.LAYOUT_DIRECTION_RTL
 	_build_layout()
@@ -100,6 +111,11 @@ func _ready() -> void:
 	Game.paused_changed.connect(func(_p): _update_top())
 	Game.speed_changed.connect(func(_s): _update_top())
 	Game.game_started.connect(_on_game_started)
+	Game.theme_changed.connect(func(): get_tree().reload_current_scene())
+	Game.day_passed.connect(func(): map.queue_redraw())
+	# بعد تبديل الثيم يُعاد بناء الشاشة واللعبة مستمرة
+	if Game.is_running():
+		_on_game_started.call_deferred()
 
 
 # ================================================================== البناء
@@ -122,6 +138,7 @@ func _build_layout() -> void:
 	root.add_child(body)
 
 	var side := _build_side_panel()
+	side_panel = side
 	var rail := _build_rail()
 	var map_area := _build_map_area()
 	if portrait:
@@ -131,7 +148,8 @@ func _build_layout() -> void:
 		body.add_child(rail)
 	else:
 		# في الاتجاه من اليمين لليسار يظهر العنصر الأول على اليمين: القائمة ثم اللوحة ثم الخريطة
-		side.custom_minimum_size = Vector2(430, 0)
+		side.custom_minimum_size = Vector2(get_viewport_rect().size.x * 0.46 if compact else 430.0, 0)
+		side.visible = not compact
 		body.add_child(rail)
 		body.add_child(side)
 		body.add_child(map_area)
@@ -145,7 +163,7 @@ func _build_layout() -> void:
 func _build_top_bar() -> Control:
 	var panel := PanelContainer.new()
 	var st := StyleBoxFlat.new()
-	st.bg_color = Color("0d151d")
+	st.bg_color = UI.C_BAR
 	st.border_color = Color(UI.C_ACCENT, 0.35)
 	st.border_width_bottom = 1
 	st.content_margin_left = 12
@@ -156,10 +174,10 @@ func _build_top_bar() -> Control:
 	var h := UI.row()
 	h.add_theme_constant_override("separation", 10)
 	panel.add_child(h)
-	# الدولة: شارة الرمز والاسم
-	iso_badge = _badge("—")
-	h.add_child(iso_badge)
-	lbl_country = UI.title("—", 20)
+	# الدولة: العلم والاسم
+	country_flag = Flags.rect("", 36)
+	h.add_child(country_flag)
+	lbl_country = UI.title("—", 18 if compact else 20)
 	h.add_child(lbl_country)
 	# مؤشر الاستعداد: خمس درجات من السلم إلى الخطر
 	var ready_box := HBoxContainer.new()
@@ -176,6 +194,7 @@ func _build_top_bar() -> Control:
 	lbl_ready = UI.label("", UI.C_TEXT, 14)
 	lbl_ready.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(lbl_ready)
+	lbl_ready.visible = not compact
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(spacer)
@@ -186,6 +205,7 @@ func _build_top_bar() -> Control:
 	chip_war = UI.chip("war", "", UI.C_MUTED, "الحروب الجارية")
 	for c in [chip_date, chip_money, chip_growth, chip_stab, chip_war]:
 		h.add_child(c)
+	chip_growth.visible = not compact
 	var sep := ColorRect.new()
 	sep.color = UI.C_LINE_2
 	sep.custom_minimum_size = Vector2(1, 26)
@@ -194,25 +214,44 @@ func _build_top_bar() -> Control:
 	btn_pause.tooltip_text = "تشغيل / إيقاف (مسافة)"
 	btn_pause.custom_minimum_size = Vector2(44, 0)
 	h.add_child(btn_pause)
-	var speeds := HBoxContainer.new()
-	speeds.add_theme_constant_override("separation", 2)
-	for i in Game.SPEEDS.size():
-		var b := UI.button("%d×" % (i + 1), func(): _set_speed(i), "", "FlatButton")
-		b.toggle_mode = true
-		b.tooltip_text = "السرعة %d: يوم كل %.1f ثانية (المفتاح %d)" % [i + 1, Game.SPEEDS[i], i + 1]
-		speed_btns.append(b)
-		speeds.add_child(b)
-	h.add_child(speeds)
-	var step := UI.button("", _step_one_day, "step", "FlatButton")
-	step.tooltip_text = "تقدم يوماً واحداً"
-	h.add_child(step)
-	var save := UI.button("", _on_save, "save", "FlatButton")
-	save.tooltip_text = "حفظ اللعبة"
-	h.add_child(save)
+	if compact:
+		# على الهاتف: زر واحد يدور بين السرعات الخمس
+		speed_cycle = UI.button("", func(): _set_speed((Game.speed + 1) % Game.SPEEDS.size()), "", "FlatButton")
+		speed_cycle.custom_minimum_size = Vector2(64, 0)
+		speed_cycle.tooltip_text = "السرعة: اضغط للتبديل"
+		h.add_child(speed_cycle)
+	else:
+		var speeds := HBoxContainer.new()
+		speeds.add_theme_constant_override("separation", 2)
+		for i in Game.SPEEDS.size():
+			var b := UI.button("%d×" % (i + 1), func(): _set_speed(i), "", "FlatButton")
+			b.toggle_mode = true
+			b.tooltip_text = "السرعة %d: %s (المفتاح %d)" % [i + 1, _speed_text(i), i + 1]
+			speed_btns.append(b)
+			speeds.add_child(b)
+		h.add_child(speeds)
+		var step := UI.button("", _step_one_day, "step", "FlatButton")
+		step.tooltip_text = "تقدم يوماً واحداً"
+		h.add_child(step)
+		var save := UI.button("", _on_save, "save", "FlatButton")
+		save.tooltip_text = "حفظ اللعبة"
+		h.add_child(save)
+	theme_btn = UI.button("", func(): Game.set_light_theme(not Game.light_theme), "moon" if Game.light_theme else "sun", "FlatButton")
+	theme_btn.tooltip_text = "الوضع الداكن" if Game.light_theme else "الوضع الفاتح"
+	h.add_child(theme_btn)
 	var menu := UI.button("", _show_menu, "menu", "FlatButton")
 	menu.tooltip_text = "القائمة"
 	h.add_child(menu)
 	return panel
+
+
+## عنوان دولة: علمها واسمها
+func _country_title(c: Dictionary) -> HBoxContainer:
+	var h := UI.row()
+	h.add_theme_constant_override("separation", 10)
+	h.add_child(Flags.rect(c.get("flag", ""), 40))
+	h.add_child(UI.title(c["name_ar"], 22))
+	return h
 
 
 ## شارة رمز الدولة بإطار نحاسي (مثل لوحة تعريف عسكرية)
@@ -238,7 +277,7 @@ func _badge(text: String, color: Color = UI.C_ACCENT) -> PanelContainer:
 func _build_side_panel() -> Control:
 	var wrap := PanelContainer.new()
 	var ws := StyleBoxFlat.new()
-	ws.bg_color = Color("0f171f")
+	ws.bg_color = UI.C_SIDE
 	ws.border_color = UI.C_LINE_2
 	ws.border_width_left = 1
 	ws.content_margin_left = 14
@@ -296,23 +335,44 @@ func _build_side_panel() -> Control:
 func _build_rail() -> Control:
 	var p := PanelContainer.new()
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color("0b1218")
+	s.bg_color = UI.C_RAIL
 	s.border_color = UI.C_LINE_2
 	s.border_width_left = 1
 	s.set_content_margin_all(6)
 	p.add_theme_stylebox_override("panel", s)
 	var box: BoxContainer = HBoxContainer.new() if portrait else VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	p.add_child(box)
+	box.add_theme_constant_override("separation", 2 if compact else 4)
+	if compact:
+		# احتياط للشاشات القصيرة: القائمة تمرّر عمودياً بدل أن تُقص
+		var sc := ScrollContainer.new()
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		sc.add_child(box)
+		p.add_child(sc)
+	else:
+		p.add_child(box)
 	var group := ButtonGroup.new()
 	for i in TAB_TITLES.size():
-		var b := UI.button(TAB_TITLES[i], func(): tabs.current_tab = i, "", "FlatButton")
+		var b := UI.button(TAB_TITLES[i], func(): _rail_pressed(i), "", "FlatButton")
 		b.icon = Icons.tex(TAB_ICONS[i], UI.C_TEXT, 48)
 		b.add_theme_constant_override("icon_max_width", 24)
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.add_theme_font_size_override("font_size", 12)
-		b.custom_minimum_size = Vector2(0 if portrait else 74, 60)
+		# على الهاتف الأفقي: أزرار أقصر حتى تتسع القائمة لارتفاع الشاشة
+		b.custom_minimum_size = Vector2(0 if portrait else (66 if compact else 74), 50 if compact else 60)
+		if compact:
+			var bgs := {"normal": Color.TRANSPARENT, "hover": UI.C_PANEL_3, "pressed": Color(UI.C_ACCENT, 0.14), "hover_pressed": Color(UI.C_ACCENT, 0.14)}
+			for st_name in bgs:
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = bgs[st_name]
+				sb.set_corner_radius_all(6)
+				sb.content_margin_top = 4
+				sb.content_margin_bottom = 4
+				sb.content_margin_left = 2
+				sb.content_margin_right = 2
+				b.add_theme_stylebox_override(st_name, sb)
+			b.add_theme_font_size_override("font_size", 11)
 		if portrait:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.toggle_mode = true
@@ -322,6 +382,23 @@ func _build_rail() -> Control:
 		rail_btns.append(b)
 		box.add_child(b)
 	return p
+
+
+## الضغط على التبويب الحالي يطوي اللوحة لتتسع الخريطة، والضغط على غيره يفتحها عليه
+func _rail_pressed(i: int) -> void:
+	if side_panel.visible and tabs.current_tab == i:
+		side_panel.visible = false
+		rail_btns[i].set_pressed_no_signal(false)
+		return
+	_open_tab(i)
+
+
+func _open_tab(i: int) -> void:
+	side_panel.visible = true
+	if tabs.current_tab != i:
+		tabs.current_tab = i
+	else:
+		_on_tab_changed(i)
 
 
 func _on_tab_changed(t: int) -> void:
@@ -359,7 +436,8 @@ func _build_map_area() -> Control:
 	# المستشار: بطاقات بلون الخطورة
 	var adv_panel := PanelContainer.new()
 	adv_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	adv_panel.custom_minimum_size = Vector2(340 if not mobile else 270, 0)
+	adv_panel.custom_minimum_size = Vector2(340 if not mobile else 300, 0)
+	adv_open = not mobile
 	advisor_box = UI.col()
 	advisor_box.add_theme_constant_override("separation", 6)
 	adv_panel.add_child(advisor_box)
@@ -379,6 +457,7 @@ func _build_map_area() -> Control:
 	legend_box.add_theme_constant_override("separation", 4)
 	legend_panel.add_child(legend_box)
 	v.add_child(legend_panel)
+	legend_panel.visible = not mobile
 
 	# طبقات الخريطة بالأيقونات
 	var layers := UI.row()
@@ -386,7 +465,7 @@ func _build_map_area() -> Control:
 	layers.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var lp := PanelContainer.new()
 	var ls := StyleBoxFlat.new()
-	ls.bg_color = Color("0d151df0")
+	ls.bg_color = UI.C_PANEL
 	ls.border_color = UI.C_LINE_2
 	ls.set_border_width_all(1)
 	ls.set_corner_radius_all(8)
@@ -399,11 +478,21 @@ func _build_map_area() -> Control:
 		var pick := func():
 			map.set_layer(i)
 			_update_legend()
-		var b := UI.button(LAYERS[i][0], pick, LAYERS[i][1], "FlatButton")
+		# على الهاتف: أيقونات فقط مع تلميح، حتى لا تزدحم الشاشة
+		var b := UI.button("" if compact else LAYERS[i][0], pick, LAYERS[i][1], "FlatButton")
+		b.tooltip_text = "طبقة " + LAYERS[i][0]
+		if compact:
+			b.custom_minimum_size = Vector2(48, 44)
 		b.toggle_mode = true
 		b.button_group = group
 		b.button_pressed = i == 0
 		layers.add_child(b)
+	# زر إظهار المفتاح وإخفائه
+	var lg := UI.button("" if compact else "المفتاح", func(): legend_panel.visible = not legend_panel.visible, "legend", "FlatButton")
+	lg.tooltip_text = "مفتاح الألوان والرموز"
+	if compact:
+		lg.custom_minimum_size = Vector2(48, 44)
+	layers.add_child(lg)
 	v.add_child(lp)
 
 	# بطاقة المعلومات عند تمرير المؤشر فوق منطقة
@@ -426,17 +515,17 @@ func _update_legend() -> void:
 	var rows: Array = []
 	match map.layer:
 		0:
-			rows = [[UI.C_ACCENT, "دولتك"], [Color("3f8fd8"), "حليف"], [Color("6a6ff0"), "تابع لك"], [UI.C_HOSTILE, "عدو في حرب"], [Color("3d8a5a"), "علاقة جيدة"], [Color("8a3d3d"), "علاقة سيئة"]]
+			rows = [[MapView.pal("PLAYER"), "دولتك"], [MapView.pal("ALLY"), "حليف"], [MapView.pal("VASSAL"), "تابع لك"], [MapView.pal("ENEMY"), "عدو في حرب"], [MapView.pal("REL_GOOD"), "علاقة جيدة"], [MapView.pal("REL_BAD"), "علاقة سيئة"]]
 		1:
-			rows = [[Color("2a3340"), "قوة ضعيفة"], [Color("c0392b"), "قوة كبيرة (تقديرية حسب رؤيتك)"]]
+			rows = [[MapView.pal("SCALE_LO"), "قوة ضعيفة"], [MapView.pal("POWER_HI"), "قوة كبيرة (تقديرية حسب رؤيتك)"]]
 		2:
-			rows = [[Color("2a3340"), "اقتصاد صغير"], [Color("27ae60"), "اقتصاد كبير"]]
+			rows = [[MapView.pal("SCALE_LO"), "اقتصاد صغير"], [MapView.pal("ECON_HI"), "اقتصاد كبير"]]
 		3:
-			rows = [[Color("c0392b"), "غير مستقرة"], [Color("27ae60"), "مستقرة"], [Color("2a3340"), "غير معروفة"]]
+			rows = [[MapView.pal("STAB_LO"), "غير مستقرة"], [MapView.pal("STAB_HI"), "مستقرة"], [MapView.pal("SCALE_LO"), "غير معروفة"]]
 		4:
-			rows = [[Color("d9822b"), "نفط وغاز"], [Color("6a7fd1"), "معادن ويورانيوم"], [Color("1d2630"), "فقيرة بالموارد"]]
+			rows = [[MapView.pal("RES_ENERGY"), "نفط وغاز"], [MapView.pal("RES_MINERAL"), "معادن ويورانيوم"], [MapView.pal("RES_NONE"), "فقيرة بالموارد"]]
 		5:
-			rows = [[Color("b0662e"), "طيرانك وصواريخك"], [Color("2f5f8f"), "طيرانك فقط"], [Color("6b3f8f"), "صواريخك فقط"]]
+			rows = [[MapView.pal("RANGE_BOTH"), "طيرانك وصواريخك"], [MapView.pal("RANGE_AIR"), "طيرانك فقط"], [MapView.pal("RANGE_MIS"), "صواريخك فقط"]]
 	for r in rows:
 		var h := UI.row()
 		h.add_theme_constant_override("separation", 6)
@@ -529,7 +618,7 @@ func _build_start_screen() -> void:
 	var eyebrow := UI.label("غرفة العمليات المشتركة · تشرين الأول 2026", UI.C_ACCENT, 15)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(eyebrow)
-	var t := UI.title("الحرب العالمية الثالثة", 46)
+	var t := UI.title("الحرب العالمية الثالثة", 34 if mobile else 46)
 	t.add_theme_color_override("font_color", UI.C_TEXT)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
@@ -612,7 +701,7 @@ func _country_card(c: Dictionary, cb: Callable) -> Button:
 	nm.add_theme_color_override("font_color", UI.C_TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(nm)
-	head.add_child(_badge(c["id"]))
+	head.add_child(Flags.rect(c.get("flag", ""), 40))
 	v.add_child(head)
 	v.add_child(UI.label("%s · %s" % [UI.money(float(c["gdp"])), Game.db.governments[c["government"]]["name_ar"]], UI.C_MUTED, 13))
 	var tags := PackedStringArray()
@@ -668,11 +757,11 @@ func _update_top() -> void:
 	var s = Game.sim
 	var p: Dictionary = s.player()
 	lbl_country.text = p["name_ar"]
-	(iso_badge.get_node("Text") as Label).text = p["id"]
+	country_flag.texture = Flags.tex(p.get("flag", ""))
 	var rd: Array = _readiness()
 	for i in ready_segs.size():
 		# الدرجة 1 تملأ الخمس، والدرجة 5 تملأ واحدة
-		ready_segs[i].color = rd[2] if i < 6 - int(rd[0]) else Color("1e2d3b")
+		ready_segs[i].color = rd[2] if i < 6 - int(rd[0]) else UI.C_SUNKEN
 	lbl_ready.text = "الاستعداد %d · %s" % [int(rd[0]), rd[1]]
 	lbl_ready.add_theme_color_override("font_color", rd[2])
 	_set_chip(chip_date, s.date_text(), UI.C_TEXT)
@@ -688,6 +777,8 @@ func _update_top() -> void:
 	btn_pause.icon = Icons.tex("play" if Game.paused else "pause", UI.C_ACCENT if Game.paused else UI.C_TEXT, 36)
 	for i in speed_btns.size():
 		speed_btns[i].set_pressed_no_signal(i == Game.speed)
+	if speed_cycle != null:
+		speed_cycle.text = "%d×" % (Game.speed + 1)
 
 
 func _set_chip(chip: PanelContainer, text: String, color: Color, icon: String = "") -> void:
@@ -749,7 +840,8 @@ func _on_game_started() -> void:
 	_update_legend()
 	_dirty = true
 	_refresh()
-	if int(Game.sim.state["day"]) == 0:
+	if int(Game.sim.state["day"]) == 0 and not Game.welcomed:
+		Game.welcomed = true
 		var p: Dictionary = Game.sim.player()
 		_show_dialog("مرحباً بك في غرفة العمليات",
 			"أنت تقود %s.\n\n• الوقت متوقف الآن. اضغط ▶ أو المسافة للتشغيل، والأرقام 1 إلى 5 للسرعة.\n• المستشار في أعلى الخريطة يعرض أهم ما يحتاج انتباهك.\n• اضغط على أي دولة في الخريطة لترى علاقاتك بها وخياراتك.\n• كل قرار يُعرض أثره المتوقع قبل تنفيذه." % p["name_ar"],
@@ -781,6 +873,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_speed(int(key.keycode) - int(KEY_1))
 
 
+func _speed_text(i: int) -> String:
+	var spd: float = Game.SPEEDS[i]
+	return "يوم في الثانية" if spd >= 1.0 else "%d يوماً في الثانية" % roundi(1.0 / spd)
+
+
 func _set_speed(i: int) -> void:
 	Game.set_speed(i)
 	Game.set_paused(false)
@@ -798,7 +895,7 @@ func _on_country_selected(id: String) -> void:
 	if _keep_tab:
 		_keep_tab = false
 		return
-	tabs.current_tab = Tab.STATE if id == Game.sim.state["player"] else Tab.DIPLOMACY
+	_open_tab(Tab.STATE if id == Game.sim.state["player"] else Tab.DIPLOMACY)
 	_dirty = true
 
 
@@ -846,14 +943,6 @@ func _refresh() -> void:
 
 func _update_advisor() -> void:
 	UI.clear(advisor_box)
-	var head := UI.row()
-	head.add_child(Icons.icon_rect("advisor", UI.C_ACCENT, 20))
-	head.add_child(UI.title("المستشار", 16))
-	var hint := UI.label("أهم ما يحتاج قرارك", UI.C_MUTED, 12)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	head.add_child(hint)
-	advisor_box.add_child(head)
 	var s = Game.sim
 	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
@@ -923,6 +1012,27 @@ func _update_advisor() -> void:
 	if items.is_empty():
 		items.append([0, "الوضع مستقر. راقب جيرانك وطوّر اقتصادك.", Tab.ECONOMY, ""])
 	items.sort_custom(func(a, c): return a[0] > c[0])
+	# رأس المستشار: زر يطوي البطاقات ويفتحها (مطوي افتراضياً على الهاتف)
+	var urgent := 0
+	for it in items:
+		if int(it[0]) >= 60:
+			urgent += 1
+	var top_prio := int(items[0][0])
+	var head_col: Color = UI.C_BAD if top_prio >= 85 else (UI.C_WARN if top_prio >= 60 else UI.C_ACCENT_TEXT)
+	var head_txt := "المستشار" + (" · %d تنبيه" % urgent if urgent > 0 else "")
+	var toggle := func():
+		adv_open = not adv_open
+		_update_advisor()
+	var head := UI.button(head_txt, toggle, "advisor", "FlatButton")
+	advisor_box.get_parent().custom_minimum_size.x = (340.0 if not mobile else 300.0) if adv_open else 0.0
+	head.add_theme_color_override("font_color", head_col)
+	head.add_theme_color_override("icon_normal_color", head_col)
+	head.icon = Icons.tex("advisor", head_col, 36)
+	head.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	head.tooltip_text = "اضغط لإظهار أو إخفاء بطاقات المستشار"
+	advisor_box.add_child(head)
+	if not adv_open:
+		return
 	for it in items.slice(0, 3):
 		var tab_i: int = it[2]
 		var target: String = it[3]
@@ -932,7 +1042,7 @@ func _update_advisor() -> void:
 		if "الحرب" in String(it[1]):
 			icon = "war"
 		var go := func():
-			tabs.current_tab = tab_i
+			_open_tab(tab_i)
 			if target != "":
 				selected = target
 				map.selected = target
@@ -969,7 +1079,7 @@ func _fill_state() -> void:
 	var s = Game.sim
 	var pid: String = s.state["player"]
 	var p: Dictionary = s.player()
-	box.add_child(UI.title(p["name_ar"]))
+	box.add_child(_country_title(p))
 	_region_card(box, pid)
 	box.add_child(UI.kv("العاصمة", p["capital_ar"]))
 	box.add_child(UI.kv("نظام الحكم", s.db.governments[p["government"]]["name_ar"]))
@@ -1253,7 +1363,23 @@ func _fill_diplomacy() -> void:
 	if s.state["wars"].is_empty():
 		box.add_child(UI.label("العالم في سلام هش.", UI.C_MUTED))
 	for w in s.state["wars"]:
-		box.add_child(UI.label("%s ⚔ %s (%d)" % [s.country(w["attackers"][0])["name_ar"], s.country(w["defenders"][0])["name_ar"], int(w["score"])], UI.C_MUTED, 14))
+		var wr := UI.row()
+		var ca: Dictionary = s.country(w["attackers"][0])
+		var cd: Dictionary = s.country(w["defenders"][0])
+		wr.add_child(Flags.rect(ca.get("flag", ""), 24))
+		var al := UI.label(ca["name_ar"], UI.C_TEXT, 14)
+		al.autowrap_mode = TextServer.AUTOWRAP_OFF
+		wr.add_child(al)
+		wr.add_child(Icons.icon_rect("war", UI.C_BAD, 16))
+		wr.add_child(Flags.rect(cd.get("flag", ""), 24))
+		var dl := UI.label(cd["name_ar"], UI.C_TEXT, 14)
+		dl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		wr.add_child(dl)
+		var sl := UI.label("%d" % int(w["score"]), UI.C_MUTED, 14)
+		sl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		wr.add_child(sl)
+		box.add_child(wr)
 
 
 func _fill_selected(box: VBoxContainer, id: String) -> void:
@@ -1261,7 +1387,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	var pid: String = s.state["player"]
 	var c: Dictionary = s.country(id)
 	var rel: float = s.relation(pid, id)
-	box.add_child(UI.title(c["name_ar"]))
+	box.add_child(_country_title(c))
 	_region_card(box, id)
 	box.add_child(UI.kv("نظام الحكم", s.db.governments[c["government"]]["name_ar"]))
 	box.add_child(UI.kv("الناتج", UI.money(float(c["gdp"]))))
@@ -1716,6 +1842,14 @@ func _divisions_section(box: VBoxContainer, p: Dictionary) -> void:
 
 func _on_region_clicked(rid: String) -> void:
 	selected_region = rid
+	# على الهاتف لا يوجد تمرير بالمؤشر: نعرض بطاقة المنطقة عند اللمس لثوانٍ
+	if mobile and rid != "":
+		var info: Dictionary = Game.sim.db.regions[rid]
+		_on_map_hover(rid, map.map_to_screen(map.to_map(float(info["lon"]), float(info["lat"]))))
+		var t := get_tree().create_timer(3.5)
+		t.timeout.connect(func():
+			if hover_card != null:
+				hover_card.visible = false)
 	if move_division >= 0:
 		var s = Game.sim
 		var err: String = Divisions.move(s, move_division, rid)
@@ -1727,7 +1861,7 @@ func _on_region_clicked(rid: String) -> void:
 		move_division = -1
 		map.selected_division = -1
 		_keep_tab = true
-		tabs.current_tab = Tab.ARMY
+		_open_tab(Tab.ARMY)
 		_dirty = true
 
 
@@ -1737,7 +1871,7 @@ func _select_country(id: String) -> void:
 	map.selected = id
 	map.selected_region = ""
 	map.focus_country(id)
-	tabs.current_tab = Tab.DIPLOMACY
+	_open_tab(Tab.DIPLOMACY)
 	_dirty = true
 
 
@@ -1925,7 +2059,7 @@ func _next_dialog() -> void:
 	dialog_open = true
 	var d: Dictionary = dialog_queue.pop_front()
 	var dim := ColorRect.new()
-	dim.color = Color(0.02, 0.04, 0.06, 0.7)
+	dim.color = Color(0.02, 0.04, 0.06, 0.45 if UI.light else 0.7)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.add_child(dim)
@@ -1938,7 +2072,7 @@ func _next_dialog() -> void:
 	var accent: Color = ic[1]
 	var panel := PanelContainer.new()
 	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("101922")
+	ps.bg_color = UI.C_DIALOG
 	ps.border_color = Color(accent, 0.8)
 	ps.set_border_width_all(1)
 	ps.border_width_top = 4
@@ -1947,7 +2081,7 @@ func _next_dialog() -> void:
 	ps.content_margin_right = 22
 	ps.content_margin_top = 18
 	ps.content_margin_bottom = 18
-	ps.shadow_color = Color(0, 0, 0, 0.5)
+	ps.shadow_color = UI.C_SHADOW
 	ps.shadow_size = 18
 	panel.add_theme_stylebox_override("panel", ps)
 	panel.custom_minimum_size = Vector2(minf(580.0, get_viewport_rect().size.x - 32.0), 0)
@@ -1998,12 +2132,12 @@ func _toast(text: String) -> void:
 	var col: Color = UI.C_GOOD if good else UI.C_WARN
 	var p := PanelContainer.new()
 	var st := StyleBoxFlat.new()
-	st.bg_color = Color("101922f2")
+	st.bg_color = UI.C_DIALOG
 	st.border_color = col
 	st.border_width_right = 3
 	st.set_corner_radius_all(6)
 	st.set_content_margin_all(10)
-	st.shadow_color = Color(0, 0, 0, 0.4)
+	st.shadow_color = UI.C_SHADOW
 	st.shadow_size = 8
 	p.add_theme_stylebox_override("panel", st)
 	var h := UI.row()

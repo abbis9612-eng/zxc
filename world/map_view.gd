@@ -6,9 +6,8 @@ const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Territory := preload("res://sim/territory.gd")
 const Icons := preload("res://ui/icons.gd")
-const C_FRIENDLY := Color("4c9be8")
-const C_HOSTILE := Color("e5534b")
-const C_NEUTRAL := Color("4fb477")
+const UI := preload("res://ui/ui_kit.gd")
+const Flags := preload("res://ui/flags.gd")
 
 signal country_selected(id: String)
 signal region_selected(rid: String)
@@ -17,7 +16,6 @@ signal hovered(rid: String, pos: Vector2)
 const WORLD_FILE := "res://data/world_110m.json"
 const REGIONS_FILE := "res://data/regions.json"
 const REGIONS_GEO_FILE := "res://data/regions_geo.json"
-const C_REGION_BORDER := Color(0.55, 0.8, 0.95, 0.16)
 const C_OCCUPIED_LINE := Color(0, 0, 0, 0.35)
 const MAP_W := 360.0
 const MAP_H := 180.0
@@ -26,19 +24,59 @@ enum Layer { POLITICAL, POWER, ECONOMY, STABILITY, RESOURCES, RANGE }
 
 ## رموز المنشآت على الخريطة: حرف عربي داخل دائرة ملونة (يعمل مع أي خط)
 const FACILITY_MARKS := {
-	"airbase": ["ج", Color("5fa8e8")], "port": ["م", Color("3fc1c9")], "factory": ["ص", Color("c9a03f")],
-	"refinery": ["ف", Color("e07b39")], "power_plant": ["ك", Color("e8d85f")], "nuclear": ["ن", Color("b05fe8")],
+	"airbase": ["ج", Color("3d8fd6")], "port": ["م", Color("21a3ad")], "factory": ["ص", Color("b8902f")],
+	"refinery": ["ف", Color("d9692b")], "power_plant": ["ك", Color("c9a812")], "nuclear": ["ن", Color("9b4fd6")],
 }
 
-const C_BG := Color("0a1018")
-const C_GRID := Color(0.25, 0.45, 0.6, 0.10)
-const C_LAND_OFF := Color("1a222c")
-const C_BORDER := Color(0.35, 0.75, 0.95, 0.35)
-const C_PLAYER := Color("e0b84a")
-const C_ALLY := Color("3f8fd8")
-const C_VASSAL := Color("6a6ff0")
-const C_ENEMY := Color("d8423f")
-const C_SELECT := Color(1, 1, 1, 0.95)
+## ألوان الخريطة في الثيمين. المفتاح في الواجهة يقرأ من هنا أيضاً حتى يطابق الخريطة دائماً.
+const MAP_PALETTES := {
+	"dark": {
+		"BG": "0a1018", "GRID": "40739919", "LAND_OFF": "1a222c", "BORDER": "59bff259", "REGION_BORDER": "8cccf229",
+		"PLAYER": "e0b84a", "ALLY": "3f8fd8", "VASSAL": "6a6ff0", "ENEMY": "d8423f", "SELECT": "fffffff2",
+		"REL_NEUTRAL": "34404c", "REL_GOOD": "3d8a5a", "REL_BAD": "8a3d3d", "SCALE_LO": "2a3340",
+		"POWER_HI": "c0392b", "ECON_HI": "27ae60", "STAB_LO": "c0392b", "STAB_HI": "27ae60",
+		"RES_NONE": "1d2630", "RES_ENERGY": "d9822b", "RES_MINERAL": "6a7fd1",
+		"RANGE_NONE": "1d2630", "RANGE_AIR": "2f5f8f", "RANGE_MIS": "6b3f8f", "RANGE_BOTH": "b0662e",
+		"LABEL": "ffffff", "LABEL_SOFT": "d9ebffd9", "OUTLINE": "000000d0", "CHIP": "0b1118e6",
+		"UNIT_FRIEND": "1d3f63", "UNIT_HOSTILE": "5a1f1c", "UNIT_NEUTRAL": "1f4a32", "SELF_OUTLINE": "ffffff59",
+	},
+	"light": {
+		"BG": "bcd3e4", "GRID": "4a6c8a22", "LAND_OFF": "e4e8eb", "BORDER": "6f8599b3", "REGION_BORDER": "7d91a466",
+		"PLAYER": "e8b54e", "ALLY": "78acdf", "VASSAL": "9d9ff0", "ENEMY": "e2716b", "SELECT": "16212bf2",
+		"REL_NEUTRAL": "dfe4e8", "REL_GOOD": "9ccfb0", "REL_BAD": "e8aaa6", "SCALE_LO": "e1e6ea",
+		"POWER_HI": "d9534f", "ECON_HI": "3aa66b", "STAB_LO": "e0706b", "STAB_HI": "5bb585",
+		"RES_NONE": "e6eaee", "RES_ENERGY": "ea9b4c", "RES_MINERAL": "8c9ee0",
+		"RANGE_NONE": "e6eaee", "RANGE_AIR": "8fb8e0", "RANGE_MIS": "b49ad6", "RANGE_BOTH": "eba567",
+		"LABEL": "16212b", "LABEL_SOFT": "2b3a48d9", "OUTLINE": "ffffffe6", "CHIP": "ffffffeb",
+		"UNIT_FRIEND": "d6e7fa", "UNIT_HOSTILE": "f8d7d5", "UNIT_NEUTRAL": "d4efdf", "SELF_OUTLINE": "16212b59",
+	},
+}
+static var P := {}
+static var C_BG: Color
+static var C_GRID: Color
+static var C_LAND_OFF: Color
+static var C_BORDER: Color
+static var C_PLAYER: Color
+static var C_ALLY: Color
+static var C_VASSAL: Color
+static var C_ENEMY: Color
+static var C_SELECT: Color
+static var C_REGION_BORDER: Color
+
+
+static func apply_palette(light: bool) -> void:
+	P = {}
+	var src: Dictionary = MAP_PALETTES["light" if light else "dark"]
+	for k in src:
+		P[k] = Color(src[k])
+	C_BG = P["BG"]; C_GRID = P["GRID"]; C_LAND_OFF = P["LAND_OFF"]; C_BORDER = P["BORDER"]; C_PLAYER = P["PLAYER"]
+	C_ALLY = P["ALLY"]; C_VASSAL = P["VASSAL"]; C_ENEMY = P["ENEMY"]; C_SELECT = P["SELECT"]; C_REGION_BORDER = P["REGION_BORDER"]
+
+
+static func pal(k: String) -> Color:
+	if P.is_empty():
+		apply_palette(true)
+	return P[k]
 
 var sim = null
 var layer: int = Layer.POLITICAL
@@ -48,6 +86,9 @@ var selected_division: int = -1
 var _range_cache: Dictionary = {}     # منطقة -> 0 لا شيء، 1 طيران، 2 صواريخ، 3 كلاهما
 var _range_day: int = -1
 var _hover_rid := ""
+var _anim_acc := 0.0
+var _front_cache := {}     # حرب -> مناطق الجبهة، تُحسب مرة كل يوم
+var _front_day := -1
 var _hover_pos := Vector2.ZERO
 
 var _shapes: Array = []          # [{id, name_ar, rings:[PackedVector2Array], tris:[PackedInt32Array], rect:Rect2}]
@@ -175,8 +216,12 @@ func set_layer(l: int) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	# نبضة الجبهات: إعادة رسم 10 مرات في الثانية تكفي، بدل كل إطار (أخف على الهاتف)
 	if sim != null and not sim.state.get("wars", []).is_empty():
-		queue_redraw()
+		_anim_acc += delta
+		if _anim_acc >= 0.1:
+			_anim_acc = 0.0
+			queue_redraw()
 
 
 # ------------------------------------------------------------------ الرسم
@@ -224,7 +269,7 @@ func _draw() -> void:
 		if shape["id"] == selected_region:
 			_outline(shape, C_SELECT, 2.5 / s)
 		elif _owner_of(shape) == selected and view.intersects(shape["rect"]):
-			_outline(shape, Color(1, 1, 1, 0.35), 1.2 / s)
+			_outline(shape, pal("SELF_OUTLINE"), 1.2 / s)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if sim != null:
 		_draw_region_labels()
@@ -278,9 +323,9 @@ func _resource_color(shape: Dictionary) -> Color:
 	var res: Dictionary = _region_info[shape["id"]].get("resources", {})
 	var energy := float(res.get("oil", 0.0)) + float(res.get("gas", 0.0)) * 0.7
 	var other := float(res.get("steel", 0.0)) + float(res.get("rare_earth", 0.0)) + float(res.get("uranium", 0.0))
-	var col := Color("1d2630")
-	col = col.lerp(Color("d9822b"), clampf(energy / 25.0, 0.0, 1.0))
-	col = col.lerp(Color("6a7fd1"), clampf(other / 40.0, 0.0, 0.6))
+	var col := pal("RES_NONE")
+	col = col.lerp(pal("RES_ENERGY"), clampf(energy / 25.0, 0.0, 1.0))
+	col = col.lerp(pal("RES_MINERAL"), clampf(other / 40.0, 0.0, 0.6))
 	if shape["id"] == selected_region:
 		col = col.lightened(0.25)
 	return col
@@ -293,7 +338,7 @@ func _range_color(shape: Dictionary) -> Color:
 	if _range_day != int(sim.state["day"]) / 7:
 		_rebuild_range()
 	var code := int(_range_cache.get(shape["id"], 0))
-	var col: Color = [Color("1d2630"), Color("2f5f8f"), Color("6b3f8f"), Color("b0662e")][code]
+	var col: Color = [pal("RANGE_NONE"), pal("RANGE_AIR"), pal("RANGE_MIS"), pal("RANGE_BOTH")][code]
 	if _owner_of(shape) == sim.state["player"]:
 		col = C_PLAYER.darkened(0.35)
 	return col
@@ -329,16 +374,16 @@ func _draw_unit_symbol(p: Vector2, aff: String, mine: bool, strength: float) -> 
 	var line: Color
 	match aff:
 		"friend":
-			fill = Color("1d3f63")
-			line = C_FRIENDLY.lightened(0.15)
+			fill = pal("UNIT_FRIEND")
+			line = UI.C_FRIENDLY
 		"hostile":
-			fill = Color("5a1f1c")
-			line = C_HOSTILE.lightened(0.1)
+			fill = pal("UNIT_HOSTILE")
+			line = UI.C_HOSTILE
 		_:
-			fill = Color("1f4a32")
-			line = C_NEUTRAL.lightened(0.1)
+			fill = pal("UNIT_NEUTRAL")
+			line = UI.C_NEUTRAL
 	if mine:
-		line = C_PLAYER
+		line = UI.C_ACCENT_TEXT if UI.light else C_PLAYER
 	var inner: PackedVector2Array
 	if aff == "hostile":
 		var pts := PackedVector2Array([p + Vector2(0, -11), p + Vector2(11, 0), p + Vector2(0, 11), p + Vector2(-11, 0)])
@@ -359,12 +404,12 @@ func _draw_unit_symbol(p: Vector2, aff: String, mine: bool, strength: float) -> 
 	# مستوى الفرقة: XX
 	var ech := "XX"
 	var ew := _font.get_string_size(ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string_outline(_font, p + Vector2(-ew * 0.5, -13), ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color(0, 0, 0, 0.8))
+	draw_string_outline(_font, p + Vector2(-ew * 0.5, -13), ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, pal("OUTLINE"))
 	draw_string(_font, p + Vector2(-ew * 0.5, -13), ech, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, line)
 	# شريط الجاهزية
 	var bw := 20.0
 	draw_rect(Rect2(p + Vector2(-bw * 0.5, 12), Vector2(bw, 3)), Color(0, 0, 0, 0.7))
-	var sc: Color = Color("4cc38a") if strength >= 0.7 else (Color("e8a33d") if strength >= 0.45 else Color("e5534b"))
+	var sc: Color = UI.C_GOOD if strength >= 0.7 else (UI.C_WARN if strength >= 0.45 else UI.C_BAD)
 	draw_rect(Rect2(p + Vector2(-bw * 0.5, 12), Vector2(bw * clampf(strength, 0.0, 1.0), 3)), sc)
 
 
@@ -426,11 +471,11 @@ func _draw_divisions() -> void:
 			var txt := "×%d" % n
 			var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 			var bp := p + Vector2(10, 2)
-			draw_rect(Rect2(bp - Vector2(1, 10), Vector2(tw + 4, 13)), Color(0, 0, 0, 0.8))
-			draw_string(_font, bp + Vector2(1, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
+			draw_rect(Rect2(bp - Vector2(1, 10), Vector2(tw + 4, 13)), pal("CHIP"))
+			draw_string(_font, bp + Vector2(1, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, pal("LABEL"))
 		if g["sel"]:
 			draw_arc(p, 17.0, 0.0, TAU, 32, Color.WHITE, 1.5)
-		var col: Color = C_FRIENDLY if aff == "friend" else (C_HOSTILE if aff == "hostile" else C_NEUTRAL)
+		var col: Color = UI.C_FRIENDLY if aff == "friend" else (UI.C_HOSTILE if aff == "hostile" else UI.C_NEUTRAL)
 		# أسهم الحركة لفرقك
 		for target in g["moving"]:
 			var t: Dictionary = sim.db.regions[target]
@@ -463,9 +508,9 @@ func _draw_facilities() -> void:
 		for t in fac:
 			var mark: Array = FACILITY_MARKS.get(t, ["?", Color.WHITE])
 			var p := base + Vector2(x, 18)
-			var col: Color = Color("e5534b") if dmg.has(t) else mark[1]
+			var col: Color = UI.C_BAD if dmg.has(t) else mark[1]
 			# أيقونة المنشأة داخل دائرة داكنة بحافة ملونة؛ المعطلة حمراء
-			draw_circle(p, 9.0, Color("0b1118e6"))
+			draw_circle(p, 9.0, pal("CHIP"))
 			draw_arc(p, 9.0, 0.0, TAU, 20, col, 1.4, true)
 			draw_texture_rect(Icons.tex(t, col, 32), Rect2(p - Vector2(6, 6), Vector2(12, 12)), false)
 			x += 20.0
@@ -494,8 +539,8 @@ func _draw_region_labels() -> void:
 		if shape["id"] != selected_region and rect.size.x * s < w * 0.9:
 			continue
 		var pos := p + Vector2(-w * 0.5, 4)
-		draw_string_outline(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.75))
-		draw_string(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.85, 0.92, 1.0, 0.85))
+		draw_string_outline(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, pal("OUTLINE"))
+		draw_string(_font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, pal("LABEL_SOFT"))
 
 
 func _draw_grid() -> void:
@@ -521,14 +566,14 @@ func _fill_color(id: String) -> Color:
 		Layer.POWER:
 			# ضباب الحرب: القوة المعروضة تقدير حسب رؤيتك للدولة
 			var p: float = float(Intel.estimate(sim, pid, id, sim.military_power(c), "power")["value"])
-			base = Color("2a3340").lerp(Color("c0392b"), clampf(log(1.0 + p) / log(1.0 + 60000.0), 0.0, 1.0))
+			base = pal("SCALE_LO").lerp(pal("POWER_HI"), clampf(log(1.0 + p) / log(1.0 + 60000.0), 0.0, 1.0))
 		Layer.ECONOMY:
-			base = Color("2a3340").lerp(Color("27ae60"), clampf(log(1.0 + float(c["gdp"])) / log(30000.0), 0.0, 1.0))
+			base = pal("SCALE_LO").lerp(pal("ECON_HI"), clampf(log(1.0 + float(c["gdp"])) / log(30000.0), 0.0, 1.0))
 		Layer.STABILITY:
 			if Intel.visibility(sim, pid, id) < 40.0:
-				base = Color("2a3340")   # غير معروف
+				base = pal("SCALE_LO")   # غير معروف
 			else:
-				base = Color("c0392b").lerp(Color("27ae60"), float(c["stability"]) / 100.0)
+				base = pal("STAB_LO").lerp(pal("STAB_HI"), float(c["stability"]) / 100.0)
 		_:
 			if id == pid:
 				base = C_PLAYER
@@ -541,9 +586,9 @@ func _fill_color(id: String) -> Color:
 			else:
 				var r: float = sim.relation(pid, id)
 				if r >= 0.0:
-					base = Color("34404c").lerp(Color("3d8a5a"), r / 100.0)
+					base = pal("REL_NEUTRAL").lerp(pal("REL_GOOD"), r / 100.0)
 				else:
-					base = Color("34404c").lerp(Color("8a3d3d"), -r / 100.0)
+					base = pal("REL_NEUTRAL").lerp(pal("REL_BAD"), -r / 100.0)
 	if id == selected:
 		base = base.lightened(0.25)
 	return base
@@ -559,18 +604,24 @@ func _draw_capitals() -> void:
 		var p := map_to_screen(to_map(float(c["lon"]), float(c["lat"])))
 		if not Rect2(Vector2(-50, -50), size + Vector2(100, 100)).has_point(p):
 			continue
-		var col := C_PLAYER if id == pid else Color(0.88, 0.94, 1.0, 0.95)
+		var col := UI.C_ACCENT_TEXT if id == pid else pal("LABEL")
 		if c.get("capital_fallen", false):
 			col = C_ENEMY
 		# العاصمة نجمة بإطار داكن
-		draw_circle(p, 7.5, Color(0, 0, 0, 0.55))
+		draw_circle(p, 7.5, pal("CHIP"))
 		draw_texture_rect(Icons.tex("capital", col, 32), Rect2(p - Vector2(7, 7), Vector2(14, 14)), false)
 		if s >= 6.0 or id == pid or id == selected:
 			var label: String = c["name_ar"]
 			var fs := 14 if s < 10.0 else 16
 			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			draw_string_outline(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85))
-			draw_string(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.97) if id != pid else C_PLAYER.lightened(0.3))
+			# علم صغير بجانب اسم الدولة
+			var ft: Texture2D = Flags.tex(c.get("flag", ""))
+			if ft != null:
+				var fr := Rect2(p + Vector2(w * 0.5 + 4, -12 - fs + 3), Vector2(fs * 1.2, fs * 0.9))
+				draw_rect(fr.grow(1), pal("OUTLINE"))
+				draw_texture_rect(ft, fr, false)
+			draw_string_outline(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, pal("OUTLINE"))
+			draw_string(_font, p + Vector2(-w * 0.5, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, pal("LABEL") if id != pid else UI.C_ACCENT_TEXT)
 
 
 ## مقياس الرسم: طول مرجعي بالكيلومتر عند خط عرض وسط الشاشة
@@ -585,12 +636,12 @@ func _draw_scale_bar() -> void:
 			break
 	var w := km * px_per_km
 	var o := Vector2(16, 22)
-	draw_rect(Rect2(o - Vector2(6, 16), Vector2(w + 12, 26)), Color(0, 0, 0, 0.45))
-	draw_line(o, o + Vector2(w, 0), Color(1, 1, 1, 0.8), 2.0)
-	draw_line(o + Vector2(0, -4), o + Vector2(0, 4), Color(1, 1, 1, 0.8), 2.0)
-	draw_line(o + Vector2(w, -4), o + Vector2(w, 4), Color(1, 1, 1, 0.8), 2.0)
+	draw_rect(Rect2(o - Vector2(6, 16), Vector2(w + 12, 26)), pal("CHIP"))
+	draw_line(o, o + Vector2(w, 0), pal("LABEL"), 2.0)
+	draw_line(o + Vector2(0, -4), o + Vector2(0, 4), pal("LABEL"), 2.0)
+	draw_line(o + Vector2(w, -4), o + Vector2(w, 4), pal("LABEL"), 2.0)
 	var label := "%d كم" % int(km)
-	draw_string(_font, o + Vector2(w * 0.5 - _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x * 0.5, -4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.85))
+	draw_string(_font, o + Vector2(w * 0.5 - _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x * 0.5, -4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, pal("LABEL"))
 
 
 ## خط الجبهة الحقيقي: مقاطع بين المناطق المتواجهة، وعلامة سيفين عند مركز الجبهة
@@ -599,7 +650,13 @@ func _draw_wars() -> void:
 	for w in sim.state["wars"]:
 		var A: Array = w["attackers"]
 		var D: Array = w["defenders"]
-		var front: Array = Divisions.front_regions(sim, A, D)
+		if _front_day != int(sim.state["day"]):
+			_front_day = int(sim.state["day"])
+			_front_cache = {}
+		var wkey := int(w["id"])
+		if not _front_cache.has(wkey):
+			_front_cache[wkey] = Divisions.front_regions(sim, A, D)
+		var front: Array = _front_cache[wkey]
 		var sum := Vector2.ZERO
 		var n := 0
 		var segs := 0
@@ -613,7 +670,7 @@ func _draw_wars() -> void:
 				# المقطع عمودي على خط الاتصال بين المنطقتين، كحد الجبهة
 				var dir := (pb - pa).normalized().orthogonal() * clampf(pa.distance_to(pb) * 0.35, 6.0, 26.0)
 				draw_line(mid - dir, mid + dir, Color(C_ENEMY, 0.35 + 0.4 * pulse), 4.0)
-				draw_line(mid - dir, mid + dir, Color(1, 0.85, 0.8, 0.6), 1.0)
+				draw_line(mid - dir, mid + dir, pal("OUTLINE"), 1.0)
 				sum += mid
 				n += 1
 				segs += 1
@@ -628,7 +685,7 @@ func _draw_wars() -> void:
 			var cd: Dictionary = sim.country(D[0])
 			marker = map_to_screen(to_map(float(ca["lon"]), float(ca["lat"]))).lerp(map_to_screen(to_map(float(cd["lon"]), float(cd["lat"]))), 0.5)
 		if Rect2(Vector2(-30, -30), size + Vector2(60, 60)).has_point(marker):
-			draw_circle(marker, 13.0, Color(0, 0, 0, 0.7))
+			draw_circle(marker, 13.0, pal("CHIP"))
 			draw_arc(marker, 13.0, 0.0, TAU, 28, Color(C_ENEMY, 0.6 + 0.4 * pulse), 2.0)
 			draw_texture_rect(Icons.tex("war", C_ENEMY.lightened(0.2), 40), Rect2(marker - Vector2(9, 9), Vector2(18, 18)), false)
 

@@ -4,8 +4,11 @@ extends Node
 const Simulation := preload("res://sim/simulation.gd")
 const DataDB := preload("res://sim/data_db.gd")
 
-## ثواني حقيقية لكل يوم في اللعبة، لكل سرعة من الخمس
-const SPEEDS := [3.0, 1.5, 0.8, 0.4, 0.2]
+## ثواني حقيقية لكل يوم في اللعبة، لكل سرعة من الخمس (من يوم في الثانية إلى 25 يوماً في الثانية)
+const SPEEDS := [1.0, 0.5, 0.25, 0.1, 0.04]
+const SETTINGS_PATH := "user://settings.cfg"
+## الارتفاع المنطقي للواجهة على الهاتف: كلما قل كبرت العناصر
+const MOBILE_LOGICAL_HEIGHT := 520
 const SAVE_PATH := "user://savegame.json"
 const AUTOSAVE_PATH := "user://autosave.json"
 
@@ -15,6 +18,11 @@ signal events_ready(events: Array)
 signal paused_changed(paused: bool)
 signal speed_changed(speed: int)
 signal game_started
+signal theme_changed
+
+var light_theme := true
+var mobile := false
+var welcomed := false
 
 var db: DataDB
 var sim: Simulation
@@ -28,9 +36,40 @@ func _ready() -> void:
 	if not db.load_all():
 		push_error("فشل تحميل بيانات اللعبة")
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_load_settings()
+	mobile = OS.has_feature("mobile") or "--mobile-preview" in OS.get_cmdline_user_args()
+	if mobile:
+		_apply_mobile_scale()
+		get_window().size_changed.connect(_apply_mobile_scale)
+
+
+## على الهاتف: نكبّر الواجهة حسب حجم الشاشة الفعلي بدل تصغير تصميم الكمبيوتر
+func _apply_mobile_scale() -> void:
+	var px := DisplayServer.window_get_size()
+	if px.x <= 0 or px.y <= 0:
+		return
+	var short_side := float(mini(px.x, px.y))
+	var k := short_side / float(MOBILE_LOGICAL_HEIGHT)
+	get_tree().root.content_scale_size = Vector2i(roundi(px.x / k), roundi(px.y / k))
+
+
+func _load_settings() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(SETTINGS_PATH) == OK:
+		light_theme = bool(cf.get_value("display", "light_theme", true))
+
+
+func set_light_theme(v: bool) -> void:
+	light_theme = v
+	var cf := ConfigFile.new()
+	cf.load(SETTINGS_PATH)
+	cf.set_value("display", "light_theme", v)
+	cf.save(SETTINGS_PATH)
+	theme_changed.emit()
 
 
 func start_new(player_id: String, difficulty: int = 1, seed_value: int = -1) -> void:
+	welcomed = false
 	if seed_value < 0:
 		seed_value = int(Time.get_unix_time_from_system()) & 0x7FFFFFFF
 	sim = Simulation.new(db)
@@ -65,7 +104,7 @@ func _process(delta: float) -> void:
 	var step: float = SPEEDS[speed]
 	# حد أقصى لعدد الأيام في الإطار الواحد حتى لا يتجمد الجهاز الضعيف
 	var guard := 0
-	while _acc >= step and guard < 5:
+	while _acc >= step and guard < 10:
 		_acc -= step
 		guard += 1
 		step_day()

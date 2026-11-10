@@ -64,7 +64,7 @@ func _run() -> void:
 	map.set_layer(0)
 	var names := ["state", "economy", "army", "research", "diplomacy", "intel", "news"]
 	for t in names.size():
-		main.tabs.current_tab = t
+		main._open_tab(t)
 		main._refresh()
 		await _shot("04_tab_%d_%s" % [t, names[t]])
 		if names[t] == "state":
@@ -103,11 +103,18 @@ func _run() -> void:
 	main._refresh()
 	await _shot("08_front")
 	# تبويب الجيش: الفرق، وطبقة المدى
-	main.tabs.current_tab = 2
+	main._open_tab(2)
 	main._refresh()
 	await _shot("09_divisions")
 	map.set_layer(5)
 	map.focus_point(44.0, 33.0)
 	map.queue_redraw()
 	await _shot("10_range_layer")
+	# تبديل الثيم أثناء اللعب: الشاشة تُبنى من جديد واللعبة مستمرة
+	var light_before: bool = game.light_theme
+	game.set_light_theme(not light_before)
+	await _wait(30)
+	await _shot("11_theme_switched")
+	game.set_light_theme(light_before)
+	await _wait(10)
 	quit()
