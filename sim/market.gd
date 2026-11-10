@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Logistics := preload("res://sim/logistics.gd")
+const Straits := preload("res://sim/straits.gd")
 const HISTORY := 36    # أشهر من تاريخ الأسعار
 ## حدود أثر التجارة على الميزانية (نسبة من الناتج): تقييمات الموارد مؤشرات نسبية لا كميات حقيقية
 const MAX_GAIN := 0.08
@@ -66,6 +67,8 @@ static func export_factor(sim, c: Dictionary) -> float:
 	var f: float = 1.0 - float(conf["sanction_export_cut"]) * c.get("sanctions", []).size()
 	if Logistics.blockaded(sim, c):
 		f = minf(f, float(conf["blockade_export_factor"]))
+	# مضيق مغلق أو مهدد يقطع حصة صادرات من تمر تجارتهم به
+	f *= 1.0 - Straits.export_loss(sim, c["id"])
 	return clampf(f, 0.05, 1.0)
 
 
@@ -89,7 +92,7 @@ static func price_effect(sim, flows: Dictionary, prices: Dictionary) -> float:
 	return v
 
 
-## صادرات لم تُبع بسبب الحصار والعقوبات (مليار دولار شهرياً)
+## صادرات لم تُبع بسبب الحصار والعقوبات والمضائق (مليار دولار شهرياً)
 static func lost_exports(sim, c: Dictionary, wgdp: float, prices: Dictionary) -> float:
 	var ef := export_factor(sim, c)
 	if ef >= 1.0:

@@ -14,6 +14,7 @@ const Sparkline := preload("res://ui/sparkline.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
+const Straits := preload("res://sim/straits.gd")
 const Icons := preload("res://ui/icons.gd")
 const Flags := preload("res://ui/flags.gd")
 const TouchScroll := preload("res://ui/touch_scroll.gd")
@@ -33,6 +34,7 @@ var hud: Control
 var tabs: TabContainer
 var tab_boxes: Array = []        # VBox لكل تبويب
 var selected: String = ""
+var focus_strait: String = ""
 var selected_region: String = ""
 var move_division: int = -1        # أول فرقة في وضع التحريك
 var ctx: Dictionary = {}           # ما تعرضه بطاقة السياق: {kind: region|units|move, ...}
@@ -153,6 +155,7 @@ func _build_layout() -> void:
 	map.region_selected.connect(_on_region_clicked)
 	map.units_tapped.connect(_on_units_tapped)
 	map.empty_tapped.connect(_on_empty_tapped)
+	map.strait_selected.connect(_on_strait_selected)
 	map.hovered.connect(_on_map_hover)
 	add_child(map)
 
@@ -808,6 +811,15 @@ func _country_title(c: Dictionary) -> HBoxContainer:
 
 
 # ================================================================== بطاقة السياق
+
+func _on_strait_selected(sid: String) -> void:
+	if not Game.is_running():
+		return
+	focus_strait = sid
+	var sdef: Dictionary = Straits.find(Game.sim, sid)
+	_toast(sdef.get("name_ar", sid))
+	_open_tab(Tab.ECONOMY)
+
 
 ## لمس قرب عاصمة في البحر: نعامله كلمس منطقة العاصمة
 func _on_country_selected(id: String) -> void:
@@ -1544,7 +1556,12 @@ func _update_advisor() -> void:
 	elif tinc > gm * 0.004:
 		items.append([35, "ارتفاع أسعار صادراتك يربحك %s شهرياً." % UI.money(tinc), Tab.ECONOMY, ""])
 	if float(p.get("trade_lost", 0.0)) > gm * 0.003:
-		items.append([78, "الحصار والعقوبات يمنعان صادرات بقيمة %s شهرياً." % UI.money(float(p["trade_lost"])), Tab.ECONOMY, ""])
+		items.append([78, "الحصار أو العقوبات أو مضيق يمنع صادرات بقيمة %s شهرياً." % UI.money(float(p["trade_lost"])), Tab.ECONOMY, ""])
+	var strait_cut := Straits.export_loss(s, pid)
+	if strait_cut >= 0.15:
+		items.append([82, "ممر بحري يقطع %d%% من تجارتك." % int(strait_cut * 100.0), Tab.ECONOMY, ""])
+	if float(s.state["global"].get("tension", 0.0)) >= 40.0:
+		items.append([50, "التوتر العالمي مرتفع (%d)." % int(s.state["global"]["tension"]), Tab.ECONOMY, ""])
 	if Market.pacts_of(s, pid).size() < 3:
 		for oid in s.alive_ids():
 			if oid != pid and Market.can_sign_pact(s, pid, oid) == "":
@@ -1782,6 +1799,7 @@ func _fill_economy() -> void:
 		var bal := float(b["balance"])
 		eco_info.add_child(UI.kv("الرصيد", UI.money(bal), UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
 	_market_section(eco_info, p)
+	_straits_section(eco_info, p)
 	eco_info.add_child(UI.sep())
 	eco_info.add_child(UI.section("الموارد (من مناطقك)", "r_oil"))
 	eco_info.add_child(UI.label("كل مورد يأتي من مناطق محددة: خسارة منطقة نفطية تُفقدك نفطها، واحتلال منطقة يمنحك مواردها تدريجياً.", UI.C_MUTED, 13))
@@ -2399,6 +2417,85 @@ func _factions_section(box: VBoxContainer, p: Dictionary) -> void:
 		box.add_child(b)
 
 
+## المضائق: حالة كل ممر، وحصتك منه، وإغلاقه إن كنت من مسيطريه
+func _straits_section(box: VBoxContainer, p: Dictionary) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	box.add_child(UI.sep())
+	box.add_child(UI.section("المضائق والممرات", "port"))
+	var tension := float(s.state["global"].get("tension", 0.0))
+	box.add_child(UI.kv("التوتر العالمي", "%d" % int(tension), UI.C_BAD if tension >= 40.0 else UI.C_TEXT))
+	box.add_child(UI.bar(tension, 100.0, UI.C_BAD if tension >= 40.0 else UI.C_ACCENT))
+	var mine := Straits.export_loss(s, pid)
+	if mine > 0.01:
+		box.add_child(UI.kv("ما يُقطع من تجارتك البحرية", "%d%%" % int(mine * 100.0), UI.C_BAD))
+	box.add_child(UI.label("إغلاق ممر تسيطر عليه يقطع تجارة من يمر به ولا يقطع تجارتك. بعض الممرات بلا دولة ممثَّلة في هذه النسخة فتبقى مفتوحة.", UI.C_MUTED, 13))
+	var ordered: Array = s.db.straits["straits"].duplicate()
+	if focus_strait != "":
+		ordered.sort_custom(func(a, b): return a["id"] == focus_strait and b["id"] != focus_strait)
+	for sdef in ordered:
+		var sid: String = sdef["id"]
+		var st := Straits.state_of(s, sid)
+		var label: String = Straits.names(s)[st]
+		var col: Color = UI.C_BAD if st == 2 else (UI.C_WARN if st == 1 else UI.C_GOOD)
+		var by := str(Straits.entry(s, sid).get("by", ""))
+		if st == 2 and by != "" and not s.country(by).is_empty():
+			label += " — " + s.country(by)["name_ar"]
+		var title: String = sdef["name_ar"]
+		if sid == focus_strait:
+			title = "● " + title
+		box.add_child(UI.kv(title, label, col))
+		var share := float(sdef["users"].get(pid, 0.0))
+		if share > 0.0:
+			box.add_child(UI.label("يمر به %d%% من تجارتك البحرية." % int(share * 100.0), UI.C_MUTED, 13))
+		var ow: Array = Straits.owners(s, sdef)
+		if ow.is_empty():
+			box.add_child(UI.label("لا دولة ممثَّلة تسيطر عليه.", UI.C_MUTED, 13))
+		elif pid in ow:
+			if st == 2 and by == pid:
+				var open_id := sid
+				box.add_child(UI.button("إعادة فتح %s" % sdef["name_ar"], func():
+					_do(s.open_strait(pid, open_id), "أُعيد فتح الممر.")))
+			elif st != 2:
+				var close_id := sid
+				var b := UI.button("إغلاق %s" % sdef["name_ar"], func(): _confirm_close_strait(close_id), "port", "DangerButton")
+				b.disabled = Straits.can_close(s, pid, sid) != ""
+				box.add_child(b)
+		else:
+			var names := PackedStringArray()
+			for oid in ow:
+				names.append(s.country(oid)["name_ar"])
+			box.add_child(UI.label("المسيطر: " + "، ".join(names), UI.C_MUTED, 13))
+
+
+func _confirm_close_strait(sid: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var why: String = Straits.can_close(s, pid, sid)
+	if why != "":
+		_toast(why)
+		return
+	var sdef: Dictionary = Straits.find(s, sid)
+	var preview: Dictionary = Straits.close_preview(s, pid, sid)
+	var v := UI.col()
+	v.add_child(UI.label("تجارتك لا تُقطع ما دمت أنت المسيطر. تجارة من يمر بالممر تُقطع، وأسطول من ليس حليفاً لك يصل بـ%d%% فقط إن مر طريقه به." % int(float(preview["reach"]) * 100.0), UI.C_MUTED, 13))
+	v.add_child(UI.kv("التوتر العالمي", "+%d" % int(preview["tension"]), UI.C_BAD))
+	var shown := 0
+	for h in preview["hurt"]:
+		if shown >= 4:
+			break
+		shown += 1
+		v.add_child(UI.kv(s.country(h["id"])["name_ar"], "تجارتها %d%% · العلاقة %d" % [int(float(h["share"]) * 100.0), int(h["relation"])], UI.C_BAD))
+	if preview["hurt"].size() > shown:
+		v.add_child(UI.label("و%d دول أخرى تتضرر تجارتها." % (preview["hurt"].size() - shown), UI.C_MUTED, 13))
+	var do_close := func():
+		_do(s.close_strait(pid, sid), "أُغلق %s." % sdef["name_ar"])
+	_show_dialog("إغلاق %s؟" % sdef["name_ar"], "", [
+		{"text": "أغلق الممر", "cb": do_close},
+		{"text": "تراجع"},
+	], v)
+
+
 ## السوق العالمي: الأسعار وتاريخها، ومركزك تصديراً واستيراداً، واتفاقياتك
 func _market_section(box: VBoxContainer, p: Dictionary) -> void:
 	var s = Game.sim
@@ -2432,7 +2529,7 @@ func _market_section(box: VBoxContainer, p: Dictionary) -> void:
 	if not pacts.is_empty():
 		box.add_child(UI.label("تمنحك +%.2f%% نمواً سنوياً، وقدرة استيراد أعلى." % Market.pact_growth(s, p["id"]), UI.C_GOOD, 13))
 	if float(p.get("trade_lost", 0.0)) > 0.0:
-		box.add_child(UI.kv("صادرات منعها الحصار والعقوبات", UI.money(float(p["trade_lost"])) + " شهرياً", UI.C_BAD))
+		box.add_child(UI.kv("صادرات منعها الحصار أو العقوبات أو مضيق", UI.money(float(p["trade_lost"])) + " شهرياً", UI.C_BAD))
 
 
 ## الإمداد: كيف تؤثر الموارد والمنشآت في الجيش والاقتصاد
@@ -2734,6 +2831,9 @@ func _confirm_war(id: String) -> void:
 		v.add_child(UI.kv("فرقك على الجبهة", "%d من %d" % [int(mth["front_divisions"]), int(mth["divisions"])], UI.C_TEXT if int(mth["front_divisions"]) > 0 else UI.C_BAD, "army"))
 		v.add_child(UI.kv("قواعدك الجوية في المدى", "%d%%" % int(float(mth["air"]) * 100.0), UI.C_TEXT, "range"))
 		v.add_child(UI.kv("صواريخك", "في المدى" if float(mth["missiles"]) >= 1.0 else "خارج المدى", UI.C_TEXT if float(mth["missiles"]) >= 1.0 else UI.C_BAD, "target"))
+		var sea_reach := float(mth.get("sea", 1.0))
+		if sea_reach < 0.99:
+			v.add_child(UI.kv("وصول أسطولك", "%d%% بسبب مضيق" % int(sea_reach * 100.0), UI.C_BAD, "port"))
 		if int(mth["front_divisions"]) == 0:
 			v.add_child(UI.label("لا فرق لك على الجبهة بعد: حرّكها أولاً أو فعّل التوزيع التلقائي.", UI.C_WARN, 13))
 	if not f.get("land_front", true):

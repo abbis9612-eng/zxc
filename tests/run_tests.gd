@@ -13,6 +13,7 @@ const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
+const Straits := preload("res://sim/straits.gd")
 
 var db: DataDB
 var failures := 0
@@ -32,6 +33,7 @@ func _init() -> void:
 		test_facilities()
 		test_market()
 		test_trade_pacts()
+		test_straits()
 		test_factions()
 		test_intel()
 		test_divisions()
@@ -412,6 +414,49 @@ func test_trade_pacts() -> void:
 	check(Market.sign_pact(s, "IRQ", "ISR") != "", "لا اتفاقية مع دولة معادية")
 	s.declare_war("IRQ", "JOR")
 	check(not Market.has_pact(s, "IRQ", "JOR"), "الحرب تلغي الاتفاقية")
+
+
+func test_straits() -> void:
+	print("المضائق")
+	var s := new_sim("IRN", 21)
+	check(s.db.straits["straits"].size() == 8, "ثمانية ممرات في البيانات")
+	check(Straits.export_loss(s, "IRQ") == 0.0, "الممرات مفتوحة في البداية")
+	check(Straits.can_close(s, "IRQ", "hormuz") != "", "العراق لا يغلق هرمز")
+	check(Straits.can_close(s, "EGY", "mandeb") != "", "باب المندب بلا مسيطر ممثَّل")
+	var before := s.checksum()
+	var preview: Dictionary = Straits.close_preview(s, "IRN", "hormuz")
+	check(s.checksum() == before, "توقع الإغلاق بلا آثار جانبية")
+	check(not preview["hurt"].is_empty() and float(preview["hurt"][0]["share"]) >= 0.9, "العراق أكثر المتضررين من هرمز")
+	var rel0: float = s.relation("IRN", "IRQ")
+	var imp0 := Logistics.import_capacity(s, s.country("IRQ"))
+	var sea_open: float = Divisions.theater(s, "USA", ["USA"], ["IRN"])["sea"]
+	check(s.close_strait("IRN", "hormuz") == "", "إيران تغلق هرمز")
+	check(Straits.state_of(s, "hormuz") == 2, "هرمز مغلق")
+	check(Straits.export_loss(s, "IRN") == 0.0, "المسيطر الذي أغلق الممر لا تُقطع تجارته")
+	check(Straits.export_loss(s, "IRQ") >= 0.9, "تجارة العراق عبر هرمز تُقطع (%.2f)" % Straits.export_loss(s, "IRQ"))
+	check(Logistics.import_capacity(s, s.country("IRQ")) < imp0 * 0.75, "استيراد العراق يضعف")
+	check(s.relation("IRN", "IRQ") < rel0 - 10.0, "علاقة العراق بإيران تنخفض")
+	check(float(s.state["global"]["tension"]) >= 10.0, "التوتر العالمي يرتفع")
+	var sea_shut: float = Divisions.theater(s, "USA", ["USA"], ["IRN"])["sea"]
+	var sea_owner: float = Divisions.theater(s, "IRN", ["IRN"], ["USA"])["sea"]
+	check(sea_open > 0.99 and sea_shut < 0.5, "أسطول أمريكا نحو إيران يُقصَّر (%.2f ← %.2f)" % [sea_open, sea_shut])
+	check(sea_owner > 0.99, "أسطول المسيطر لا يتأثر بممره")
+	check(Combat.forecast(s, "USA", "IRN")["theater"]["USA"]["sea"] < 0.5, "التوقع يُظهر قصر الوصول البحري")
+	for i in 6:
+		Market.monthly(s)
+	check(Market.price(s, "oil") > 1.1, "إغلاق هرمز يرفع سعر النفط (%.2f)" % Market.price(s, "oil"))
+	check(s.open_strait("IRN", "hormuz") == "", "إيران تعيد فتح هرمز")
+	check(Straits.export_loss(s, "IRQ") == 0.0, "الفتح يعيد التجارة")
+	check(s.open_strait("USA", "hormuz") != "", "من لم يغلق الممر لا يفتحه")
+	# إغلاق الذكاء الاصطناعي أثناء الحرب يبقى حتمياً
+	var a := new_sim("IRQ", 21)
+	var b := new_sim("IRQ", 21)
+	a.declare_war("IRN", "IRQ")
+	b.declare_war("IRN", "IRQ")
+	for i in 8:
+		Straits.monthly(a)
+		Straits.monthly(b)
+	check(a.checksum() == b.checksum(), "قرار الممر عند الذكاء الاصطناعي حتمي")
 
 
 func _target(s: Simulation, c: Dictionary, f: String) -> float:

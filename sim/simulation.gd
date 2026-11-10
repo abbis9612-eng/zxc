@@ -14,8 +14,9 @@ const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
+const Straits := preload("res://sim/straits.gd")
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const START_YEAR := 2026
 const START_MONTH := 10
 const MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -67,7 +68,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		"alliances": db.alliances.duplicate(true),
 		"wars": [],
 		"next_war_id": 1,
-		"global": {"oil_price": 1.0, "growth_mod": 0.0, "stability_mod": 0.0, "mod_months": 0, "nuclear_strikes": 0},
+		"global": {"oil_price": 1.0, "growth_mod": 0.0, "stability_mod": 0.0, "mod_months": 0, "nuclear_strikes": 0, "tension": 0.0},
 		"news": [],
 		"game_over": "",
 		"victories": [],
@@ -95,6 +96,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		state["countries"][c["id"]] = c
 		state["order"].append(c["id"])
 	Territory.init_state(self)
+	Straits.init_state(self)
 	Market.init_state(self)
 	state["divisions"] = []
 	state["truces"] = {}
@@ -245,6 +247,7 @@ static func days_in_month(m: int, y: int) -> int:
 
 
 func _monthly() -> void:
+	Straits.monthly(self)
 	_global_modifiers_tick()
 	# النمو أولاً لكل الدول في مرور واحد على المناطق، ثم الميزانيات
 	var growths := {}
@@ -728,6 +731,26 @@ func invest(a: String, b: String) -> String:
 		if is_player(a):
 			push_event("victory", "تبعية سلمية", "%s أصبحت تابعة لك بفضل استثماراتك ونفوذك." % cb["name_ar"], true)
 	return ""
+
+
+func close_strait(actor: String, sid: String) -> String:
+	var err := Straits.close(self, actor, sid)
+	if err == "":
+		_refresh_logistics()
+	return err
+
+
+func open_strait(actor: String, sid: String) -> String:
+	var err := Straits.open(self, actor, sid)
+	if err == "":
+		_refresh_logistics()
+	return err
+
+
+func _refresh_logistics() -> void:
+	for id in alive_ids():
+		var c := country(id)
+		c["logistics"] = Logistics.compute(self, c)
 
 
 func toggle_sanction(a: String, b: String) -> void:

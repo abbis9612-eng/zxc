@@ -54,6 +54,8 @@ static func _factor(id: String, u: String, th: Dictionary, share: float) -> floa
 			return share * float(t["missiles"])
 		"drones":
 			return share * float(t["drones"])
+		"ships", "submarines":
+			return share * float(t.get("sea", 1.0))
 	return share
 
 

@@ -1,0 +1,112 @@
+{
+  "_note": "المضائق والممرات البحرية. الإحداثيات والمسيطرون وحصص المرور تقديرات اللعبة مستمدة من النموذج المرجعي. الدولة غير الموجودة في countries.json تُتجاهل: الممر يبقى مفتوحاً حتى تُضاف.",
+  "state_names": ["مفتوح", "مهدد", "مغلق"],
+  "rules": {
+    "min_route_km": 300,
+    "detour_factor": 1.22,
+    "detour_km": 250,
+    "reach_closed": 0.45,
+    "reach_threatened": 0.8,
+    "threatened_export": 0.3,
+    "export_loss_cap": 0.95,
+    "import_cut": 0.4,
+    "relation_per_share": 20,
+    "great_power_hit": 6,
+    "great_powers": ["USA", "CHN", "JPN", "IND", "DEU", "GBR", "FRA"],
+    "tension_close_high": 12,
+    "tension_close_low": 5,
+    "oil_close_tension_threshold": 0.2,
+    "tension_div": 220,
+    "threat_war": 0.32,
+    "threat_user_or_nuke": 0.18,
+    "threat_level": 0.36,
+    "nuclear_hit": 0.3,
+    "ai_close_per_hit": 0.35,
+    "ai_close_tension": 0.2,
+    "ai_tension_hot": 70,
+    "ai_close_no": 3,
+    "ai_keep_at_war": 4,
+    "ai_keep_peace": 1,
+    "ai_open_war": 0.4,
+    "ai_open_peace_base": 1.5,
+    "ai_open_per_month": 0.15,
+    "tension_decay": 0.94,
+    "tension_per_war": 1.6,
+    "tension_per_oil": 8,
+    "oil_threatened_weight": 0.3
+  },
+  "straits": [
+    {
+      "id": "hormuz",
+      "name_ar": "مضيق هرمز",
+      "lat": 26.6,
+      "lon": 56.4,
+      "controllers": ["IRN", "OMN"],
+      "oil_share": 0.38,
+      "users": {"IRQ": 0.95, "KWT": 1, "QAT": 1, "IRN": 0.9, "ARE": 0.6, "SAU": 0.45}
+    },
+    {
+      "id": "mandeb",
+      "name_ar": "باب المندب",
+      "lat": 12.6,
+      "lon": 43.4,
+      "controllers": ["YEM", "DJI", "ERI"],
+      "oil_share": 0.12,
+      "users": {"SAU": 0.25, "EGY": 0.35, "ISR": 0.3, "JOR": 0.5, "SDN": 0.6, "ERI": 0.8, "DJI": 0.8, "YEM": 0.6}
+    },
+    {
+      "id": "suez",
+      "name_ar": "قناة السويس",
+      "lat": 30.6,
+      "lon": 32.35,
+      "controllers": ["EGY"],
+      "oil_share": 0.1,
+      "users": {"EGY": 0.5, "ISR": 0.2, "SAU": 0.2, "JOR": 0.2, "IRQ": 0.15}
+    },
+    {
+      "id": "bosporus",
+      "name_ar": "البوسفور",
+      "lat": 41.1,
+      "lon": 29.05,
+      "controllers": ["TUR"],
+      "oil_share": 0.05,
+      "users": {"RUS": 0.25, "UKR": 0.7, "ROU": 0.3, "BGR": 0.3, "GEO": 0.6, "KAZ": 0.4, "AZE": 0.3}
+    },
+    {
+      "id": "gibraltar",
+      "name_ar": "جبل طارق",
+      "lat": 35.95,
+      "lon": -5.6,
+      "controllers": ["ESP", "MAR", "GBR"],
+      "oil_share": 0.05,
+      "users": {"DZA": 0.35, "LBY": 0.4, "ITA": 0.3, "GRC": 0.25, "TUR": 0.2, "EGY": 0.2, "ISR": 0.2, "TUN": 0.3}
+    },
+    {
+      "id": "malacca",
+      "name_ar": "مضيق ملقا",
+      "lat": 2.5,
+      "lon": 100.9,
+      "controllers": ["MYS", "IDN"],
+      "oil_share": 0.09,
+      "users": {"CHN": 0.35, "JPN": 0.4, "KOR": 0.4, "TWN": 0.4, "VNM": 0.2, "PHL": 0.2, "SGP": 1}
+    },
+    {
+      "id": "taiwan",
+      "name_ar": "مضيق تايوان",
+      "lat": 24.3,
+      "lon": 119.8,
+      "controllers": ["CHN", "TWN"],
+      "oil_share": 0.03,
+      "users": {"JPN": 0.2, "KOR": 0.2, "TWN": 0.6, "CHN": 0.15, "PHL": 0.2}
+    },
+    {
+      "id": "panama",
+      "name_ar": "قناة بنما",
+      "lat": 9.1,
+      "lon": -79.7,
+      "controllers": ["PAN", "USA"],
+      "oil_share": 0.03,
+      "users": {"PAN": 0.6, "CHL": 0.25, "PER": 0.25, "ECU": 0.3, "COL": 0.2, "USA": 0.05}
+    }
+  ]
+}

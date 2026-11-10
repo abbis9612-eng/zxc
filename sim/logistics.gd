@@ -1,6 +1,8 @@
 ## الإمداد: الموارد والمنشآت تتحول إلى عوامل تؤثر في القتال والإنتاج والاقتصاد.
-## نقص المورد يُعوَّض بالاستيراد، إلا تحت العقوبات أو الحصار البحري.
+## نقص المورد يُعوَّض بالاستيراد، إلا تحت العقوبات أو الحصار البحري أو مضيق يمر به تجارتك.
 extends RefCounted
+
+const Straits := preload("res://sim/straits.gd")
 
 const NEED := 40.0           # حاجة الدولة من المورد (بمقياس التقييم 0-100)
 const FOOD_NEED := 35.0
@@ -28,6 +30,9 @@ static func import_capacity(sim, c: Dictionary) -> float:
 	cap += _pact_count(sim, c["id"]) * float(sim.db.market.get("trade_pact", {}).get("import_bonus", 0.0))
 	if blockaded(sim, c):
 		cap *= 0.3
+	var strait_loss := Straits.export_loss(sim, c["id"])
+	if strait_loss > 0.0:
+		cap *= 1.0 - strait_loss * float(Straits.rules(sim)["import_cut"])
 	if ratio(c, "port") <= 0.0 and c.get("facilities", {}).get("port", {}).get("total", 0) > 0:
 		cap *= 0.6   # فقدت كل موانئها
 	return clampf(cap, 0.05, MAX_IMPORT)

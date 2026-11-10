@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Territory := preload("res://sim/territory.gd")
+const Straits := preload("res://sim/straits.gd")
 
 const LAND := ["infantry", "armor", "helicopters"]
 const KM_PER_DEG := 111.0
@@ -170,6 +171,7 @@ static func theater(sim, id: String, allies_side: Array, enemies: Array) -> Dict
 		"bombers": bomb,
 		"missiles": 1.0 if dist <= range_km(sim, "missiles", mgen) else oor,
 		"drones": 1.0 if dist <= range_km(sim, "drones", mgen) else oor,
+		"sea": Straits.reach_front(sim, id, enemies),
 	}
 
 

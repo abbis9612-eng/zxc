@@ -5,6 +5,7 @@ extends Control
 
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
+const Straits := preload("res://sim/straits.gd")
 const Territory := preload("res://sim/territory.gd")
 const Icons := preload("res://ui/icons.gd")
 const UI := preload("res://ui/ui_kit.gd")
@@ -17,6 +18,8 @@ signal hovered(rid: String, pos: Vector2)
 signal units_tapped(rid: String, owner: String, ids: Array)
 ## لمس خارج أي منطقة أو دولة
 signal empty_tapped
+## لمس نقطة مضيق على الخريطة
+signal strait_selected(sid: String)
 
 const WORLD_FILE := "res://data/world_110m.json"
 const REGIONS_FILE := "res://data/regions.json"
@@ -113,6 +116,7 @@ var _marker_day := -1
 var _hover_pos := Vector2.ZERO
 var _path_cache := {}      # فرقة|وصول -> مسار المراكز
 var _chip_hits: Array = [] # [Rect2, منطقة، مالك، أرقام الفرق]
+var _strait_hits: Array = [] # [Rect2, معرّف الممر]
 var _labels: Array = []    # مستطيلات النصوص المرسومة في هذا الإطار (لمنع التراكب)
 var _ping_pos := Vector2.ZERO
 var _ping_t := -1.0
@@ -550,6 +554,7 @@ func _draw_over_layer() -> void:
 	if sim != null:
 		_labels = []
 		_chip_hits = []
+		_strait_hits = []
 		_aff_cache = {}
 		_vis_cache = {}
 		# الأهم يُرسم أولاً ويحجز مكانه: الوحدات، ثم العواصم، ثم المناطق
@@ -559,6 +564,7 @@ func _draw_over_layer() -> void:
 		_draw_capitals()
 		_draw_facilities()
 		_draw_region_labels()
+		_draw_straits()
 	_draw_ping()
 	_draw_scale_bar()
 	_cv = self
@@ -1177,6 +1183,32 @@ func _draw_scale_bar() -> void:
 	_text(o + Vector2(w * 0.5, -fs), "%d كم" % int(km), fs, pal("LABEL"), 3)
 
 
+## نقطة كل مضيق: مفتوح، مهدد، أو مغلق
+func _draw_straits() -> void:
+	_strait_hits.clear()
+	if sim == null or not sim.state.has("straits"):
+		return
+	var screen := Rect2(Vector2(-40, -30), size + Vector2(80, 60))
+	for sdef in sim.db.straits["straits"]:
+		var p := map_to_screen(to_map(float(sdef["lon"]), float(sdef["lat"])))
+		if not screen.has_point(p):
+			continue
+		var st := Straits.state_of(sim, sdef["id"])
+		var col: Color = pal("ENEMY") if st == 2 else (pal("RES_ENERGY") if st == 1 else pal("BORDER"))
+		var r := float(_fs(5 if st == 2 else 4))
+		_cv.draw_circle(p, r + 1.5, pal("OUTLINE"))
+		_cv.draw_circle(p, r, col)
+		var hit := Rect2(p - Vector2(14, 14), Vector2(28, 28))
+		_strait_hits.append([hit, sdef["id"]])
+		if _scale() < 2.2:
+			continue
+		var fs := _fs(11)
+		var w := _tw(_font, sdef["name_ar"], fs)
+		var rect := Rect2(p + Vector2(-w * 0.5, r + 2.0), Vector2(w + 4.0, fs + 2.0))
+		if _claim(rect):
+			_text(p + Vector2(0, r + fs * 0.85), sdef["name_ar"], fs, pal("LABEL"), 3)
+
+
 ## علامة كل حرب عند منتصف جبهتها الحقيقية
 func _draw_wars_markers() -> void:
 	var pulse := 0.55 + 0.45 * sin(_time * 3.0)
@@ -1353,6 +1385,11 @@ func _click(screen_pos: Vector2) -> void:
 			var h: Array = _chip_hits[i]
 			if (h[0] as Rect2).has_point(screen_pos):
 				units_tapped.emit(h[1], h[2], h[3])
+				return
+	if move_ids.is_empty():
+		for h in _strait_hits:
+			if (h[0] as Rect2).has_point(screen_pos):
+				strait_selected.emit(h[1])
 				return
 	var rid := region_at(screen_pos)
 	if rid != "":
