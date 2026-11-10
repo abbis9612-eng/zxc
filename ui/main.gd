@@ -14,6 +14,7 @@ const Sparkline := preload("res://ui/sparkline.gd")
 const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
+const Front := preload("res://sim/front.gd")
 const Straits := preload("res://sim/straits.gd")
 const Development := preload("res://sim/development.gd")
 const Icons := preload("res://ui/icons.gd")
@@ -1161,7 +1162,8 @@ func _ctx_region(rid: String) -> void:
 	if owner == pid:
 		_ctx_stats([["people", "%s م" % String.num(float(r["pop"]), 1), UI.C_TEXT, "السكان بالمليون"],
 			["economy", UI.money_short(float(r["gdp"]) * Territory.efficiency(r)), UI.C_TEXT, "ناتج المنطقة السنوي"],
-			["army", "%d فرق" % my_here.size(), UI.C_FRIENDLY if not my_here.is_empty() else UI.C_MUTED, "فرقك المتمركزة هنا"]])
+			["army", "%d فرق" % my_here.size(), UI.C_FRIENDLY if not my_here.is_empty() else UI.C_MUTED, "فرقك المتمركزة هنا"]]
+			+ _control_stat(rid))
 		_ctx_facilities(rid, fac, r, false)
 		var acts: Array = []
 		if not my_here.is_empty():
@@ -1181,6 +1183,10 @@ func _ctx_region(rid: String) -> void:
 		["army", ratio_txt, UI.C_BAD if ratio >= 1.15 else (UI.C_GOOD if ratio <= 0.87 else UI.C_TEXT), "قوتها العسكرية مقارنة بقوتك (تقدير حسب رؤيتك)"]]
 	if at_war:
 		stats.append(["war", "حرب", UI.C_BAD, "أنتما في حرب"])
+		stats += _control_stat(rid)
+		var days: int = Front.days_to_take(s, rid, [pid] + s.allies(pid))
+		if days > 0:
+			stats.append(["target", "تسقط بعد ~%d يوم" % days, UI.C_GOOD, "بقواتك المجاورة لها الآن، إن بقي الحال كما هو"])
 	elif owner in s.allies(pid):
 		stats.append(["alliance", "حليف", UI.C_FRIENDLY, "حليفك"])
 	_ctx_stats(stats)
@@ -1202,6 +1208,15 @@ func _ctx_region(rid: String) -> void:
 			acts2.append(["إعلان الحرب", func(): _confirm_war(owner), "war", "DangerButton"])
 	acts2.append(["كل الخيارات", func(): _open_tab(Tab.DIPLOMACY), "details"])
 	_ctx_actions(acts2)
+
+
+## سيطرة المنطقة أثناء القتال (100 = ثابتة لصاحبها، 0 = تسقط)
+func _control_stat(rid: String) -> Array:
+	var ctl: float = Front.control(Game.sim, rid)
+	if ctl >= 99.5:
+		return []
+	var col: Color = UI.C_BAD if ctl < 35.0 else (UI.C_WARN if ctl < 70.0 else UI.C_TEXT)
+	return [["region", "سيطرة %d%%" % int(ctl), col, "سيطرة صاحبها على المنطقة: تنزل تحت الهجوم وتسقط عند الصفر، وتعود إن صمد المدافع"]]
 
 
 ## منشآت المنطقة كأيقونات؛ في الحرب تصبح أزرار ضرب مع فرصة النجاح

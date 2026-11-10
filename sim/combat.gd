@@ -153,6 +153,16 @@ static func _components(sim, A: Array, D: Array, th: Dictionary, tac_a: String, 
 	}
 
 
+## يحفظ التفوق الجوي ونسب الاعتراض في الحرب ليستخدمها القتال اليومي حتى المعركة الأسبوعية التالية
+static func store_components(sim, w: Dictionary, A: Array, D: Array, m: Dictionary = {}) -> void:
+	if m.is_empty():
+		m = _components(sim, A, D, _theaters(sim, A, D), _lead_tactic(w, A[0]), _lead_tactic(w, D[0]))
+	w["sup_a"] = float(m["sup_a"])
+	w["sup_d"] = float(m["sup_d"])
+	w["int_a"] = float(m["intercept_a"])
+	w["int_d"] = float(m["intercept_d"])
+
+
 static func _lead_tactic(w: Dictionary, id: String) -> String:
 	return str(w.get("tactics", {}).get(id, "balanced"))
 
@@ -170,6 +180,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var phases: Array = []
 
 	var m := _components(sim, A, D, th, _lead_tactic(w, A[0]), _lead_tactic(w, D[0]))
+	store_components(sim, w, A, D, m)
 	var loss_ma: float = m["loss_a"]
 	var loss_md: float = m["loss_d"]
 	var air_a: float = m["air_a"]
@@ -189,9 +200,7 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var eff_d: float = float(m["eff_d"]) * rng.range_f(0.85, 1.15)
 	var intercept_d: float = m["intercept_d"]
 	var intercept_a: float = m["intercept_a"]
-	_apply_losses(sim, A, ["missiles"], 0.05 * loss_ma, loss_a)
 	_apply_losses(sim, A, ["drones"], 0.08 * loss_ma, loss_a)
-	_apply_losses(sim, D, ["missiles"], 0.05 * loss_md, loss_d)
 	_apply_losses(sim, D, ["drones"], 0.08 * loss_md, loss_d)
 	_apply_losses(sim, D, ["air_defense"], 0.03 * eff_a / (eff_a + ad_d + 0.001) * loss_md, loss_d)
 	_apply_losses(sim, A, ["air_defense"], 0.03 * eff_d / (eff_d + ad_a + 0.001) * loss_ma, loss_a)
@@ -227,8 +236,12 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	total_a *= rng.range_f(0.85, 1.15)
 	total_d *= rng.range_f(0.85, 1.15)
 	var ratio: float = total_a / (total_a + total_d + 0.001)
-	_apply_losses(sim, A, PHASE_UNITS["land"], (0.03 * (1.0 - ratio) + 0.005) * loss_ma, loss_a)
-	_apply_losses(sim, D, PHASE_UNITS["land"], (0.03 * ratio + 0.005) * loss_md, loss_d)
+	# خسائر البر تقع يومياً على الفرق في الجبهة (sim/front.gd)، وتُجمع هنا للتقرير
+	for pair in [["day_loss_a", loss_a], ["day_loss_d", loss_d]]:
+		var dl: Dictionary = w.get(pair[0], {})
+		for u in dl:
+			pair[1][u] = float(pair[1].get(u, 0.0)) + float(dl[u])
+		w[pair[0]] = {}
 	_apply_losses(sim, D, ["artillery"], 0.02 * ratio * loss_md, loss_d)
 	_apply_losses(sim, A, ["artillery"], 0.02 * (1.0 - ratio) * loss_ma, loss_a)
 	_apply_losses(sim, D, ["atgm"], 0.02 * ratio * loss_md, loss_d)
@@ -248,7 +261,12 @@ static func weekly_battle(sim, w: Dictionary) -> Dictionary:
 	var losers: Array = D if a_wins else A
 	var naval_w := naval_a if a_wins else 1.0 - naval_a
 	var dominance := absf(ratio - 0.5) * 2.0
-	var taken: Array = Territory.advance(sim, w, winners, losers, MAX_GAINS, naval_w, dominance, pkey, Divisions.attack_targets(sim, winners))
+	# البر يتقدم يومياً منطقة منطقة (sim/front.gd). هنا فقط الإنزال البحري حين لا توجد جبهة برية
+	var taken: Array = []
+	if not Territory.has_land_front(sim, winners, losers):
+		taken = Territory.advance(sim, w, winners, losers, MAX_GAINS, naval_w, dominance, pkey, [])
+	else:
+		w[pkey] = 0.0
 	w["score"] = Territory.war_score(sim, w)
 	var delta: float = float(w["score"]) - old_score
 	w["battles"] = int(w["battles"]) + 1

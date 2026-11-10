@@ -17,6 +17,7 @@ const Divisions := preload("res://sim/divisions.gd")
 const Straits := preload("res://sim/straits.gd")
 const Arsenal := preload("res://sim/arsenal.gd")
 const Development := preload("res://sim/development.gd")
+const Front := preload("res://sim/front.gd")
 
 const SAVE_VERSION := 3
 const START_YEAR := 2026
@@ -40,6 +41,8 @@ var _borders_dirty := true
 ## لتعرض الهجوم والضربات وسقوط المناطق كما حسبتها المحاكاة
 var battle_feed: Array = []
 const BATTLE_FEED_MAX := 64
+## أحداث القتال اليومي للعرض (طلعات جوية ورشقات صواريخ): لا تُحفظ ولا تؤثر في المحاكاة
+var combat_feed: Array = []
 ## يزيد مع كل انتقال منطقة: الخريطة تعيد ألوانها فقط حين يتغير (ليس جزءاً من الحالة المحفوظة)
 var map_version := 0
 var _owned_regions: Dictionary = {}     # دولة -> مناطقها
@@ -280,6 +283,7 @@ func advance_day() -> void:
 	_daily_production()
 	Development.daily(self)
 	Divisions.daily(self)
+	Front.daily(self)
 	if int(state["day"]) % 7 == 0:
 		# توزيع الفرق: الذكاء الاصطناعي دائماً، واللاعب إن اختار التوزيع التلقائي.
 		# في الحرب أسبوعياً، وفي السلم كل أربعة أسابيع
