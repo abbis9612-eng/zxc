@@ -75,6 +75,13 @@ static func _war_day(sim, w: Dictionary) -> void:
 		dpow[id] = _div_power(sim, w, id, side_of[id] == 0, int(divs_by.get(id, 1)))
 	var exp_b := float(sim.db.military["divisions"]["exp_bonus"])
 	var atk_b := float(sim.db.military["divisions"].get("attack_bonus", 0.0))
+	# العمليات النشطة: الهدف يأخذ دعمها (جو أو صواريخ) فيزيد ضغط فرق طرفها عليه
+	var ops := _active_ops(sim, w)
+	var op_bonus := {}    # "طرف|هدف" -> مضاعف الضغط
+	for op in ops:
+		var sup: Dictionary = sim.db.military["operations"]["supports"].get(String(op["support"]), {})
+		if side_of.has(op["side"]):
+			op_bonus["%d|%s" % [int(side_of[op["side"]]), op["target"]]] = float(sup.get("pressure", 1.0))
 
 	# الضغط على كل منطقة معادية، والمدافعون داخل كل منطقة
 	var pressure := {}       # منطقة -> مجموع الضغط
@@ -108,6 +115,7 @@ static func _war_day(sim, w: Dictionary) -> void:
 			if sh <= 0.0:
 				continue
 			var p: float = eff * sh * ((1.0 + atk_b) if d.get("attack", "") == t else 1.0)
+			p *= float(op_bonus.get("%d|%s" % [my_side, t], 1.0))
 			if not pressure.has(t):
 				pressure[t] = 0.0
 				press_by[t] = {}
@@ -177,7 +185,9 @@ static func _war_day(sim, w: Dictionary) -> void:
 			if not pressure.has(rid) and float(regs[rid].get("control", 100.0)) < 100.0:
 				regs[rid]["control"] = minf(100.0, float(regs[rid]["control"]) + float(conf["recover"]))
 
-	_air_and_missiles(sim, w, A, D, hot)
+	_air_and_missiles(sim, w, A, D, hot, ops)
+	if w.has("ops"):
+		w["ops"] = ops.filter(func(op): return regs[op["target"]]["owner"] in sim.enemies_of(op["side"]))
 	_flush_losses(sim, w)
 	if not taken_a.is_empty():
 		_report(sim, w, A, D, taken_a, true)
@@ -257,8 +267,13 @@ static func _flush_losses(sim, w: Dictionary) -> void:
 # ------------------------------------------------------------------ الجو والصواريخ
 
 ## طلعات جوية من أقرب قاعدة عاملة في المدى، ورشقة صواريخ على أكثر منطقة ساخنة
-static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: String) -> void:
-	if hot == "":
+static func _active_ops(sim, w: Dictionary) -> Array:
+	var day := int(sim.state["day"])
+	return w.get("ops", []).filter(func(op): return int(op["until"]) >= day)
+
+
+static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: String, ops: Array = []) -> void:
+	if hot == "" and ops.is_empty():
 		return
 	var conf := cfg(sim)
 	var day := int(sim.state["day"])
@@ -268,8 +283,16 @@ static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: Strin
 		var lead: Dictionary = sim.country(mine[0])
 		var sup := float(w.get("sup_a" if s == 0 else "sup_d", 0.5))
 		var target := hot
-		if not (sim.state["regions"][hot]["owner"] in them):
-			target = _their_hot(sim, hot, them)
+		var op_sup: Dictionary = {}
+		for op in ops:
+			if String(op["side"]) in mine and sim.state["regions"][op["target"]]["owner"] in them:
+				target = op["target"]
+				op_sup = sim.db.military["operations"]["supports"].get(String(op["support"]), {})
+				break
+		if target == "":
+			continue
+		if not (sim.state["regions"][target]["owner"] in them):
+			target = _their_hot(sim, target, them)
 		if target == "":
 			continue
 		# الطلعات الجوية: من أقرب قاعدة يصلها مدى المقاتلات
@@ -286,12 +309,13 @@ static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: Strin
 				if shot > 0:
 					Arsenal.remove(lead, "fighters", float(shot))
 				# الدعم الجوي القريب يضرب الفرق في المنطقة
-				_damage_region(sim, w, target, them, float(conf["air_cas"]) * sup * float(conf["hit_damage"]) * float(mini(n, 40)))
+				_damage_region(sim, w, target, them, float(conf["air_cas"]) * float(op_sup.get("cas_mult", 1.0)) * sup * float(conf["hit_damage"]) * float(mini(n, 40)))
 				_event(sim, {"kind": "sortie", "war_id": w["id"], "side": mine[0], "from": base, "to": target, "n": n, "lost": shot, "day": day})
 		# رشقة صواريخ
 		var missiles := float(lead["military"].get("missiles", 0.0))
-		if missiles >= 1.0 and sim.rng.chance(float(conf["salvo_chance"])):
-			var fired := clampi(int(roundf(missiles * float(conf["salvo_share"]))), 1, int(conf["salvo_max"]))
+		var salvo_mult := float(op_sup.get("salvo_mult", 0.0))
+		if missiles >= 1.0 and (salvo_mult > 0.0 or sim.rng.chance(float(conf["salvo_chance"]))):
+			var fired := clampi(int(roundf(missiles * float(conf["salvo_share"]) * maxf(1.0, salvo_mult))), 1, int(conf["salvo_max"]))
 			var p_int := float(w.get("int_d" if s == 0 else "int_a", 0.3))
 			var intercepted := 0
 			for i in fired:

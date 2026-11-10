@@ -15,6 +15,7 @@ const Factions := preload("res://sim/factions.gd")
 const Intel := preload("res://sim/intel.gd")
 const Divisions := preload("res://sim/divisions.gd")
 const Front := preload("res://sim/front.gd")
+const Operations := preload("res://sim/operations.gd")
 const Straits := preload("res://sim/straits.gd")
 const Development := preload("res://sim/development.gd")
 const Icons := preload("res://ui/icons.gd")
@@ -1160,7 +1161,21 @@ func _ctx_actions(items: Array) -> void:
 		b.custom_minimum_size = Vector2(0, TOUCH)
 		b.add_theme_constant_override("icon_max_width", 20)
 		b.clip_text = true
-		g.add_child(b)
+		# سطر تحت الزر: الكلفة أو الشرط أو الفرصة، حتى يعرف اللاعب النتيجة قبل الضغط
+		var sub: String = it[4] if it.size() > 4 else ""
+		if sub == "":
+			g.add_child(b)
+			continue
+		var cell := VBoxContainer.new()
+		cell.add_theme_constant_override("separation", 2)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_child(b)
+		var sl := UI.label(sub, it[5] if it.size() > 5 else UI.C_MUTED, 12)
+		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		sl.clip_text = true
+		cell.add_child(sl)
+		g.add_child(cell)
 	ctx_box.add_child(g)
 
 
@@ -1214,19 +1229,32 @@ func _ctx_region(rid: String) -> void:
 	_ctx_facilities(rid, fac, r, at_war)
 	var acts2: Array = []
 	if at_war:
-		# الهجوم المباشر من البطاقة: أقرب فرقك المتاحة
-		var atk := _attackers_for(rid)
-		if not atk.is_empty():
-			var ids: Array = atk.map(func(x): return x[1])
-			var lbl := "هاجم (%s)" % ("فرقة" if ids.size() == 1 else "%d فرق" % ids.size())
-			acts2.append([lbl, _attack_with.bind(ids, rid), "target", "DangerButton"])
-		acts2.append(["عرض السلام", func(): _do(s.propose_peace(pid, owner), "قُبل السلام."), "peace"])
+		# أطلق عملية: هدف وحجم ودعم مع توقع قبل الإطلاق
+		var pv: Dictionary = Operations.preview(s, pid, rid, "wide", "none")
+		if pv["why"] == "":
+			var op_sub := "%d فرق متاحة · فرصة ~%d%%" % [int(pv["available"]), int(float(pv["chance"]) * 100.0)]
+			acts2.append(["أطلق عملية", _open_operation.bind(rid), "target", "DangerButton", op_sub, _chance_color(float(pv["chance"]))])
+		else:
+			acts2.append(["أطلق عملية", _open_operation.bind(rid), "target", "", "لا فرق تصل إليها الآن", UI.C_WARN])
+		var w: Dictionary = s.war_between(pid, owner)
+		var their := float(w["score"]) if owner in w["attackers"] else -float(w["score"])
+		var days_w := int(s.state["day"]) - int(w["start_day"])
+		var accept: bool = their < 15.0 or (days_w > 180 and their < 35.0)
+		acts2.append(["عرض السلام", func(): _do(s.propose_peace(pid, owner), "قُبل السلام."), "peace", "",
+			"ستقبل الآن" if accept else "سترفض: تتقدم في الحرب", UI.C_GOOD if accept else UI.C_BAD])
 	else:
-		acts2.append(["تحسين العلاقات", func(): _do(s.improve_relations(pid, owner), "تحسنت العلاقات."), "handshake", "PrimaryButton"])
+		var cost := maxf(0.2, float(s.player()["gdp"]) * 0.0005)
+		acts2.append(["تحسين العلاقات", func(): _do(s.improve_relations(pid, owner), "تحسنت العلاقات."), "handshake", "PrimaryButton",
+			"الكلفة %s · العلاقة +8" % UI.money_short(cost)])
 		if not Market.has_pact(s, pid, owner):
-			acts2.append(["اتفاقية تجارية", func(): _do(Market.sign_pact(s, pid, owner), "وُقعت الاتفاقية التجارية."), "trade"])
+			var why_p: String = Market.can_sign_pact(s, pid, owner)
+			acts2.append(["اتفاقية تجارية", func(): _do(Market.sign_pact(s, pid, owner), "وُقعت الاتفاقية التجارية."), "trade", "",
+				"تقبل الآن · نمو أعلى" if why_p == "" else "تحتاج علاقة %d+" % int(Market.cfg(s)["trade_pact"]["min_relation"]), UI.C_GOOD if why_p == "" else UI.C_MUTED])
 		if not (owner in s.allies(pid)):
-			acts2.append(["إعلان الحرب", func(): _confirm_war(owner), "war", "DangerButton"])
+			var why_w: String = s.can_declare_war(pid, owner)
+			var land := float(Combat.forecast(s, pid, owner)["land"]) if why_w == "" else 0.0
+			acts2.append(["إعلان الحرب", func(): _confirm_war(owner), "war", "DangerButton",
+				("فرصة البر ~%d%%" % int(land * 100.0)) if why_w == "" else "غير ممكن الآن", _chance_color(land) if why_w == "" else UI.C_MUTED])
 	acts2.append(["كل الخيارات", func(): _open_tab(Tab.DIPLOMACY), "details"])
 	_ctx_actions(acts2)
 
@@ -1238,6 +1266,82 @@ func _control_stat(rid: String) -> Array:
 		return []
 	var col: Color = UI.C_BAD if ctl < 35.0 else (UI.C_WARN if ctl < 70.0 else UI.C_TEXT)
 	return [["region", "سيطرة %d%%" % int(ctl), col, "سيطرة صاحبها على المنطقة: تنزل تحت الهجوم وتسقط عند الصفر، وتعود إن صمد المدافع"]]
+
+
+static func _chance_color(p: float) -> Color:
+	return UI.C_GOOD if p >= 0.6 else (UI.C_WARN if p >= 0.4 else UI.C_BAD)
+
+
+## نافذة «أطلق عملية»: الحجم والدعم ثم التوقع (الفرق، المدة، الفرصة، الخسائر، الكلفة) قبل الإطلاق
+func _open_operation(rid: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var conf: Dictionary = s.db.military["operations"]
+	var sel := {"size": "wide", "support": "none"}
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 8)
+	var sizes_box := UI.col()
+	var sup_box := UI.col()
+	var fc_box := UI.col()
+	v.add_child(UI.label("الحجم", UI.C_MUTED, 13))
+	v.add_child(sizes_box)
+	v.add_child(UI.label("الدعم", UI.C_MUTED, 13))
+	v.add_child(sup_box)
+	v.add_child(UI.sep())
+	v.add_child(fc_box)
+	var rebuild := func(self_ref: Callable) -> void:
+		UI.clear(sizes_box)
+		UI.clear(sup_box)
+		UI.clear(fc_box)
+		for k in ["limited", "wide", "full"]:
+			var pk: Dictionary = Operations.preview(s, pid, rid, k, sel["support"])
+			var tail := "%d فرق" % pk["ids"].size() if pk["why"] == "" or not pk["ids"].is_empty() else ""
+			sizes_box.add_child(_choice("army", conf["sizes"][k]["name_ar"], [[conf["sizes"][k]["desc_ar"], UI.C_MUTED]], tail,
+				func(): sel["size"] = k; self_ref.call(self_ref), sel["size"] == k))
+		for k in ["none", "air", "missiles"]:
+			var ps: Dictionary = Operations.preview(s, pid, rid, sel["size"], k)
+			var sup: Dictionary = conf["supports"][k]
+			var chips: Array = []
+			if ps["support_why"] != "":
+				chips.append([ps["support_why"], UI.C_BAD])
+			elif sup.has("desc_ar"):
+				chips.append([sup["desc_ar"], UI.C_MUTED])
+			var extra := float(sup["cost_gdp"]) * float(s.player()["gdp"])
+			sup_box.add_child(_choice({"none": "army", "air": "airbase", "missiles": "target"}[k], sup["name_ar"], chips,
+				("+" + UI.money_short(extra)) if extra > 0.0 else "", func(): sel["support"] = k; self_ref.call(self_ref),
+				sel["support"] == k, ps["support_why"] != ""))
+		var pv: Dictionary = Operations.preview(s, pid, rid, sel["size"], sel["support"])
+		if pv["why"] != "":
+			fc_box.add_child(UI.label(pv["why"], UI.C_BAD, 14))
+			return
+		var vis := Intel.visibility(s, pid, s.state["regions"][rid]["owner"])
+		var approx := "≈ " if vis < 40.0 else ""
+		var days := int(pv["days"])
+		fc_box.add_child(UI.kv("الفرصة", "%s%d%%" % [approx, int(float(pv["chance"]) * 100.0)], _chance_color(float(pv["chance"])), "target"))
+		fc_box.add_child(UI.kv("تسقط خلال", ("%s%d يوماً" % [approx, days]) if days > 0 else "لن تسقط بهذه القوة", UI.C_TEXT if days > 0 else UI.C_BAD, "calendar"))
+		if int(pv["move_days"]) > 0:
+			fc_box.add_child(UI.kv("الوصول للجبهة", "%d يوماً" % int(pv["move_days"]), UI.C_TEXT, "move"))
+		fc_box.add_child(UI.kv("خسائر متوقعة", "~%d%% من قوة الفرق" % int(float(pv["loss"]) * 100.0), UI.C_WARN, "army"))
+		fc_box.add_child(UI.kv("الكلفة", UI.money_short(float(pv["cost"])), UI.C_TEXT, "treasury"))
+		if vis < 40.0:
+			fc_box.add_child(UI.label("رؤيتك للعدو ضعيفة (%d): الأرقام تقديرية." % int(vis), UI.C_WARN, 12))
+	rebuild.call(rebuild)
+	var go := func():
+		var err: String = Operations.launch(s, pid, rid, sel["size"], sel["support"])
+		map.clear_move()
+		if err != "":
+			_toast(err)
+			return
+		_toast("تم: بدأت العملية على %s" % s.db.regions[rid]["name_ar"])
+		ctx = {}
+		ctx_card.visible = false
+		if Game.paused:
+			Game.set_paused(false)
+		_dirty = true
+	_show_dialog("عملية على %s" % s.db.regions[rid]["name_ar"], "", [
+		{"text": "أطلق", "cb": go},
+		{"text": "تراجع"},
+	], v, "target")
 
 
 ## منشآت المنطقة كأيقونات؛ في الحرب تصبح أزرار ضرب مع فرصة النجاح
