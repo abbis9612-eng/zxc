@@ -53,7 +53,10 @@
 godot --headless --path . -s tests/run_tests.gd
 
 # فحص الواجهة: يمر على كل الشاشات ويحفظ لقطات
-godot --path . -s tests/ui_smoke.gd -- /مسار/اللقطات
+godot --path . --resolution 720x1560 -s tests/ui_smoke.gd -- /مسار/اللقطات --mobile-preview
+
+# اختبار «الشهر التالي»
+godot --headless --path . -s tests/rush_month_test.gd
 
 # اختبار التمرير باللمس (سحب فوق زر يمرر القائمة ولا يضغطه)
 godot --path . -s tests/touch_scroll_test.gd -- --mobile-preview

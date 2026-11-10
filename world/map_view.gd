@@ -348,8 +348,8 @@ static func _bounds(pts: PackedVector2Array) -> Rect2:
 
 
 func _scale() -> float:
-	# عدد البكسلات لكل درجة
-	return size.x / MAP_W * _zoom
+	# عدد البكسلات لكل درجة: من البعد الأكبر للشاشة حتى يبقى التقريب مناسباً بالطول والعرض
+	return maxf(size.x, size.y) / MAP_W * _zoom
 
 
 func map_to_screen(m: Vector2) -> Vector2:
@@ -371,7 +371,7 @@ func focus_country(id: String) -> void:
 	if c.is_empty():
 		return
 	_center = to_map(float(c["lon"]), float(c["lat"]))
-	_zoom = maxf(_zoom, 3.0)
+	_zoom = maxf(_zoom, 4.0)
 	_clamp_view()
 	_apply_view()
 

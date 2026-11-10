@@ -7,8 +7,8 @@ const DataDB := preload("res://sim/data_db.gd")
 ## ثواني حقيقية لكل يوم في اللعبة، لكل سرعة من الخمس (من يوم في الثانية إلى 25 يوماً في الثانية)
 const SPEEDS := [1.0, 0.5, 0.25, 0.1, 0.04]
 const SETTINGS_PATH := "user://settings.cfg"
-## الارتفاع المنطقي للواجهة على الهاتف: كلما قل كبرت العناصر
-const MOBILE_LOGICAL_HEIGHT := 520
+## العرض المنطقي للواجهة على الهاتف (الشاشة بالطول): كلما قل كبرت العناصر
+const MOBILE_LOGICAL_WIDTH := 430
 const SAVE_PATH := "user://savegame.json"
 const AUTOSAVE_PATH := "user://autosave.json"
 
@@ -29,6 +29,10 @@ var sim: Simulation
 var paused: bool = true
 var speed: int = 2           # 0..4
 var _acc: float = 0.0
+## «الشهر التالي»: تجري الأيام بسرعة حتى أول الشهر القادم ثم يتوقف الوقت
+var rushing := false
+var _rush_month := -1
+const RUSH_STEP := 0.02
 
 
 func _ready() -> void:
@@ -49,7 +53,7 @@ func _apply_mobile_scale() -> void:
 	if px.x <= 0 or px.y <= 0:
 		return
 	var short_side := float(mini(px.x, px.y))
-	var k := short_side / float(MOBILE_LOGICAL_HEIGHT)
+	var k := short_side / float(MOBILE_LOGICAL_WIDTH)
 	get_tree().root.content_scale_size = Vector2i(roundi(px.x / k), roundi(px.y / k))
 
 
@@ -82,7 +86,20 @@ func is_running() -> bool:
 	return sim != null and not sim.state.is_empty()
 
 
+## يجري الوقت بسرعة حتى أول الشهر القادم ويتوقف هناك، أو عند أي حدث يحتاج قرارك
+func rush_month() -> void:
+	if not is_running():
+		return
+	rushing = true
+	_rush_month = int(sim.state["date"]["m"])
+	paused = false
+	_acc = 0.0
+	paused_changed.emit(paused)
+
+
 func set_paused(p: bool) -> void:
+	if p:
+		rushing = false
 	paused = p
 	_acc = 0.0
 	paused_changed.emit(paused)
@@ -101,7 +118,7 @@ func _process(delta: float) -> void:
 	if paused or not is_running() or sim.state["game_over"] != "":
 		return
 	_acc += delta
-	var step: float = SPEEDS[speed]
+	var step: float = RUSH_STEP if rushing else float(SPEEDS[speed])
 	# حد أقصى لعدد الأيام في الإطار الواحد حتى لا يتجمد الجهاز الضعيف
 	var guard := 0
 	while _acc >= step and guard < 10:
@@ -126,6 +143,8 @@ func step_day() -> void:
 	day_passed.emit()
 	if int(sim.state["date"]["m"]) != month_before:
 		month_passed.emit()
+		if rushing:
+			set_paused(true)
 		save_game(AUTOSAVE_PATH)  # حفظ تلقائي كل شهر
 	if not sim.pending.is_empty():
 		var evs: Array = sim.pending.duplicate()

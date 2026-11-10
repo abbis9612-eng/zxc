@@ -23,11 +23,13 @@ Game="*res://game/game.gd"
 
 [display]
 
-window/size/viewport_width=1600
-window/size/viewport_height=900
+window/size/viewport_width=430
+window/size/viewport_height=932
+window/size/window_width_override=470
+window/size/window_height_override=1000
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=4
+window/handheld/orientation=5
 
 [input_devices]
 

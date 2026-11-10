@@ -68,9 +68,13 @@ var alerts_pop: PanelContainer
 var lbl_date: Label
 var btn_pause: Button
 var speed_btn: Button
+var month_btn: Button
 var speed_pips: Array = []
 # الرصيف واللوحة
 var dock: PanelContainer
+var bottom: VBoxContainer
+var top_bar: PanelContainer
+var time_row: Control
 var dock_btns: Dictionary = {}
 var seg_btns: Dictionary = {}
 var sheet: PanelContainer
@@ -78,7 +82,10 @@ var panel_title: Label
 var panel_icon: TextureRect
 var _sheet_drag_y := -1.0
 var _sheet_rest_y := 0.0
+var _sheet_top0 := 0.0
 var _sheet_tw: Tween
+var sheet_full := false
+var expand_btn: Button
 # الخريطة
 var layer_btn: Button
 var layers_pop: PanelContainer
@@ -172,10 +179,25 @@ func _build_layout() -> void:
 	hud.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	add_child(hud)
 	_build_top_bar()
+	# الشريط السفلي بالطول: بطاقة السياق، ثم صف الوقت، ثم أزرار الأقسام. يتكدس من الأسفل للأعلى
+	bottom = VBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 8)
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom.anchor_left = 0.0
+	bottom.anchor_right = 1.0
+	bottom.anchor_top = 1.0
+	bottom.anchor_bottom = 1.0
+	bottom.offset_left = EDGE
+	bottom.offset_right = -EDGE
+	bottom.offset_bottom = -EDGE
+	bottom.offset_top = -EDGE
+	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bottom.layout_direction = Control.LAYOUT_DIRECTION_RTL
+	hud.add_child(bottom)
+	_build_context_card()
 	_build_time_controls()
 	_build_dock()
 	_build_map_tools()
-	_build_context_card()
 	_build_sheet()
 	_build_alerts()
 
@@ -231,30 +253,44 @@ func _pill_button(icon: String, text: String, cb: Callable, tip: String = "") ->
 	return b
 
 
-## الشريط العلوي: حالة فقط. الدولة والاستعداد يميناً، ثم المال والاستقرار والحروب، والتنبيهات والقائمة يساراً
+## الشريط العلوي بالطول: سطر للدولة والاستعداد والتنبيهات والقائمة، وسطر للمال والاستقرار والحروب والتاريخ
 func _build_top_bar() -> void:
-	var right := PanelContainer.new()
-	right.add_theme_stylebox_override("panel", UI.float_box(14, 4))
-	var rh := UI.row()
-	rh.add_theme_constant_override("separation", 2)
-	right.add_child(rh)
+	top_bar = PanelContainer.new()
+	top_bar.add_theme_stylebox_override("panel", UI.float_box(16, 6))
+	top_bar.anchor_left = 0.0
+	top_bar.anchor_right = 1.0
+	top_bar.offset_left = EDGE
+	top_bar.offset_right = -EDGE
+	top_bar.offset_top = EDGE
+	top_bar.layout_direction = Control.LAYOUT_DIRECTION_RTL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	top_bar.add_child(v)
+	var r1 := UI.row()
+	r1.add_theme_constant_override("separation", 2)
+	v.add_child(r1)
 	# الدولة: العلم والاسم ومؤشر الاستعداد، ولمسها يفتح ملف الدولة
 	country_btn = Button.new()
 	country_btn.theme_type_variation = "FlatButton"
 	country_btn.custom_minimum_size = Vector2(0, TOUCH)
+	country_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	country_btn.tooltip_text = "ملف دولتك: الحكم والفئات والسياسات"
 	country_btn.pressed.connect(func(): _toggle_sheet(Tab.STATE))
 	var ch := UI.row()
 	ch.add_theme_constant_override("separation", 8)
 	ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ch.offset_left = 10
-	ch.offset_right = -10
+	ch.offset_left = 6
+	ch.offset_right = -6
 	country_flag = Flags.rect("", 30)
 	country_flag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ch.add_child(country_flag)
 	lbl_country = UI.title("—", 17)
+	lbl_country.add_theme_color_override("font_color", UI.C_TEXT)
 	lbl_country.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl_country.clip_text = true
+	lbl_country.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lbl_country.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ch.add_child(lbl_country)
 	var ready_box := HBoxContainer.new()
 	ready_box.add_theme_constant_override("separation", 2)
@@ -262,6 +298,7 @@ func _build_top_bar() -> void:
 	for i in 5:
 		var seg := ColorRect.new()
 		seg.custom_minimum_size = Vector2(4, 12)
+		seg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ready_segs.append(seg)
 		ready_box.add_child(seg)
@@ -271,49 +308,50 @@ func _build_top_bar() -> void:
 	lbl_ready.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ch.add_child(lbl_ready)
 	country_btn.add_child(ch)
-	ch.resized.connect(func(): country_btn.custom_minimum_size.x = ch.get_combined_minimum_size().x + 20)
-	rh.add_child(country_btn)
-	var sep := ColorRect.new()
-	sep.color = UI.C_LINE_2
-	sep.custom_minimum_size = Vector2(1, 24)
-	sep.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rh.add_child(sep)
+	r1.add_child(country_btn)
+	alerts_btn = _pill_button("bell", "", _toggle_alerts, "أمور تحتاج قرارك")
+	r1.add_child(alerts_btn)
+	var menu := _pill_button("menu", "", _show_menu, "القائمة: حفظ، تحميل، الوضع الداكن")
+	r1.add_child(menu)
+	var line := ColorRect.new()
+	line.color = UI.C_LINE_2
+	line.custom_minimum_size = Vector2(0, 1)
+	v.add_child(line)
+	# السطر الثاني: الأرقام المهمة، كل رقم زر يفتح قسمه
+	var r2 := UI.row()
+	r2.add_theme_constant_override("separation", 0)
+	v.add_child(r2)
 	stat_money = _pill_button("treasury", "", func(): _toggle_sheet(Tab.ECONOMY), "الخزينة، وصافي الشهر الماضي")
 	stat_stab = _pill_button("stability", "", func(): _toggle_sheet(Tab.STATE), "الاستقرار الداخلي من 100")
 	stat_war = _pill_button("war", "", func(): _toggle_sheet(Tab.DIPLOMACY), "الحروب الجارية")
-	for b in [stat_money, stat_stab, stat_war]:
-		rh.add_child(b)
-	_pin(right, Control.PRESET_TOP_RIGHT, Vector2(EDGE, EDGE))
-	hud.add_child(right)
-
-	var left := PanelContainer.new()
-	left.add_theme_stylebox_override("panel", UI.float_box(14, 4))
-	var lh := UI.row()
-	lh.add_theme_constant_override("separation", 2)
-	left.add_child(lh)
-	alerts_btn = _pill_button("bell", "", _toggle_alerts, "أمور تحتاج قرارك")
-	lh.add_child(alerts_btn)
-	var menu := _pill_button("menu", "", _show_menu, "القائمة: حفظ، تحميل، الوضع الداكن")
-	lh.add_child(menu)
-	_pin(left, Control.PRESET_TOP_LEFT, Vector2(EDGE, EDGE))
-	hud.add_child(left)
+	stat_money.clip_text = true
+	stat_money.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	stat_money.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stat_money.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	for b2 in [stat_money, stat_stab, stat_war]:
+		b2.custom_minimum_size = Vector2(0, 36)
+		b2.add_theme_font_size_override("font_size", 15)
+		b2.add_theme_constant_override("icon_max_width", 18)
+		r2.add_child(b2)
+	hud.add_child(top_bar)
 
 
-## الوقت تحت إبهام اليد اليسرى: التاريخ، وزر كبير للتشغيل، وزر السرعة بخمس درجات
+## ارتفاع الشريط العلوي (لوضع ما تحته)
+func _top_h() -> float:
+	return EDGE + top_bar.get_combined_minimum_size().y if top_bar != null else EDGE + 90.0
+
+
+## صف الوقت فوق أزرار الأقسام، تحت الإبهام: تشغيل كبير، وسرعة بخمس درجات، و«الشهر التالي»
 func _build_time_controls() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	time_row = row
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", UI.float_box(18, 6))
-	var v := UI.col()
-	v.add_theme_constant_override("separation", 2)
-	p.add_child(v)
-	lbl_date = UI.label("", UI.C_TEXT, 14)
-	lbl_date.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_date.autowrap_mode = TextServer.AUTOWRAP_OFF
-	v.add_child(lbl_date)
+	p.add_theme_stylebox_override("panel", UI.float_box(30, 5))
 	var h := UI.row()
-	h.add_theme_constant_override("separation", 6)
-	h.layout_direction = Control.LAYOUT_DIRECTION_LTR
-	v.add_child(h)
+	h.add_theme_constant_override("separation", 4)
+	p.add_child(h)
 	btn_pause = Button.new()
 	btn_pause.theme_type_variation = "PrimaryButton"
 	btn_pause.custom_minimum_size = Vector2(BIG, BIG)
@@ -333,10 +371,10 @@ func _build_time_controls() -> void:
 	btn_pause.add_theme_stylebox_override("pressed", round_h)
 	btn_pause.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	h.add_child(btn_pause)
-	# السرعة: زر يدور بين الخمس، مع خمس نقاط تبين المستوى. على الكمبيوتر أيضاً المفاتيح 1-5
+	# السرعة: زر يدور بين الخمس، مع خمس درجات تبين المستوى. على الكمبيوتر أيضاً المفاتيح 1-5
 	speed_btn = Button.new()
 	speed_btn.theme_type_variation = "FlatButton"
-	speed_btn.custom_minimum_size = Vector2(BIG + 10, BIG)
+	speed_btn.custom_minimum_size = Vector2(BIG, BIG)
 	speed_btn.tooltip_text = "السرعة: المس للتبديل (المفاتيح 1-5)"
 	speed_btn.pressed.connect(func(): _set_speed((Game.speed + 1) % Game.SPEEDS.size()))
 	var sv := VBoxContainer.new()
@@ -351,9 +389,10 @@ func _build_time_controls() -> void:
 	pips.alignment = BoxContainer.ALIGNMENT_CENTER
 	pips.add_theme_constant_override("separation", 3)
 	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pips.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	for i in Game.SPEEDS.size():
 		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(6, 6 + i * 2)
+		pip.custom_minimum_size = Vector2(5, 5 + i * 2)
 		pip.size_flags_vertical = Control.SIZE_SHRINK_END
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		speed_pips.append(pip)
@@ -361,8 +400,31 @@ func _build_time_controls() -> void:
 	sv.add_child(pips)
 	speed_btn.add_child(sv)
 	h.add_child(speed_btn)
-	_pin(p, Control.PRESET_BOTTOM_LEFT, Vector2(EDGE, EDGE))
-	hud.add_child(p)
+	# الشهر التالي: يجري الوقت بسرعة حتى أول الشهر القادم ثم يتوقف
+	# التاريخ فوق زر «الشهر التالي»: الوقت كله في مكان واحد
+	var mv := VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 0)
+	mv.alignment = BoxContainer.ALIGNMENT_CENTER
+	lbl_date = UI.label("", UI.C_TEXT, 14)
+	lbl_date.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lbl_date.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl_date.add_theme_font_override("font", _bold_font())
+	mv.add_child(lbl_date)
+	month_btn = UI.button("الشهر التالي", func(): Game.rush_month(), "step", "FlatButton")
+	month_btn.custom_minimum_size = Vector2(0, 34)
+	month_btn.add_theme_color_override("font_color", UI.C_ACCENT_TEXT)
+	month_btn.add_theme_color_override("icon_normal_color", UI.C_ACCENT_TEXT)
+	month_btn.add_theme_font_size_override("font_size", 14)
+	month_btn.add_theme_constant_override("icon_max_width", 16)
+	month_btn.tooltip_text = "يجري الوقت حتى أول الشهر القادم ثم يتوقف، أو عند أي حدث يحتاجك"
+	mv.add_child(month_btn)
+	h.add_child(mv)
+	row.add_child(p)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(sp)
+	bottom.add_child(row)
 
 
 ## الرصيف السفلي: خمسة أزرار كبيرة تفتح اللوحات، تحت إبهام اليد اليمنى
@@ -375,7 +437,8 @@ func _build_dock() -> void:
 	for t in DOCK_TABS:
 		var b := Button.new()
 		b.theme_type_variation = "FlatButton"
-		b.custom_minimum_size = Vector2(DOCK_W, BIG)
+		b.custom_minimum_size = Vector2(0, BIG)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.tooltip_text = TAB_TITLES[t]
 		b.toggle_mode = true
 		b.pressed.connect(_toggle_sheet.bind(t))
@@ -405,14 +468,13 @@ func _build_dock() -> void:
 		bs.content_margin_left = 5
 		bs.content_margin_right = 5
 		badge.add_theme_stylebox_override("normal", bs)
-		badge.position = Vector2(DOCK_W * 0.5 + 6, 3)
+		badge.position = Vector2(8, 3)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(v)
 		b.add_child(badge)
 		dock_btns[t] = b
 		h.add_child(b)
-	_pin(dock, Control.PRESET_BOTTOM_RIGHT, Vector2(EDGE, EDGE))
-	hud.add_child(dock)
+	bottom.add_child(dock)
 
 
 ## أدوات الخريطة على حافتها اليسرى: الطبقات، والتكبير والتصغير
@@ -434,7 +496,7 @@ func _build_map_tools() -> void:
 	var home := _pill_button("capital", "", _go_home, "العودة إلى دولتك")
 	home.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	v.add_child(home)
-	_pin(p, Control.PRESET_CENTER_LEFT, Vector2(EDGE, 0))
+	_pin(p, Control.PRESET_CENTER_RIGHT, Vector2(EDGE, -40))
 	hud.add_child(p)
 
 	# قائمة الطبقات: تظهر بجانب الزر
@@ -454,7 +516,7 @@ func _build_map_tools() -> void:
 		b.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		b.custom_minimum_size = Vector2(190, TOUCH - 4)
 		lv.add_child(b)
-	_pin(layers_pop, Control.PRESET_CENTER_LEFT, Vector2(EDGE + TOUCH + 18, 0))
+	_pin(layers_pop, Control.PRESET_CENTER_RIGHT, Vector2(EDGE + TOUCH + 18, -40))
 	hud.add_child(layers_pop)
 
 	# مفتاح الطبقة الحالية: يظهر فقط في الطبقات غير السياسية
@@ -465,7 +527,7 @@ func _build_map_tools() -> void:
 	legend_box = UI.col()
 	legend_box.add_theme_constant_override("separation", 4)
 	legend_panel.add_child(legend_box)
-	_pin(legend_panel, Control.PRESET_TOP_LEFT, Vector2(EDGE, EDGE + TOUCH + 22))
+	_pin(legend_panel, Control.PRESET_TOP_LEFT, Vector2(EDGE, 110.0))
 	hud.add_child(legend_panel)
 
 
@@ -492,12 +554,10 @@ func _build_context_card() -> void:
 	ctx_card = PanelContainer.new()
 	ctx_card.add_theme_stylebox_override("panel", UI.float_box(16, 12))
 	ctx_card.visible = false
-	ctx_card.custom_minimum_size = Vector2(CTX_W, 0)
 	ctx_box = UI.col()
 	ctx_box.add_theme_constant_override("separation", 8)
 	ctx_card.add_child(ctx_box)
-	_pin(ctx_card, Control.PRESET_BOTTOM_RIGHT, Vector2(EDGE, EDGE + BIG + 20))
-	hud.add_child(ctx_card)
+	bottom.add_child(ctx_card)
 
 
 ## اللوحة: ترتفع من الرصيف وتغطي جانب الشاشة فقط، فتبقى الخريطة ظاهرة للمس الدول
@@ -538,26 +598,10 @@ func _build_sheet() -> void:
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	head.add_child(sp)
-	# الأقسام داخل اللوحة: التنقل بينها بلمسة دون إغلاقها
-	var seg := PanelContainer.new()
-	var seg_st := StyleBoxFlat.new()
-	seg_st.bg_color = UI.C_SUNKEN
-	seg_st.set_corner_radius_all(10)
-	seg_st.set_content_margin_all(3)
-	seg.add_theme_stylebox_override("panel", seg_st)
-	var seg_row := HBoxContainer.new()
-	seg_row.add_theme_constant_override("separation", 2)
-	seg.add_child(seg_row)
-	for t in DOCK_TABS:
-		var sb := Button.new()
-		sb.text = DOCK_TITLES[t]
-		sb.theme_type_variation = "FlatButton"
-		sb.custom_minimum_size = Vector2(0, TOUCH - 6)
-		sb.add_theme_font_size_override("font_size", 14)
-		sb.pressed.connect(_open_tab.bind(t))
-		seg_btns[t] = sb
-		seg_row.add_child(sb)
-	head.add_child(seg)
+	# تكبير اللوحة لكامل الشاشة أو إرجاعها لنصفها
+	expand_btn = _pill_button("up", "", _toggle_sheet_full, "تكبير اللوحة أو تصغيرها")
+	expand_btn.custom_minimum_size = Vector2(TOUCH, TOUCH)
+	head.add_child(expand_btn)
 	var close := _pill_button("close", "", _close_sheet, "إغلاق")
 	close.custom_minimum_size = Vector2(TOUCH, TOUCH)
 	head.add_child(close)
@@ -603,50 +647,68 @@ func _build_sheet() -> void:
 	_on_tab_changed(0)
 
 
-## حجم اللوحة: من تحت الشريط العلوي إلى فوق الرصيف، بعرض نصف الشاشة تقريباً على جهة البداية
+## حجم اللوحة بالطول: بعرض الشاشة، من فوق أزرار الأقسام إلى نصف الشاشة، أو إلى تحت الشريط العلوي
 func _layout_sheet() -> void:
 	if sheet == null:
 		return
 	var vp := get_viewport_rect().size
-	var w := clampf(vp.x * 0.46, minf(420.0, vp.x - 24.0), 660.0)
-	sheet.anchor_left = 1.0
+	var dock_h := dock.get_combined_minimum_size().y if dock != null else BIG + 8.0
+	sheet.anchor_left = 0.0
 	sheet.anchor_right = 1.0
 	sheet.anchor_top = 0.0
 	sheet.anchor_bottom = 1.0
+	sheet.offset_left = EDGE
 	sheet.offset_right = -EDGE
-	sheet.offset_left = -EDGE - w
-	sheet.offset_top = EDGE + TOUCH + 16
-	# اللوحة المفتوحة تأخذ مكان الرصيف حتى آخر الشاشة، والأقسام في رأسها
-	sheet.offset_bottom = -EDGE
+	sheet.offset_bottom = -(EDGE + dock_h + 8.0)
+	sheet.offset_top = (_top_h() + 8.0) if sheet_full else vp.y * 0.38
+	if expand_btn != null:
+		# السهم للأعلى للتكبير وللأسفل للتصغير
+		expand_btn.icon = Icons.tex("down" if sheet_full else "up", UI.C_TEXT, 48)
+		expand_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
+func _toggle_sheet_full() -> void:
+	sheet_full = not sheet_full
+	_slide_sheet(0.0)
+
+
+## السحب من المقبض: للأعلى يكبّر اللوحة، وللأسفل يصغّرها ثم يغلقها
 func _on_sheet_drag(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				_sheet_drag_y = mb.global_position.y
+				_sheet_top0 = sheet.offset_top
 			elif _sheet_drag_y >= 0.0:
 				var dy := mb.global_position.y - _sheet_drag_y
 				_sheet_drag_y = -1.0
-				if dy > 50.0:
-					_close_sheet()
+				if dy < -40.0:
+					sheet_full = true
+					_slide_sheet(0.0)
+				elif dy > 60.0:
+					if sheet_full:
+						sheet_full = false
+						_slide_sheet(0.0)
+					else:
+						_close_sheet()
 				else:
 					_slide_sheet(0.0)
 	elif ev is InputEventMouseMotion and _sheet_drag_y >= 0.0:
-		var dy := maxf(0.0, (ev as InputEventMouseMotion).global_position.y - _sheet_drag_y)
-		sheet.position.y = _sheet_rest_y + dy
+		var dy := (ev as InputEventMouseMotion).global_position.y - _sheet_drag_y
+		sheet.offset_top = clampf(_sheet_top0 + dy, _top_h() + 8.0, get_viewport_rect().size.y - 160.0)
 
 
 func _slide_sheet(from_dy: float) -> void:
+	var from_top := sheet.offset_top + from_dy
 	_layout_sheet()
-	_sheet_rest_y = sheet.position.y
+	var to_top := sheet.offset_top
 	if _sheet_tw != null:
 		_sheet_tw.kill()
-	sheet.position.y = _sheet_rest_y + from_dy
+	sheet.offset_top = from_top
 	_sheet_tw = create_tween()
 	_sheet_tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_sheet_tw.tween_property(sheet, "position:y", _sheet_rest_y, 0.16)
+	_sheet_tw.tween_property(sheet, "offset_top", to_top, 0.18)
 
 
 ## الضغط على زر اللوحة المفتوحة يغلقها، وعلى غيرها يفتحها عليه
@@ -660,8 +722,8 @@ func _toggle_sheet(t: int) -> void:
 func _open_tab(i: int) -> void:
 	var was_open := sheet.visible
 	sheet.visible = true
-	dock.visible = false
 	ctx_card.visible = false
+	time_row.visible = false
 	alerts_pop.visible = false
 	layers_pop.visible = false
 	if tabs.current_tab != i:
@@ -669,7 +731,10 @@ func _open_tab(i: int) -> void:
 	else:
 		_on_tab_changed(i)
 	if not was_open:
-		_slide_sheet(sheet.size.y * 0.35)
+		sheet_full = false
+		_layout_sheet()
+		var vp_h := get_viewport_rect().size.y
+		_slide_sheet(vp_h - sheet.offset_top - 120.0)
 
 
 func _close_sheet() -> void:
@@ -683,7 +748,7 @@ func _close_sheet() -> void:
 	_sheet_tw.tween_property(sheet, "modulate:a", 0.0, 0.12)
 	_sheet_tw.tween_callback(func():
 		sheet.visible = false
-		dock.visible = true
+		time_row.visible = true
 		sheet.modulate.a = 1.0
 		_layout_sheet()
 		_sync_dock())
@@ -735,15 +800,20 @@ func _build_alerts() -> void:
 	alerts_pop = PanelContainer.new()
 	alerts_pop.add_theme_stylebox_override("panel", UI.float_box(14, 10))
 	alerts_pop.visible = false
-	alerts_pop.custom_minimum_size = Vector2(CTX_W + 20, 0)
 	advisor_box = UI.col()
 	advisor_box.add_theme_constant_override("separation", 6)
 	alerts_pop.add_child(advisor_box)
-	_pin(alerts_pop, Control.PRESET_TOP_LEFT, Vector2(EDGE, EDGE + TOUCH + 18))
+	alerts_pop.layout_direction = Control.LAYOUT_DIRECTION_RTL
+	alerts_pop.anchor_left = 0.0
+	alerts_pop.anchor_right = 1.0
+	alerts_pop.offset_left = EDGE
+	alerts_pop.offset_right = -EDGE
+	alerts_pop.offset_top = 110.0
 	hud.add_child(alerts_pop)
 
 
 func _toggle_alerts() -> void:
+	alerts_pop.offset_top = _top_h() + 8.0
 	alerts_pop.visible = not alerts_pop.visible
 	layers_pop.visible = false
 	if alerts_pop.visible:
@@ -1013,7 +1083,7 @@ func _show_context() -> void:
 		"units": _ctx_units(ctx["rid"], ctx["owner"], ctx["ids"])
 		"move": _ctx_move(ctx["rid"], ctx["ids"])
 	ctx_card.visible = ctx_box.get_child_count() > 0 and not sheet.visible
-	ctx_card.reset_size()
+	bottom.queue_sort()
 
 
 ## رأس البطاقة: العلم والاسم، وسطر فرعي، وزر إغلاق
@@ -1225,38 +1295,48 @@ func _ctx_move(rid: String, ids: Array) -> void:
 	_ctx_actions([["إلغاء", _cancel_move, "close"]])
 
 
+## الشاشة الأولى بالطول: العنوان، والصعوبة، ومتابعة آخر لعبة، ثم الدول قائمة بعرض الشاشة تُمرَّر
 func _build_start_screen() -> void:
 	start_screen = Control.new()
 	start_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(start_screen)
 	# الخريطة تظهر خافتة خلف الشاشة الأولى
 	var shade := ColorRect.new()
-	shade.color = Color(UI.C_INK, 0.86)
+	shade.color = Color(UI.C_INK, 0.96)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	start_screen.add_child(shade)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	start_screen.add_child(center)
+	var m := MarginContainer.new()
+	m.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 16)
+	m.add_theme_constant_override("margin_top", 28)
+	m.add_theme_constant_override("margin_bottom", 12)
+	start_screen.add_child(m)
 	var v := UI.col()
 	v.add_theme_constant_override("separation", 12)
-	v.custom_minimum_size = Vector2(minf(1040.0, get_viewport_rect().size.x - 32.0), 0)
-	center.add_child(v)
-	var eyebrow := UI.label("غرفة العمليات المشتركة · تشرين الأول 2026", UI.C_ACCENT, 15)
+	m.add_child(v)
+	var eyebrow := UI.label("غرفة العمليات المشتركة · تشرين الأول 2026", UI.C_ACCENT_TEXT, 14)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(eyebrow)
-	var t := UI.title("الحرب العالمية الثالثة", 34 if mobile else 46)
+	var t := UI.title("الحرب العالمية الثالثة", 30)
 	t.add_theme_color_override("font_color", UI.C_TEXT)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var sub := UI.label("العالم على حافة الحرب. اختر الدولة التي ستقودها: اقتصادها وجيشها وتحالفاتها وعداواتها كما هي اليوم تقريباً.", UI.C_MUTED)
+	var sub := UI.label("العالم على حافة الحرب. اختر الدولة التي ستقودها: اقتصادها وجيشها وتحالفاتها وعداواتها كما هي اليوم تقريباً.", UI.C_MUTED, 15)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 
-	# الصعوبة: أزرار متجاورة، ومتابعة آخر لعبة
+	if Game.has_save() or Game.has_save(Game.AUTOSAVE_PATH):
+		var cont := UI.button("متابعة آخر لعبة", func():
+			if not Game.load_game():
+				Game.load_game(Game.AUTOSAVE_PATH), "save", "PrimaryButton")
+		cont.custom_minimum_size = Vector2(0, TOUCH + 4)
+		v.add_child(cont)
+
+	# الصعوبة: ثلاثة أزرار بعرض متساوٍ
 	var top := UI.row()
-	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	var dl := UI.label("الصعوبة", UI.C_MUTED)
-	dl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	top.add_theme_constant_override("separation", 6)
+	var dl := _nowrap(UI.label("الصعوبة", UI.C_MUTED, 15))
 	top.add_child(dl)
 	var diff_group := ButtonGroup.new()
 	var diffs := ["سهل", "عادي", "صعب"]
@@ -1268,7 +1348,8 @@ func _build_start_screen() -> void:
 		b.button_group = diff_group
 		b.button_pressed = i == 1
 		b.tooltip_text = diff_tips[i]
-		b.custom_minimum_size = Vector2(80, 0)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, TOUCH)
 		diff_btns.append(b)
 		top.add_child(b)
 	var diff_value := func() -> int:
@@ -1276,32 +1357,25 @@ func _build_start_screen() -> void:
 			if diff_btns[i].button_pressed:
 				return i
 		return 1
-	if Game.has_save() or Game.has_save(Game.AUTOSAVE_PATH):
-		var gap := Control.new()
-		gap.custom_minimum_size = Vector2(24, 0)
-		top.add_child(gap)
-		top.add_child(UI.button("متابعة آخر لعبة", func():
-			if not Game.load_game():
-				Game.load_game(Game.AUTOSAVE_PATH), "save", "PrimaryButton"))
 	v.add_child(top)
 
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, minf(520.0, get_viewport_rect().size.y - 280.0))
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
 	touch_scroll.add(scroll)
 	var grid := GridContainer.new()
-	grid.columns = 2 if mobile else 4
+	grid.columns = 1 if get_viewport_rect().size.x < 640.0 else 3
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
 	scroll.add_child(grid)
 	var list: Array = Game.db.countries.duplicate()
 	list.sort_custom(func(a, b): return float(a["gdp"]) > float(b["gdp"]))
 	for c in list:
 		var cid: String = c["id"]
 		grid.add_child(_country_card(c, func(): Game.start_new(cid, diff_value.call())))
-	var note := UI.label("الأرقام تقديرات خاصة باللعبة من مصادر مفتوحة. سيناريو خيالي، والحدود حسب السيطرة الفعلية.", UI.C_MUTED, 13)
+	var note := UI.label("الأرقام تقديرات خاصة باللعبة من مصادر مفتوحة. سيناريو خيالي، والحدود حسب السيطرة الفعلية.", UI.C_MUTED, 12)
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(note)
 
@@ -1309,7 +1383,7 @@ func _build_start_screen() -> void:
 ## بطاقة دولة في الشاشة الأولى: الاسم والرمز والاقتصاد والحكم وأبرز ما يميزها
 func _country_card(c: Dictionary, cb: Callable) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 112)
+	b.custom_minimum_size = Vector2(0, 96)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.pressed.connect(cb)
 	var m := MarginContainer.new()
@@ -3636,14 +3710,14 @@ func _toast(text: String) -> void:
 	var h := UI.row()
 	h.add_child(Icons.icon_rect("check" if good else "info", col, 18))
 	var l := UI.label(text, UI.C_TEXT)
-	l.custom_minimum_size = Vector2(340, 0)
+	l.custom_minimum_size = Vector2(minf(340.0, get_viewport_rect().size.x - 80.0), 0)
 	h.add_child(l)
 	p.add_child(h)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(p)
 	p.reset_size()
 	var vp := get_viewport_rect().size
-	p.position = Vector2((vp.x - p.size.x) * 0.5, EDGE + TOUCH + 18.0)
+	p.position = Vector2((vp.x - p.size.x) * 0.5, _top_h() + 8.0)
 	var tw := create_tween()
 	tw.tween_interval(2.4)
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)

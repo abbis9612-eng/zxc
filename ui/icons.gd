@@ -45,6 +45,8 @@ const PATHS := {
 	"fast": '<path d="M4 6l7 6-7 6M13 6l7 6-7 6"/>',
 	"details": '<path d="M15 6l-6 6 6 6"/>',
 	"ship": '<path d="M2.5 15.5h19l-2.5 4.5H5z"/><path d="M6 15.5v-4h11v4M10 11.5V7h4v4.5M12 7V4"/>',
+	"up": '<path d="M6 15l6-6 6 6"/>',
+	"down": '<path d="M6 9l6 6 6-6"/>',
 	"move": '<path d="M4 12h15M14 6l6 6-6 6"/>',
 	"layers": '<path d="M12 3 2 8l10 5 10-5zM2 13l10 5 10-5M2 17.5l10 5 10-5"/>',
 	"range": '<circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
