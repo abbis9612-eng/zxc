@@ -112,7 +112,12 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	var interest := float(c["debt"]) * 0.04 / 12.0
 	# التجارة: أثر أسعار الموارد وفقدانها أو كسبها (الفرق عن وضع البداية)
 	var trade := float(c.get("trade_income", 0.0))
-	var balance := revenue + trade - tribute - military - civil - subsidies - research - interest
+	# مكافحة التجسس (نسبة سنوية من الناتج حسب المستوى)
+	var intel := 0.0
+	var levels: Array = sim.db.intel.get("counter_levels", [])
+	if not levels.is_empty():
+		intel = gdp * float(levels[clampi(int(c.get("counter_intel", 0)), 0, levels.size() - 1)]["cost_gdp"]) / 12.0
+	var balance := revenue + trade - tribute - military - civil - subsidies - research - interest - intel
 	c["treasury"] = float(c["treasury"]) + balance
 	if float(c["treasury"]) < 0.0:
 		c["debt"] = float(c["debt"]) - float(c["treasury"])
@@ -167,7 +172,7 @@ static func monthly(sim, c: Dictionary, dry: bool = false) -> void:
 	c["stability"] = clampf(float(c["stability"]) + (target - float(c["stability"])) * 0.12, 0.0, 100.0)
 
 	c["last_budget"] = {
-		"revenue": revenue, "trade": trade, "tribute": tribute, "military": military, "civil": civil,
+		"revenue": revenue, "trade": trade, "intel": intel, "tribute": tribute, "military": military, "civil": civil,
 		"subsidies": subsidies, "research": research, "interest": interest,
 		"balance": balance, "growth": growth, "stability_target": target,
 	}

@@ -2,6 +2,8 @@
 ## الكرة الأرضية ثلاثية الأبعاد تأتي في مرحلة لاحقة وتستبدل هذا الملف فقط.
 extends Control
 
+const Intel := preload("res://sim/intel.gd")
+
 signal country_selected(id: String)
 signal region_selected(rid: String)
 
@@ -346,12 +348,16 @@ func _fill_color(id: String) -> Color:
 	var base: Color
 	match layer:
 		Layer.POWER:
-			var p: float = sim.military_power(c)
+			# ضباب الحرب: القوة المعروضة تقدير حسب رؤيتك للدولة
+			var p: float = float(Intel.estimate(sim, pid, id, sim.military_power(c), "power")["value"])
 			base = Color("2a3340").lerp(Color("c0392b"), clampf(log(1.0 + p) / log(1.0 + 60000.0), 0.0, 1.0))
 		Layer.ECONOMY:
 			base = Color("2a3340").lerp(Color("27ae60"), clampf(log(1.0 + float(c["gdp"])) / log(30000.0), 0.0, 1.0))
 		Layer.STABILITY:
-			base = Color("c0392b").lerp(Color("27ae60"), float(c["stability"]) / 100.0)
+			if Intel.visibility(sim, pid, id) < 40.0:
+				base = Color("2a3340")   # غير معروف
+			else:
+				base = Color("c0392b").lerp(Color("27ae60"), float(c["stability"]) / 100.0)
 		_:
 			if id == pid:
 				base = C_PLAYER

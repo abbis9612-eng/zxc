@@ -62,7 +62,7 @@ func _run() -> void:
 	main._refresh()
 	await _shot("03c_basra_resources")
 	map.set_layer(0)
-	var names := ["state", "economy", "army", "research", "diplomacy", "news"]
+	var names := ["state", "economy", "army", "research", "diplomacy", "intel", "news"]
 	for t in names.size():
 		main.tabs.current_tab = t
 		main._refresh()
@@ -74,8 +74,11 @@ func _run() -> void:
 			(main.tabs.get_child(t) as ScrollContainer).scroll_vertical = 820
 			await _shot("04_tab_1b_market")
 	main._on_country_selected("SYR")
+	game.sim.player()["intel"]["SYR"] = 55.0
 	main._refresh()
 	await _shot("05_select_syria")
+	(main.tabs.get_child(4) as ScrollContainer).scroll_vertical = 900
+	await _shot("05b_covert_ops")
 	main._confirm_war("SYR")
 	await _shot("06_war_forecast")
 	# إعلان الحرب فعلاً ومتابعة المعارك

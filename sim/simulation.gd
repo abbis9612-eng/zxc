@@ -12,6 +12,7 @@ const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
+const Intel := preload("res://sim/intel.gd")
 
 const SAVE_VERSION := 1
 const START_YEAR := 2026
@@ -100,6 +101,7 @@ func new_game(player_id: String, seed_value: int = 12345, difficulty: int = 1) -
 		Economy.init_civil_spending(self, country(id))
 	for id in state["order"]:
 		Factions.init_country(self, country(id))
+		Intel.init_country(country(id))
 	add_news("بدأت اللعبة. أنت تقود %s." % country(player_id)["name_ar"], "info")
 
 
@@ -239,6 +241,7 @@ func _monthly() -> void:
 		Economy.monthly(self, country(id))
 	for id in alive_ids():
 		Factions.monthly(self, country(id))
+	Intel.monthly(self)
 	for id in alive_ids():
 		if not is_player(id):
 			AI.monthly(self, country(id))

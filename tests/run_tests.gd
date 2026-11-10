@@ -11,6 +11,7 @@ const Territory := preload("res://sim/territory.gd")
 const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Factions := preload("res://sim/factions.gd")
+const Intel := preload("res://sim/intel.gd")
 
 var db: DataDB
 var failures := 0
@@ -31,6 +32,7 @@ func _init() -> void:
 		test_market()
 		test_trade_pacts()
 		test_factions()
+		test_intel()
 		test_determinism()
 		test_save_load()
 		test_forecast_is_pure()
@@ -441,3 +443,82 @@ func test_factions() -> void:
 		if s.state["game_over"] != "":
 			break
 	check(s.state["game_over"] == "coup", "الانقلاب على اللاعب ينهي اللعبة")
+
+
+func test_intel() -> void:
+	print("الاستخبارات وضباب الحرب")
+	var s := new_sim("IRQ", 17)
+	check(Intel.visibility(s, "IRQ", "IRQ") == 100.0, "الدولة ترى نفسها كاملة")
+	check(Intel.visibility(s, "IRQ", "SYR") == 30.0, "الجار يُرى جزئياً (30)")
+	check(Intel.visibility(s, "IRQ", "JPN") == 15.0, "الدولة البعيدة شبه مجهولة (15)")
+	check(Intel.visibility(s, "FRA", "DEU") >= 80.0, "الحليف مكشوف (الناتو)")
+	# التقدير: نطاق يحوي القيمة غالباً، ودقيق مع شبكة قوية، وثابت خلال الشهر
+	var real: float = s.military_power(s.country("JPN"))
+	var e1 := Intel.estimate(s, "IRQ", "JPN", real, "power")
+	var e2 := Intel.estimate(s, "IRQ", "JPN", real, "power")
+	check(not e1["exact"] and float(e1["value"]) == float(e2["value"]), "التقدير غير دقيق وثابت خلال الشهر")
+	check(float(e1["hi"]) > float(e1["lo"]), "التقدير له نطاق خطأ")
+	# بناء شبكة
+	var p := s.player()
+	p["treasury"] = 100.0
+	check(Intel.build(s, "IRQ", "JPN") == "", "بناء شبكة تجسس في اليابان")
+	check(Intel.network(s, "IRQ", "JPN") > 5.0 and float(p["treasury"]) < 100.0, "الشبكة تكبر وتكلف المال")
+	check(Intel.can_build(s, "IRQ", "JPN") != "", "التوسيع مرة في الشهر")
+	p["intel"]["JPN"] = 70.0
+	var e3 := Intel.estimate(s, "IRQ", "JPN", real, "power")
+	check(e3["exact"], "شبكة 70 تكشف الأرقام الحقيقية")
+	# العمليات تحتاج شبكة كافية
+	check(Intel.can_run(s, "IRQ", "SYR", "sabotage") != "", "لا تخريب بلا شبكة")
+	p["intel"]["SYR"] = 100.0
+	s.country("SYR")["counter_intel"] = 0
+	var done := {"sabotage": false, "opposition": false, "cyber": false}
+	for i in 30:
+		for op in done:
+			if done[op]:
+				continue
+			p["treasury"] = 100.0
+			p["intel"]["SYR"] = 100.0
+			var street0 := float(s.country("SYR")["factions"]["street"]["sat"])
+			var gdp0 := float(s.country("SYR")["gdp"])
+			var broken0 := 0
+			for t in s.country("SYR")["facilities"]:
+				broken0 += int(s.country("SYR")["facilities"][t]["total"]) - int(s.country("SYR")["facilities"][t]["working"])
+			var r: Dictionary = Intel.run(s, "IRQ", "SYR", op)
+			if r["success"]:
+				var broken1 := 0
+				for t in s.country("SYR")["facilities"]:
+					broken1 += int(s.country("SYR")["facilities"][t]["total"]) - int(s.country("SYR")["facilities"][t]["working"])
+				match op:
+					"sabotage": done[op] = broken1 > broken0
+					"opposition": done[op] = float(s.country("SYR")["factions"]["street"]["sat"]) < street0
+					"cyber": done[op] = float(s.country("SYR")["gdp"]) < gdp0
+	check(done["sabotage"], "التخريب يعطل منشأة")
+	check(done["opposition"], "دعم المعارضة يغضب الشارع")
+	check(done["cyber"], "الهجوم السيبراني يضرب الاقتصاد")
+	# سرقة التقنية من دولة أحدث
+	p["intel"]["ISR"] = 100.0
+	var stole := false
+	for i in 30:
+		p["treasury"] = 100.0
+		p["intel"]["ISR"] = 100.0
+		var prog0 := float(p["research_progress"])
+		var r2: Dictionary = Intel.run(s, "IRQ", "ISR", "steal_tech")
+		if r2["success"] and float(p["research_progress"]) > prog0:
+			stole = true
+			break
+	check(stole, "سرقة تقنية من إسرائيل تقدم البحث")
+	# الكشف يضر العلاقات
+	var exposed := false
+	for i in 40:
+		p["treasury"] = 100.0
+		p["intel"]["JPN"] = 100.0
+		var rel0: float = s.relation("IRQ", "JPN")
+		var r3: Dictionary = Intel.run(s, "IRQ", "JPN", "cyber")
+		if r3["exposed"]:
+			exposed = s.relation("IRQ", "JPN") < rel0
+			break
+	check(exposed, "انكشاف العملية يخفض العلاقات")
+	# مكافحة التجسس تكلف وتخفض فرص الأعداء
+	var ch0 := Intel.op_chance(s, "SYR", "IRQ", "cyber")
+	Intel.set_counter(s, "IRQ", 3)
+	check(Intel.op_chance(s, "SYR", "IRQ", "cyber") < ch0, "مكافحة التجسس المشددة تخفض فرص العدو")

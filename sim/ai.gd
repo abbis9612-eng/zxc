@@ -3,6 +3,7 @@
 extends RefCounted
 
 const Factions := preload("res://sim/factions.gd")
+const Intel := preload("res://sim/intel.gd")
 
 const Market := preload("res://sim/market.gd")
 
@@ -26,6 +27,7 @@ static func monthly(sim, c: Dictionary) -> void:
 	var difficulty: int = int(sim.state.get("difficulty", 1))
 	_economy(sim, c)
 	_factions(sim, c)
+	_intel(sim, c)
 	_research(sim, c)
 	_armament(sim, c, difficulty)
 	_diplomacy(sim, c)
@@ -236,3 +238,35 @@ static func _factions(sim, c: Dictionary) -> void:
 			worst = f
 	if worst != "" and float(c["treasury"]) > Factions.appease_cost(sim, c) * 3.0:
 		Factions.appease(sim, c, worst)
+
+
+## الاستخبارات: شبكات في الأعداء والخصوم، وعمليات ضدهم
+static func _intel(sim, c: Dictionary) -> void:
+	var id: String = c["id"]
+	var targets: Array = sim.enemies_of(id)
+	var rival: String = c.get("rival", "")
+	if rival != "" and not (rival in targets):
+		targets.append(rival)
+	for oid in sim.alive_ids():
+		if oid != id and not (oid in targets) and sim.relation(id, oid) < -60.0:
+			targets.append(oid)
+	# مكافحة التجسس حسب الخطر
+	var lv := 1
+	if targets.size() >= 2 or not sim.wars_of(id).is_empty():
+		lv = 2
+	if float(c["treasury"]) < float(c["gdp"]) * 0.005:
+		lv = mini(lv, 1)
+	Intel.set_counter(sim, id, lv)
+	var budget_ok := float(c["treasury"]) > float(c["gdp"]) * 0.02
+	for t in targets.slice(0, 2):
+		var at_war: bool = not sim.war_between(id, t).is_empty()
+		var cap := 100.0 if at_war else 60.0
+		if budget_ok and Intel.network(sim, id, t) < cap and Intel.can_build(sim, id, t) == "" and sim.rng.chance(0.4):
+			Intel.build(sim, id, t)
+		if not budget_ok or not sim.rng.chance(0.15 if at_war else 0.04):
+			continue
+		var op := "sabotage" if at_war else "opposition"
+		if not at_war and sim.rng.chance(0.5):
+			op = "cyber"
+		if Intel.can_run(sim, id, t, op) == "":
+			Intel.run(sim, id, t, op)

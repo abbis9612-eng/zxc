@@ -12,9 +12,10 @@ const Logistics := preload("res://sim/logistics.gd")
 const Market := preload("res://sim/market.gd")
 const Sparkline := preload("res://ui/sparkline.gd")
 const Factions := preload("res://sim/factions.gd")
+const Intel := preload("res://sim/intel.gd")
 
-enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, NEWS }
-const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الأخبار"]
+enum Tab { STATE, ECONOMY, ARMY, RESEARCH, DIPLOMACY, INTEL, NEWS }
+const TAB_TITLES := ["الدولة", "الاقتصاد", "الجيش", "البحث", "الدبلوماسية", "الاستخبارات", "الأخبار"]
 const BRANCH_EXAMPLE := {"land": "armor", "air": "fighters", "sea": "ships", "missile": "missiles", "air_defense": "air_defense"}
 const NEWS_COLORS := {"war": "#e05a55", "nuke": "#ff7b29", "peace": "#4cc38a", "good": "#4cc38a", "world": "#7fb8e6", "info": "#c9d4dc"}
 
@@ -105,7 +106,7 @@ func _build_layout() -> void:
 		body.add_child(side)
 	else:
 		# في الاتجاه من اليمين لليسار يظهر العنصر الأول على اليمين
-		side.custom_minimum_size = Vector2(420, 0)
+		side.custom_minimum_size = Vector2(450, 0)
 		body.add_child(side)
 		body.add_child(map_area)
 
@@ -422,6 +423,7 @@ func _refresh() -> void:
 		Tab.ARMY: _fill_army()
 		Tab.RESEARCH: _fill_research()
 		Tab.DIPLOMACY: _fill_diplomacy()
+		Tab.INTEL: _fill_intel()
 		Tab.NEWS: _fill_news()
 	map.queue_redraw()
 
@@ -497,6 +499,11 @@ func _update_advisor() -> void:
 			if oid != pid and Market.can_sign_pact(s, pid, oid) == "":
 				items.append([30, "يمكنك توقيع اتفاقية تجارية مع %s." % s.country(oid)["name_ar"], Tab.DIPLOMACY, oid])
 				break
+	for oid in s.alive_ids():
+		if oid != pid and s.country(oid).get("rival", "") == pid and Intel.visibility(s, pid, oid) >= 50.0:
+			items.append([88, "استخباراتنا: %s تتهيأ ضدك." % s.country(oid)["name_ar"], Tab.INTEL, oid])
+	if not s.wars_of(pid).is_empty() and int(p.get("counter_intel", 0)) < 2:
+		items.append([62, "أنت في حرب ومكافحة التجسس ضعيفة: العدو قد يخرب منشآتك.", Tab.INTEL, ""])
 	if p.has("factions"):
 		for f in Factions.ids(s):
 			var sat := float(p["factions"][f]["sat"])
@@ -672,8 +679,8 @@ func _fill_economy() -> void:
 		var tr := float(b.get("trade", 0.0))
 		if absf(tr) >= 0.001:
 			eco_info.add_child(UI.kv("أثر أسعار الموارد والتجارة", ("+" if tr > 0.0 else "−") + UI.money(absf(tr)), UI.C_GOOD if tr > 0.0 else UI.C_BAD))
-		for row in [["الرواتب والخدمات", "civil"], ["صيانة الجيش", "military"], ["الدعم", "subsidies"], ["البحث", "research"], ["فوائد الدين", "interest"], ["جزية للمتبوع", "tribute"]]:
-			if float(b[row[1]]) > 0.0:
+		for row in [["الرواتب والخدمات", "civil"], ["صيانة الجيش", "military"], ["الدعم", "subsidies"], ["البحث", "research"], ["فوائد الدين", "interest"], ["مكافحة التجسس", "intel"], ["جزية للمتبوع", "tribute"]]:
+			if float(b.get(row[1], 0.0)) > 0.0:
 				eco_info.add_child(UI.kv(row[0], "−" + UI.money(float(b[row[1]])), UI.C_BAD))
 		var bal := float(b["balance"])
 		eco_info.add_child(UI.kv("الرصيد", UI.money(bal), UI.C_GOOD if bal >= 0.0 else UI.C_BAD))
@@ -828,8 +835,10 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	_region_card(box, id)
 	box.add_child(UI.kv("نظام الحكم", s.db.governments[c["government"]]["name_ar"]))
 	box.add_child(UI.kv("الناتج", UI.money(float(c["gdp"]))))
-	box.add_child(UI.kv("القوة العسكرية", "%s (قوتك %s)" % [s.fmt_num(s.military_power(c)), s.fmt_num(s.military_power(s.player()))]))
-	box.add_child(UI.kv("الاستقرار", str(int(c["stability"]))))
+	var vis := Intel.visibility(s, pid, id)
+	box.add_child(UI.kv("رؤيتك الاستخباراتية", "%d / 100%s" % [int(vis), "" if vis >= 60.0 else " (أرقام تقديرية)"], UI.C_GOOD if vis >= 60.0 else UI.C_ACCENT))
+	box.add_child(UI.kv("القوة العسكرية", "%s (قوتك %s)" % [_fmt_est(Intel.estimate(s, pid, id, s.military_power(c), "power")), s.fmt_num(s.military_power(s.player()))]))
+	box.add_child(UI.kv("الاستقرار", str(int(c["stability"])) if vis >= 40.0 else "غير معروف"))
 	box.add_child(UI.kv("العلاقة معك", "%d" % int(rel), UI.C_GOOD if rel >= 0.0 else UI.C_BAD))
 	box.add_child(UI.bar(rel + 100.0, 200.0, UI.C_GOOD if rel >= 0.0 else UI.C_BAD))
 	var al: Array = s.alliance_of(id)
@@ -840,7 +849,12 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	var inf := float(c["influence"].get(pid, 0.0))
 	if inf > 0.0:
 		box.add_child(UI.kv("نفوذك فيها", "%d / 100" % int(inf), UI.C_ACCENT))
-	box.add_child(UI.label("الأسلحة: جو الجيل %d، بر الجيل %d، دفاع جوي الجيل %d" % [int(c["tech"]["air"]), int(c["tech"]["land"]), int(c["tech"]["air_defense"])], UI.C_MUTED, 14))
+	if vis >= 40.0:
+		box.add_child(UI.label("الأسلحة: جو الجيل %d، بر الجيل %d، دفاع جوي الجيل %d" % [int(c["tech"]["air"]), int(c["tech"]["land"]), int(c["tech"]["air_defense"])], UI.C_MUTED, 14))
+	else:
+		box.add_child(UI.label("أجيال أسلحتها غير معروفة: تحتاج رؤية 40 على الأقل.", UI.C_MUTED, 14))
+	if vis >= 50.0 and c.get("rival", "") == pid:
+		box.add_child(UI.label("استخباراتنا: %s تعتبرك خصماً وعلاقتها بك تتدهور عمداً." % c["name_ar"], UI.C_BAD, 14))
 	_regions_section(box, id)
 
 	var at_war: bool = not s.war_between(pid, id).is_empty()
@@ -872,6 +886,7 @@ func _fill_selected(box: VBoxContainer, id: String) -> void:
 	else:
 		act.call("☮ عرض السلام", func(): _do(s.propose_peace(pid, id), "قُبل السلام."))
 		act.call("☢ ضربة نووية", func(): _confirm_nuke(id))
+	_covert_section(box, id)
 
 
 ## بطاقة المنطقة المختارة على الخريطة (إن كانت تخص هذه الدولة)
@@ -1087,6 +1102,122 @@ func _select_region(rid: String) -> void:
 	_dirty = true
 
 
+## نص تقدير: دقيق أو بنطاق خطأ
+func _fmt_est(e: Dictionary) -> String:
+	var s = Game.sim
+	if e["exact"]:
+		return s.fmt_num(e["value"])
+	return "≈ %s (%s–%s)" % [s.fmt_num(e["value"]), s.fmt_num(e["lo"]), s.fmt_num(e["hi"])]
+
+
+## شبكة التجسس والعمليات السرية في الدولة المختارة
+func _covert_section(box: VBoxContainer, id: String) -> void:
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var c: Dictionary = s.country(id)
+	box.add_child(UI.sep())
+	box.add_child(UI.title("الاستخبارات في %s" % c["name_ar"], 16))
+	var net := Intel.network(s, pid, id)
+	box.add_child(UI.kv("شبكة التجسس", "%d / 100" % int(net), UI.C_ACCENT))
+	box.add_child(UI.bar(net, 100.0, UI.C_ACCENT))
+	var bb := UI.button("توسيع الشبكة (%s)" % UI.money(Intel.network_cost(s, pid)), func():
+		_do(Intel.build(s, pid, id), "توسعت شبكة التجسس."))
+	bb.disabled = Intel.can_build(s, pid, id) != ""
+	bb.tooltip_text = Intel.can_build(s, pid, id)
+	box.add_child(bb)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	box.add_child(grid)
+	for op in s.db.intel["operations"]:
+		var o: Dictionary = s.db.intel["operations"][op]
+		var why: String = Intel.can_run(s, pid, id, op)
+		var label := "%s (شبكة %d)" % [o["name_ar"], int(o["min_network"])]
+		if why == "":
+			label = "%s: فرصة %d%%، %s" % [o["name_ar"], int(Intel.op_chance(s, pid, id, op) * 100.0), UI.money(Intel.op_cost(s, pid, op))]
+		var opid: String = op
+		var b := UI.button(label, func(): _run_op(id, opid))
+		b.disabled = why != ""
+		b.tooltip_text = (why if why != "" else o["desc_ar"])
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		grid.add_child(b)
+	box.add_child(UI.label("كل عملية قد تنكشف فتتدهور العلاقات وتخسر جزءاً من الشبكة.", UI.C_MUTED, 13))
+
+
+func _run_op(id: String, op: String) -> void:
+	var s = Game.sim
+	var r: Dictionary = Intel.run(s, s.state["player"], id, op)
+	var title: String = s.db.intel["operations"][op]["name_ar"]
+	if r.get("error", false):
+		_toast(r["text"])
+	else:
+		_show_dialog(("نجحت: " if r["success"] else "فشلت: ") + title, r["text"], [{"text": "حسناً"}])
+	_dirty = true
+
+
+## تبويب الاستخبارات: مكافحة التجسس وشبكاتك والتهديدات
+func _fill_intel() -> void:
+	var box: VBoxContainer = tab_boxes[Tab.INTEL]
+	UI.clear(box)
+	var s = Game.sim
+	var pid: String = s.state["player"]
+	var p: Dictionary = s.player()
+	box.add_child(UI.title("مكافحة التجسس", 18))
+	box.add_child(UI.label("تحمي من العمليات المعادية وتكشف شبكات الأعداء، بكلفة سنوية من الناتج.", UI.C_MUTED, 13))
+	var row := UI.row()
+	var levels: Array = s.db.intel["counter_levels"]
+	for i in levels.size():
+		var lv: Dictionary = levels[i]
+		var b := UI.button("%s (%s سنوياً)" % [lv["name_ar"], UI.money(float(p["gdp"]) * float(lv["cost_gdp"]))], func():
+			Intel.set_counter(s, pid, i)
+			_dirty = true)
+		b.toggle_mode = true
+		b.button_pressed = int(p.get("counter_intel", 0)) == i
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(b)
+	box.add_child(row)
+	var cur: Dictionary = levels[clampi(int(p.get("counter_intel", 0)), 0, 3)]
+	box.add_child(UI.label("الآن: تخفض نجاح عمليات الأعداء %d%%، وتكشف شبكاتهم بنسبة %.1f%% شهرياً." % [int(float(cur["block"]) * 50.0), float(cur["detect"]) * 100.0], UI.C_TEXT, 14))
+	box.add_child(UI.sep())
+	box.add_child(UI.title("شبكات التجسس", 18))
+	var nets: Dictionary = p.get("intel", {})
+	if nets.is_empty():
+		box.add_child(UI.label("لا شبكات بعد. اختر دولة على الخريطة ووسّع شبكتك فيها من تبويب الدبلوماسية.", UI.C_MUTED))
+	for t in nets:
+		var nm: String = s.country(t)["name_ar"]
+		var b := UI.button("%s: %d" % [nm, int(nets[t])], _select_country.bind(t))
+		b.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		box.add_child(b)
+		box.add_child(UI.bar(float(nets[t]), 100.0, UI.C_ACCENT))
+	box.add_child(UI.sep())
+	box.add_child(UI.title("ما نعرفه عن الأخطار", 18))
+	var any := false
+	for oid in s.alive_ids():
+		if oid == pid:
+			continue
+		var c: Dictionary = s.country(oid)
+		var vis := Intel.visibility(s, pid, oid)
+		if c.get("rival", "") == pid and vis >= 50.0:
+			box.add_child(UI.label("• %s تعتبرك خصماً وتدفع العلاقات نحو الحرب." % c["name_ar"], UI.C_BAD, 14))
+			any = true
+		elif s.relation(pid, oid) < -40.0:
+			box.add_child(UI.label("• %s معادية (%d). رؤيتك لها %d%s." % [c["name_ar"], int(s.relation(pid, oid)), int(vis), "" if vis >= 50.0 else ": نواياها غير واضحة"], UI.C_ACCENT, 14))
+			any = true
+	if not any:
+		box.add_child(UI.label("لا أخطار ظاهرة الآن.", UI.C_MUTED))
+
+
+func _select_country(id: String) -> void:
+	selected = id
+	selected_region = ""
+	map.selected = id
+	map.selected_region = ""
+	map.focus_country(id)
+	tabs.current_tab = Tab.DIPLOMACY
+	_dirty = true
+
+
 func _do(err: String, ok_text: String) -> void:
 	_toast(err if err != "" else ok_text)
 	_dirty = true
@@ -1104,7 +1235,17 @@ func _confirm_war(id: String) -> void:
 	var names := "، ".join(PackedStringArray(f["defenders"].map(func(x): return s.country(x)["name_ar"])))
 	var pct := func(v: float) -> String:
 		return "لا يوجد" if v < 0.0 else "%d%%" % int(v * 100.0)
+	# ضباب الحرب: كلما قلت رؤيتك للعدو اتسع هامش الخطأ في التوقع
+	var vis := Intel.visibility(s, pid, id)
+	var band := maxf(0.0, (1.0 - vis / 60.0) * 0.25)
+	if band > 0.0:
+		pct = func(v: float) -> String:
+			if v < 0.0:
+				return "لا يوجد"
+			return "%d%%–%d%%" % [int(clampf(v - band, 0.0, 1.0) * 100.0), int(clampf(v + band, 0.0, 1.0) * 100.0)]
 	var text := "سيدافع عنها: %s\n\nفرصتك المتوقعة في كل مرحلة:\n• الجو: %s\n• الضربات الصاروخية والمسيّرات: %s\n• البحر: %s\n• البر: %s\n\n" % [names, pct.call(f["air"]), pct.call(f["strike"]), pct.call(f["sea"]), pct.call(f["land"])]
+	if band > 0.0:
+		text += "رؤيتك لهذا العدو %d فقط: الأرقام تقديرية. ابنِ شبكة تجسس لتوقع أدق.\n" % int(vis)
 	if int(f["weeks_to_win"]) > 0:
 		text += "التقدير: نصر خلال %d أسبوعاً تقريباً." % int(f["weeks_to_win"])
 	else:

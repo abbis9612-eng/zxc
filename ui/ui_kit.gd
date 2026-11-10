@@ -73,6 +73,8 @@ static func make_theme(mobile: bool) -> Theme:
 	tab_sel.border_color = C_ACCENT
 	tab_sel.border_width_bottom = 2
 	tab_sel.set_content_margin_all(8)
+	tab_sel.content_margin_left = 5
+	tab_sel.content_margin_right = 5
 	var tab_un: StyleBoxFlat = tab_sel.duplicate()
 	tab_un.bg_color = Color(0.04, 0.06, 0.08)
 	tab_un.border_width_bottom = 0
@@ -82,6 +84,8 @@ static func make_theme(mobile: bool) -> Theme:
 	t.set_stylebox("panel", "TabContainer", panel)
 	t.set_color("font_selected_color", "TabContainer", C_ACCENT)
 	t.set_color("font_unselected_color", "TabContainer", C_MUTED)
+	t.set_font_size("font_size", "TabContainer", 15 if not mobile else 16)
+	t.set_constant("side_margin", "TabContainer", 0)
 
 	var bar_bg := StyleBoxFlat.new()
 	bar_bg.bg_color = Color(0.1, 0.13, 0.16)
