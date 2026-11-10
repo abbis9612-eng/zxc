@@ -181,16 +181,37 @@ static func theater(sim, id: String, allies_side: Array, enemies: Array) -> Dict
 # ------------------------------------------------------------------ الحركة
 
 ## المسار عبر مناطق تملكها الدولة أو حلفاؤها أو تابعوها (بحث بالعرض)
+## الدول التي يجوز للفرقة المرور بأرضها (هي وحلفاؤها وتابعوها) كمجموعة للبحث السريع، مرة في اليوم
+static func ok_set(sim, owner: String) -> Dictionary:
+	var key := "ok|" + owner
+	if sim._day_cache.has(key):
+		return sim._day_cache[key]
+	var ok := {owner: true}
+	for a in sim.allies(owner) + sim.vassals(owner):
+		ok[a] = true
+	sim._day_cache[key] = ok
+	return ok
+
+
 static func path(sim, owner: String, from: String, to: String) -> Array:
 	if from == to:
 		return [from]
-	var ok_owners: Array = [owner] + sim.allies(owner) + sim.vassals(owner)
+	var key := "path|%s|%s|%s" % [owner, from, to]
+	if sim._day_cache.has(key):
+		return sim._day_cache[key]
+	var out := _path_calc(sim, owner, from, to)
+	sim._day_cache[key] = out
+	return out
+
+
+static func _path_calc(sim, owner: String, from: String, to: String) -> Array:
+	var ok_owners: Dictionary = ok_set(sim, owner)
 	var prev := {from: ""}
 	var queue: Array = [from]
 	while not queue.is_empty():
 		var cur: String = queue.pop_front()
 		for n in sim.db.regions[cur]["neighbors"]:
-			if prev.has(n) or not (sim.state["regions"][n]["owner"] in ok_owners):
+			if prev.has(n) or not ok_owners.has(sim.state["regions"][n]["owner"]):
 				continue
 			prev[n] = cur
 			if n == to:
@@ -206,13 +227,13 @@ static func path(sim, owner: String, from: String, to: String) -> Array:
 
 ## كل المناطق التي تصلها الفرقة براً وعدد القفزات إليها (للعرض: تظليل الوجهات الممكنة)
 static func reachable(sim, owner: String, from: String) -> Dictionary:
-	var ok_owners: Array = [owner] + sim.allies(owner) + sim.vassals(owner)
+	var ok_owners: Dictionary = ok_set(sim, owner)
 	var hops := {from: 0}
 	var queue: Array = [from]
 	while not queue.is_empty():
 		var cur: String = queue.pop_front()
 		for n in sim.db.regions[cur]["neighbors"]:
-			if hops.has(n) or not (sim.state["regions"][n]["owner"] in ok_owners):
+			if hops.has(n) or not ok_owners.has(sim.state["regions"][n]["owner"]):
 				continue
 			hops[n] = int(hops[cur]) + 1
 			queue.append(n)
@@ -223,8 +244,8 @@ static func can_move(sim, d: Dictionary, to: String) -> String:
 	if not sim.state["regions"].has(to):
 		return "منطقة غير معروفة."
 	var owner: String = d["owner"]
-	var ok_owners: Array = [owner] + sim.allies(owner) + sim.vassals(owner)
-	if not (sim.state["regions"][to]["owner"] in ok_owners):
+	var ok_owners: Dictionary = ok_set(sim, owner)
+	if not ok_owners.has(sim.state["regions"][to]["owner"]):
 		return "لا يمكن التحرك إلى منطقة لا تسيطر عليها أنت أو حلفاؤك. الهجوم يتم بالمعارك."
 	if d["region"] == to:
 		return "الفرقة هناك بالفعل."
@@ -419,10 +440,7 @@ static func auto_deploy(sim, id: String) -> void:
 		if targets.is_empty():
 			targets = front_regions(sim, side, enemies)
 	else:
-		var hostile: Array = []
-		for oid in sim.alive_ids():
-			if oid != id and sim.relation(id, oid) < -30.0:
-				hostile.append(oid)
+		var hostile: Array = sim.relations_below(id, -30.0)
 		targets = front_regions(sim, [id], hostile)
 	var cap: String = Territory.capital_region(sim, id)
 	if sim.state["regions"].has(cap) and sim.state["regions"][cap]["owner"] == id and not (cap in targets):

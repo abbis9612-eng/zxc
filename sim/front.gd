@@ -108,7 +108,7 @@ static func _war_day(sim, w: Dictionary) -> void:
 				targets.append(n)
 		if targets.is_empty():
 			continue
-		var shares := _allocate(sim, d, targets, A if my_side == 1 else D)
+		var shares := _allocate(sim, d, targets, A if my_side == 1 else D, A if my_side == 0 else D)
 		for i in targets.size():
 			var t: String = targets[i]
 			var sh: float = shares[i]
@@ -180,12 +180,20 @@ static func _war_day(sim, w: Dictionary) -> void:
 		else:
 			r["control"] = clampf(ctl, 0.0, 100.0)
 	# المناطق التي لا يضغط عليها أحد تستعيد سيطرتها
-	for id in A + D:
-		for rid in sim.border_info()[0].get(id, []):
-			if not pressure.has(rid) and float(regs[rid].get("control", 100.0)) < 100.0:
-				regs[rid]["control"] = minf(100.0, float(regs[rid]["control"]) + float(conf["recover"]))
+	# (نتابع فقط المناطق التي نقصت سيطرتها في هذه الحرب بدل المرور على كل المناطق)
+	if not w.has("ctl"):
+		w["ctl"] = {}
+	for rid in front_order:
+		if float(regs[rid].get("control", 100.0)) < 100.0:
+			w["ctl"][rid] = true
+	for rid in w["ctl"].keys():
+		if not pressure.has(rid) and float(regs[rid].get("control", 100.0)) < 100.0:
+			regs[rid]["control"] = minf(100.0, float(regs[rid]["control"]) + float(conf["recover"]))
+		if float(regs[rid].get("control", 100.0)) >= 100.0:
+			regs[rid].erase("control")
+			w["ctl"].erase(rid)
 
-	_air_and_missiles(sim, w, A, D, hot, ops)
+	_air_and_missiles(sim, w, A, D, hot, ops, defenders)
 	if w.has("ops"):
 		w["ops"] = ops.filter(func(op): return regs[op["target"]]["owner"] in sim.enemies_of(op["side"]))
 	_flush_losses(sim, w)
@@ -197,7 +205,7 @@ static func _war_day(sim, w: Dictionary) -> void:
 
 ## توزيع ضغط الفرقة على مناطق العدو المجاورة: أمر الهجوم يأخذ كل القوة،
 ## وإلا فالهدف الأهم (تحرير الأرض ثم الأقرب لعاصمة العدو) يأخذ الحصة الأكبر
-static func _allocate(sim, d: Dictionary, targets: Array, enemies: Array) -> Array:
+static func _allocate(sim, d: Dictionary, targets: Array, enemies: Array, friends: Array) -> Array:
 	var shares: Array = []
 	shares.resize(targets.size())
 	shares.fill(0.0)
@@ -210,7 +218,7 @@ static func _allocate(sim, d: Dictionary, targets: Array, enemies: Array) -> Arr
 		shares[0] = 1.0
 		return shares
 	var owner: String = d["owner"]
-	var best := Territory._pick_target(sim, targets, [owner] + sim.allies(owner), enemies[0])
+	var best := Territory._pick_target(sim, targets, friends, enemies[0])
 	var push := float(cfg(sim)["push_share"])
 	var rest := (1.0 - push) / float(targets.size() - 1)
 	for i in targets.size():
@@ -251,9 +259,13 @@ static func _flush_losses(sim, w: Dictionary) -> void:
 	if hurt.is_empty():
 		return
 	var conf := cfg(sim)
+	var counts := {}
+	for d in sim.state["divisions"]:
+		if hurt.has(d["owner"]):
+			counts[d["owner"]] = int(counts.get(d["owner"], 0)) + 1
 	for id in hurt:
 		var c: Dictionary = sim.country(id)
-		var n := maxf(1.0, float(Divisions.of(sim, id).size()))
+		var n := maxf(1.0, float(counts.get(id, 1)))
 		var frac: float = float(hurt[id]) / n * float(conf["stock_loss"])
 		var rec_key := "day_loss_a" if id in w["attackers"] else "day_loss_d"
 		if not w.has(rec_key):
@@ -272,7 +284,7 @@ static func _active_ops(sim, w: Dictionary) -> Array:
 	return w.get("ops", []).filter(func(op): return int(op["until"]) >= day)
 
 
-static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: String, ops: Array = []) -> void:
+static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: String, ops: Array = [], by_region: Dictionary = {}) -> void:
 	if hot == "" and ops.is_empty():
 		return
 	var conf := cfg(sim)
@@ -309,7 +321,7 @@ static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: Strin
 				if shot > 0:
 					Arsenal.remove(lead, "fighters", float(shot))
 				# الدعم الجوي القريب يضرب الفرق في المنطقة
-				_damage_region(sim, w, target, them, float(conf["air_cas"]) * float(op_sup.get("cas_mult", 1.0)) * sup * float(conf["hit_damage"]) * float(mini(n, 40)))
+				_damage_region(sim, w, target, them, by_region, float(conf["air_cas"]) * float(op_sup.get("cas_mult", 1.0)) * sup * float(conf["hit_damage"]) * float(mini(n, 40)))
 				_event(sim, {"kind": "sortie", "war_id": w["id"], "side": mine[0], "from": base, "to": target, "n": n, "lost": shot, "day": day})
 		# رشقة صواريخ
 		var missiles := float(lead["military"].get("missiles", 0.0))
@@ -323,7 +335,7 @@ static func _air_and_missiles(sim, w: Dictionary, A: Array, D: Array, hot: Strin
 					intercepted += 1
 			Arsenal.remove(lead, "missiles", float(fired))
 			var hits := fired - intercepted
-			_damage_region(sim, w, target, them, float(hits) * float(conf["hit_damage"]))
+			_damage_region(sim, w, target, them, by_region, float(hits) * float(conf["hit_damage"]))
 			var from := _launch_site(sim, mine, target)
 			_event(sim, {"kind": "salvo", "war_id": w["id"], "side": mine[0], "from": from, "to": target, "fired": fired, "intercepted": intercepted, "day": day})
 
@@ -335,7 +347,34 @@ static func _their_hot(sim, near: String, them: Array) -> String:
 	return ""
 
 
+## أقرب قاعدة جوية عاملة في المدى: قائمة القواعد في المدى مرتبة بالمسافة تُحفظ حتى تتغير الخرائط،
+## ثم نأخذ أول قاعدة غير معطلة اليوم
 static func _nearest_base(sim, side: Array, target: String) -> String:
+	var lead: Dictionary = sim.country(side[0])
+	var key := "bases|%s|%s|%d" % [",".join(PackedStringArray(side)), target, int(lead["tech"]["air"])]
+	var gc: Dictionary = sim.geo_cache()
+	if not gc.has(key):
+		gc[key] = _bases_in_range(sim, side, target)
+	for rid in gc[key]:
+		if Territory.facility_working(sim, rid, "airbase"):
+			return rid
+	return ""
+
+
+static func _bases_in_range(sim, side: Array, target: String) -> Array:
+	var lead: Dictionary = sim.country(side[0])
+	var rng_km: float = Divisions.range_km(sim, "fighters", int(lead["tech"]["air"]))
+	var cand: Array = []
+	for rid in Territory.facility_regions(sim, "airbase"):
+		if sim.state["regions"][rid]["owner"] in side:
+			var dd: float = Divisions.dist_km(sim, rid, target)
+			if dd <= rng_km:
+				cand.append([dd, rid])
+	cand.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+	return cand.map(func(x): return x[1])
+
+
+static func _unused_nearest_base_calc(sim, side: Array, target: String) -> String:
 	var lead: Dictionary = sim.country(side[0])
 	var rng_km: float = Divisions.range_km(sim, "fighters", int(lead["tech"]["air"]))
 	var best := ""
@@ -349,6 +388,14 @@ static func _nearest_base(sim, side: Array, target: String) -> String:
 
 
 static func _launch_site(sim, side: Array, target: String) -> String:
+	var key := "launch|%s|%s" % [side[0], target]
+	var gc: Dictionary = sim.geo_cache()
+	if not gc.has(key):
+		gc[key] = _launch_site_calc(sim, side, target)
+	return gc[key]
+
+
+static func _launch_site_calc(sim, side: Array, target: String) -> String:
 	var best := ""
 	var bd := INF
 	for rid in sim.border_info()[0].get(side[0], []):
@@ -360,12 +407,12 @@ static func _launch_site(sim, side: Array, target: String) -> String:
 
 
 ## الضربات تصيب الفرق داخل المنطقة المستهدفة (بالتساوي)
-static func _damage_region(sim, w: Dictionary, rid: String, them: Array, total: float) -> void:
+static func _damage_region(sim, w: Dictionary, rid: String, them: Array, by_region: Dictionary, total: float) -> void:
 	if total <= 0.0:
 		return
 	var inside: Array = []
-	for d in sim.state["divisions"]:
-		if d["region"] == rid and d["owner"] in them and int(d["eta"]) < 0:
+	for d in by_region.get(rid, []):
+		if d["owner"] in them:
 			inside.append(d)
 	if inside.is_empty():
 		var r: Dictionary = sim.state["regions"][rid]

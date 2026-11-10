@@ -33,6 +33,8 @@ var _acc: float = 0.0
 var rushing := false
 var _rush_month := -1
 const RUSH_STEP := 0.02
+## أقصى وقت للمحاكاة في الإطار الواحد (ميكروثانية): يترك وقتاً للرسم حتى 60 إطاراً في الثانية
+const SIM_BUDGET_US := 8000
 
 
 func _ready() -> void:
@@ -114,19 +116,29 @@ func set_speed(s: int) -> void:
 	speed_changed.emit(speed)
 
 
+var _autosave_pending := false
+
+
 func _process(delta: float) -> void:
+	if _autosave_pending and is_running():
+		_autosave_pending = false
+		save_game(AUTOSAVE_PATH)
+		return
 	if paused or not is_running() or sim.state["game_over"] != "":
 		return
 	_acc += delta
 	var step: float = RUSH_STEP if rushing else float(SPEEDS[speed])
-	# حد أقصى لعدد الأيام في الإطار الواحد حتى لا يتجمد الجهاز الضعيف
+	# ميزانية وقت للمحاكاة في كل إطار: على الجهاز الضعيف يتباطأ الزمن قليلاً بدل أن تنهار الإطارات
+	var t0 := Time.get_ticks_usec()
 	var guard := 0
 	while _acc >= step and guard < 10:
 		_acc -= step
 		guard += 1
 		step_day()
-		if paused:
+		if paused or Time.get_ticks_usec() - t0 > SIM_BUDGET_US:
 			break
+	# لا نراكم ديناً من الأيام: ما لم يُحسب في هذا الإطار يُترك
+	_acc = minf(_acc, step * 2.0)
 
 
 ## الجزء المنقضي من اليوم الحالي (0..1): للعرض فقط، حتى تتحرك الفرق بسلاسة بين الأيام
@@ -145,7 +157,7 @@ func step_day() -> void:
 		month_passed.emit()
 		if rushing:
 			set_paused(true)
-		save_game(AUTOSAVE_PATH)  # حفظ تلقائي كل شهر
+		_autosave_pending = true  # حفظ تلقائي كل شهر، في الإطار التالي حتى لا يجتمع مع حساب الشهر
 	if not sim.pending.is_empty():
 		var evs: Array = sim.pending.duplicate()
 		sim.pending.clear()

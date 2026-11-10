@@ -52,6 +52,19 @@ var _ai_cache_on := false
 var _power_cache: Dictionary = {}
 var _allies_cache: Dictionary = {}
 var _order_index: Dictionary = {}
+## ذاكرات مؤقتة مشتقة (لا تُحفظ): مناطق كل نوع منشأة، وما يُحسب مرة في اليوم
+var _fac_cache: Dictionary = {}
+var _day_cache: Dictionary = {}
+## ذاكرة جغرافية تعتمد على ملكية المناطق فقط: تُفرغ عند انتقال أي منطقة (نتيجتها دالة صافية للحالة)
+var _geo_cache: Dictionary = {}
+var _geo_ver := -1
+
+
+func geo_cache() -> Dictionary:
+	if _geo_ver != map_version:
+		_geo_cache = {}
+		_geo_ver = map_version
+	return _geo_cache
 
 
 func _init(database: DataDB = null) -> void:
@@ -180,6 +193,8 @@ func relations_below(id: String, limit: float) -> Array:
 	var key := "below%f" % limit
 	if _ai_cache_on and _allies_cache.has(key):
 		return _allies_cache[key].get(id, [])
+	if _day_cache.has(key):
+		return _day_cache[key].get(id, [])
 	var by: Dictionary = {}
 	var rels: Dictionary = state["relations"]
 	for k in rels:
@@ -196,6 +211,7 @@ func relations_below(id: String, limit: float) -> Array:
 		by[c].sort_custom(func(x, y): return order_index(x) < order_index(y))
 	if _ai_cache_on:
 		_allies_cache[key] = by
+	_day_cache[key] = by
 	return by.get(id, []).duplicate()
 
 
@@ -266,6 +282,7 @@ func advance_day() -> void:
 	if state["game_over"] != "":
 		return
 	state["day"] = int(state["day"]) + 1
+	_day_cache = {}
 	var d: Dictionary = state["date"]
 	var day := int(d["d"]) + 1
 	var month := int(d["m"])
@@ -284,14 +301,18 @@ func advance_day() -> void:
 	Development.daily(self)
 	Divisions.daily(self)
 	Front.daily(self)
+	_staggered_monthly(day)
 	if int(state["day"]) % 7 == 0:
 		# توزيع الفرق: الذكاء الاصطناعي دائماً، واللاعب إن اختار التوزيع التلقائي.
 		# في الحرب أسبوعياً، وفي السلم كل أربعة أسابيع
-		var monthly_check := int(state["day"]) % 28 == 0
-		for id in alive_ids():
+		# في السلم كل دولة في أسبوعها من الأسابيع الأربعة حتى لا يتجمع الحساب في يوم واحد
+		var week := (int(state["day"]) / 7) % 4
+		var alive := alive_ids()
+		for i in alive.size():
+			var id: String = alive[i]
 			if is_player(id) and not country(id).get("auto_deploy", true):
 				continue
-			if monthly_check or not wars_of(id).is_empty():
+			if i % 4 == week or not wars_of(id).is_empty():
 				Divisions.auto_deploy(self, id)
 		for w in state["wars"].duplicate():
 			if w.get("active", true):
@@ -306,6 +327,29 @@ static func days_in_month(m: int, y: int) -> int:
 	if m == 2 and ((y % 4 == 0 and y % 100 != 0) or y % 400 == 0):
 		return 29
 	return MONTH_DAYS[m - 1]
+
+
+## الفئات والذكاء الاصطناعي: كل دولة في يومها من الشهر (1 إلى 28) بترتيب state["order"]،
+## حتى لا يتجمع حساب 168 دولة في يوم واحد فيتقطع العرض
+func _staggered_monthly(dom: int) -> void:
+	if dom > 28:
+		return
+	var alive := alive_ids()
+	var batch: Array = []
+	for i in alive.size():
+		if i % 28 == dom - 1:
+			batch.append(alive[i])
+	if batch.is_empty():
+		return
+	for id in batch:
+		Factions.monthly(self, country(id))
+	_power_cache = {}
+	_allies_cache = {}
+	_ai_cache_on = true
+	for id in batch:
+		if not is_player(id) and not country(id).get("annexed", false):
+			AI.monthly(self, country(id))
+	_ai_cache_on = false
 
 
 func _monthly() -> void:
@@ -327,16 +371,7 @@ func _monthly() -> void:
 	Market.monthly(self)               # الأسعار ودخل التجارة قبل الميزانيات
 	for id in alive_ids():
 		Economy.monthly(self, country(id))
-	for id in alive_ids():
-		Factions.monthly(self, country(id))
 	Intel.monthly(self)
-	_power_cache = {}
-	_allies_cache = {}
-	_ai_cache_on = true
-	for id in alive_ids():
-		if not is_player(id):
-			AI.monthly(self, country(id))
-	_ai_cache_on = false
 	_relations_drift()
 	_border_incidents()
 	_random_events()
@@ -550,6 +585,10 @@ func make_peace(w: Dictionary, text: String = "", keep_loser: String = "", keep_
 	if not w.get("active", true):
 		return
 	Territory.revert_war_regions(self, w, keep_loser, keep_side)
+	# انتهى القتال: كل المناطق تعود لسيطرة كاملة
+	for rid in w.get("ctl", {}):
+		state["regions"][rid].erase("control")
+	w["ctl"] = {}
 	w["active"] = false
 	# هدنة سنتين بين أطراف الحرب
 	for a in w["attackers"]:

@@ -155,7 +155,19 @@ var _grid_node: Node2D
 var _chunks: Array = []
 const CHUNK_DEG := 30.0
 var _fx: Node2D
-var _over: Control
+var _over: Node2D
+## _anim: ما يتحرك كل إطار (الفرق المتحركة، المعركة، النبض، اللمس). خفيف ويُرسم بمعدل الشاشة.
+var _anim: Node2D
+## الطبقة الثابتة تُرسم عند تغيّر شيء فقط؛ أثناء التحريك نزيحها ونكبرها بدل إعادة رسمها
+var _st_c0 := Vector2.ZERO
+var _st_s0 := 1.0
+var _st_t := -10.0
+var _st_stale := false
+var _view_t := 0.0
+var _pulses: Array = []        # عناصر الطبقة الثابتة التي تنبض: [نوع، مستطيل/نقطة، حجم]
+var _moving: Array = []        # مجموعات الفرق المتحركة (تُرسم في طبقة الحركة)
+var _chip_hits_anim: Array = []
+var _sb_cache := {}
 var _cv: CanvasItem = self
 var _world_dirty := true
 var _last_sig := ""
@@ -194,11 +206,12 @@ func _ready() -> void:
 	_fx = Node2D.new()
 	_fx.draw.connect(_draw_fx_layer)
 	add_child(_fx)
-	_over = Control.new()
-	_over.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_over = Node2D.new()
 	_over.draw.connect(_draw_over_layer)
 	add_child(_over)
+	_anim = Node2D.new()
+	_anim.draw.connect(_draw_anim_layer)
+	add_child(_anim)
 	_bfx = BattleFx.new(self)
 	_zoom = 2.2
 	resized.connect(func():
@@ -214,7 +227,7 @@ func refresh() -> void:
 		_last_sig = sig
 		_world_dirty = true
 	_fx.queue_redraw()
-	_over.queue_redraw()
+	_st_stale = true
 
 
 func _world_sig() -> String:
@@ -233,6 +246,7 @@ func _world_sig() -> String:
 func _redraw_light() -> void:
 	_fx.queue_redraw()
 	_over.queue_redraw()
+	_anim.queue_redraw()
 
 
 ## تحريك الخريطة أو تكبيرها: نحرك طبقة الأرض المرسومة مسبقاً بدل إعادة رسمها
@@ -247,7 +261,33 @@ func _apply_view() -> void:
 	# سماكة الخطوط محسوبة لتكبير معين: إن ابتعدنا عنه كثيراً نعيد رسم الأرض
 	if _world_scale <= 0.0 or s / _world_scale > 1.45 or s / _world_scale < 0.7 or (s >= 4.0) != _world_internal:
 		_world_dirty = true
-	_redraw_light()
+	_place_static()
+	_view_t = _time
+	_st_stale = true
+	_anim.queue_redraw()
+
+
+## نقل الطبقة الثابتة من العرض الذي رُسمت عليه إلى العرض الحالي (إزاحة وتكبير بلا إعادة رسم)
+func _place_static() -> void:
+	if _over == null or _st_s0 <= 0.0:
+		return
+	var s := _scale()
+	var k := s / _st_s0
+	_over.scale = Vector2(k, k)
+	_over.position = size * 0.5 * (1.0 - k) + (_st_c0 - _center) * s
+
+
+func _static_k() -> float:
+	return _over.scale.x if _over != null else 1.0
+
+
+## نقطة على الشاشة الآن ← موضعها في الطبقة الثابتة كما رُسمت
+func _to_static(p: Vector2) -> Vector2:
+	return (p - _over.position) / maxf(0.0001, _over.scale.x)
+
+
+func _from_static(p: Vector2) -> Vector2:
+	return p * _over.scale.x + _over.position
 
 
 func _load_world() -> void:
@@ -457,10 +497,15 @@ func _process(delta: float) -> void:
 				anim = true
 				break
 	if anim:
-		_anim_acc += delta
-		if _anim_acc >= 0.033:
-			_anim_acc = 0.0
-			_redraw_light()
+		_fx.queue_redraw()
+		_anim.queue_redraw()
+	# الطبقة الثابتة: بعد توقف التحريك، أو إن ابتعد التكبير كثيراً، وبحد أقصى 4 مرات في الثانية
+	if _st_stale:
+		var k := _static_k()
+		var idle := _time - _view_t > 0.12
+		if (idle and _time - _st_t > 0.25) or k > 1.3 or k < 0.77:
+			_st_stale = false
+			_over.queue_redraw()
 	# الأرض: حين تتغير، وبحد أقصى 4 مرات في الثانية أثناء جريان الوقت
 	if _world_dirty and _time - _world_t >= 0.25:
 		_world_t = _time
@@ -605,31 +650,70 @@ func _draw_fx_layer() -> void:
 ## طبقة النصوص والرقائق بإحداثيات الشاشة
 func _draw_over_layer() -> void:
 	_cv = _over
+	_st_c0 = _center
+	_st_s0 = _scale()
+	_st_t = _time
+	_over.position = Vector2.ZERO
+	_over.scale = Vector2.ONE
 	if sim != null:
 		_labels = []
 		_chip_hits = []
 		_strait_hits = []
+		_pulses = []
+		_moving = []
 		_aff_cache = {}
+		_vis_cache = {}
 		if int(sim.state["day"]) != _look_day:
 			_look_day = int(sim.state["day"])
 			_look_cache = {}
-		_vis_cache = {}
 		# الأهم يُرسم أولاً ويحجز مكانه: الوحدات، ثم العواصم، ثم المناطق
 		_draw_wars_markers()
-		_draw_attack_orders()
 		_draw_divisions()
 		_draw_control_bars()
-		_draw_move_preview()
 		_draw_capitals()
-		_bfx.draw_ground(_over)
-		_bfx.draw_fires(_over)
-		_bfx.draw_air(_over)
 		_draw_facilities()
 		_draw_region_labels()
 		_draw_straits()
-	_draw_ping()
 	_draw_scale_bar()
 	_cv = self
+	_anim.queue_redraw()
+
+
+## طبقة الحركة بإحداثيات الشاشة الحالية: تُرسم كل إطار أثناء الحرب أو الحركة
+func _draw_anim_layer() -> void:
+	_cv = _anim
+	_chip_hits_anim = []
+	if sim != null:
+		_draw_pulses()
+		_draw_attack_orders()
+		_draw_moving()
+		_draw_move_preview()
+		_bfx.draw_ground(_anim)
+		_bfx.draw_fires(_anim)
+		_bfx.draw_air(_anim)
+	_draw_ping()
+	_cv = self
+
+
+## نبض عناصر الطبقة الثابتة (علامات الحرب، تحديد الفرق، المناطق على وشك السقوط) بموضعها الحالي
+func _draw_pulses() -> void:
+	var k := _static_k()
+	for pz in _pulses:
+		match String(pz[0]):
+			"war":
+				var pulse := 0.55 + 0.45 * sin(_time * 3.0)
+				var c := _from_static(pz[1])
+				var rr: float = float(pz[2]) * k
+				_cv.draw_arc(c, rr + 4.0 + pulse * 4.0, 0.0, TAU, 32, Color(pal("FRONT"), 0.6 * (1.0 - pulse)), 2.0, true)
+			"ring":
+				var r: Rect2 = pz[1]
+				var rc := Rect2(_from_static(r.position), r.size * k)
+				var ring := 0.5 + 0.5 * sin(_time * 6.0)
+				_cv.draw_style_box(_ring_box(float(pz[2]) * k, ring), rc.grow(3 + ring * 2))
+			"bar":
+				var r2: Rect2 = pz[1]
+				var rc2 := Rect2(_from_static(r2.position), r2.size * k)
+				_cv.draw_rect(rc2.grow(2.5 + sin(_time * 8.0) * 1.5), Color(pal("FRONT"), 0.8), false, 1.5)
 
 
 func _war_pairs() -> Dictionary:
@@ -847,18 +931,21 @@ func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool
 	var fill: Color = pal({"mine": "U_MINE", "friend": "U_FRIEND", "hostile": "U_HOSTILE"}.get(aff, "U_NEUTRAL"))
 	var ink: Color = pal("U_MINE_TEXT") if aff == "mine" else pal("U_TEXT")
 	# ظل وإطار حتى تبرز الرقاقة فوق أي لون للخريطة
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.set_corner_radius_all(int(h * 0.3))
-	sb.border_color = pal("OUTLINE") if not sel else C_SELECT
-	sb.set_border_width_all(2 if sel else 1)
-	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_size = 3
-	sb.shadow_offset = Vector2(0, 1)
-	sb.anti_aliasing = true
-	if moving:
-		sb.bg_color = fill.lerp(Color.WHITE, 0.12)
-	_cv.draw_style_box(sb, r)
+	var sk := "%s|%d|%d|%d" % [aff, int(sel), int(moving), int(h)]
+	if not _sb_cache.has(sk):
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = fill
+		sb.set_corner_radius_all(int(h * 0.3))
+		sb.border_color = pal("OUTLINE") if not sel else C_SELECT
+		sb.set_border_width_all(2 if sel else 1)
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_size = 3
+		sb.shadow_offset = Vector2(0, 1)
+		sb.anti_aliasing = true
+		if moving:
+			sb.bg_color = fill.lerp(Color.WHITE, 0.12)
+		_sb_cache[sk] = sb
+	_cv.draw_style_box(_sb_cache[sk], r)
 	_cv.draw_texture_rect(Icons.tex(icon, ink, 48), Rect2(r.position + Vector2(8, (h - icon_w) * 0.5), Vector2(icon_w, icon_w)), false)
 	# الجيل: نقاط صغيرة فوق الرقاقة (جيل 1 إلى 5)
 	if gen > 0:
@@ -874,8 +961,11 @@ func _draw_chip(center: Vector2, aff: String, n: int, strength: float, sel: bool
 	var sc: Color = UI.C_GOOD if strength >= 0.7 else (UI.C_WARN if strength >= 0.45 else UI.C_BAD)
 	_cv.draw_line(bp, bp + Vector2(bw * clampf(strength, 0.0, 1.0), 0), sc.lightened(0.15), 3.0)
 	if sel:
-		var ring := 0.5 + 0.5 * sin(_time * 6.0)
-		_cv.draw_style_box(_ring_box(h, ring), r.grow(3 + ring * 2))
+		if _cv == _over:
+			_pulses.append(["ring", r, h])
+		else:
+			var ring := 0.5 + 0.5 * sin(_time * 6.0)
+			_cv.draw_style_box(_ring_box(h, ring), r.grow(3 + ring * 2))
 	return r
 
 
@@ -989,8 +1079,28 @@ func _draw_control_bars() -> void:
 		_cv.draw_rect(Rect2(r.position, Vector2(w * ctl, h)), own_col)
 		# نبضة على طرف الخط حين تكون المنطقة على وشك السقوط
 		if ctl < 0.3:
-			_cv.draw_rect(r.grow(2.5 + sin(_time * 8.0) * 1.5), Color(pal("FRONT"), 0.8), false, 1.5)
+			_pulses.append(["bar", r])
 		_labels.append(r.grow(3))
+
+
+## الفرق المتحركة: تنزلق على طريقها كل إطار
+func _draw_moving() -> void:
+	var screen := Rect2(Vector2(-40, -40), size + Vector2(80, 80))
+	for g in _moving:
+		# وصلت الفرقة بعد آخر رسم للطبقة الثابتة: تظهر هناك بعد إعادة رسمها
+		if int(g["d"]["eta"]) < 0 or String(g["d"]["target"]) == "":
+			continue
+		var aff := _aff(g["owner"])
+		var mv: Array = _moving_pos(g["d"])
+		var p := map_to_screen(mv[0])
+		if aff == "mine" or aff == "friend":
+			_draw_route(mv[1], float(mv[2]), aff, int(g["d"]["eta"]) - int(sim.state["day"]))
+		if not screen.has_point(p):
+			continue
+		var n := int(g["n"])
+		var look := _unit_look(g["owner"])
+		var r := _draw_chip(p, aff, n, float(g["str"]) / float(n), g["sel"], true, look[0], look[1])
+		_chip_hits_anim.append([r.grow(6), g["rid"], g["owner"], g["ids"]])
 
 
 func _draw_divisions() -> void:
@@ -1026,10 +1136,8 @@ func _draw_divisions() -> void:
 		var aff := _aff(g["owner"])
 		var p: Vector2
 		if g["moving"]:
-			var mv: Array = _moving_pos(g["d"])
-			p = map_to_screen(mv[0])
-			if aff == "mine" or aff == "friend":
-				_draw_route(mv[1], float(mv[2]), aff, int(g["d"]["eta"]) - int(sim.state["day"]))
+			_moving.append(g)
+			continue
 		else:
 			var rid: String = g["rid"]
 			var k := int(per_region.get(rid, 0))
@@ -1435,7 +1543,7 @@ func _draw_wars_markers() -> void:
 			var rr := float(_fs(14))
 			_cv.draw_circle(marker, rr + 2.0, pal("OUTLINE"))
 			_cv.draw_circle(marker, rr, pal("FRONT"))
-			_cv.draw_arc(marker, rr + 4.0 + pulse * 4.0, 0.0, TAU, 32, Color(pal("FRONT"), 0.6 * (1.0 - pulse)), 2.0, true)
+			_pulses.append(["war", marker, rr])
 			_cv.draw_texture_rect(Icons.tex("war", Color.WHITE, 40), Rect2(marker - Vector2(rr, rr) * 0.65, Vector2(rr, rr) * 1.3), false)
 			_labels.append(Rect2(marker - Vector2(rr, rr), Vector2(rr, rr) * 2.0))
 
@@ -1576,15 +1684,20 @@ func _click(screen_pos: Vector2) -> void:
 	_ping_t = _time
 	_redraw_light()
 	# الوحدات أولاً: هي أصغر هدف وأهمه
+	var sp := _to_static(screen_pos)
 	if move_ids.is_empty():
+		for h in _chip_hits_anim:
+			if (h[0] as Rect2).has_point(screen_pos):
+				units_tapped.emit(h[1], h[2], h[3])
+				return
 		for i in range(_chip_hits.size() - 1, -1, -1):
 			var h: Array = _chip_hits[i]
-			if (h[0] as Rect2).has_point(screen_pos):
+			if (h[0] as Rect2).has_point(sp):
 				units_tapped.emit(h[1], h[2], h[3])
 				return
 	if move_ids.is_empty():
 		for h in _strait_hits:
-			if (h[0] as Rect2).has_point(screen_pos):
+			if (h[0] as Rect2).has_point(sp):
 				strait_selected.emit(h[1])
 				return
 	var rid := region_at(screen_pos)

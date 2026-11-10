@@ -91,6 +91,7 @@ var expand_btn: Button
 # الخريطة
 var layer_btn: Button
 var cam_btn: Button
+var fps_label: Label
 var _cam_i := 0
 ## شريط الأخبار المباشر للقتال (فوق بطاقة السياق)
 var ticker: PanelContainer
@@ -189,6 +190,13 @@ func _build_layout() -> void:
 	hud.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	add_child(hud)
 	_build_top_bar()
+	fps_label = UI.label("", UI.C_TEXT, 13)
+	fps_label.visible = false
+	fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fps_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	fps_label.add_theme_constant_override("outline_size", 4)
+	_pin(fps_label, Control.PRESET_CENTER_LEFT, Vector2(EDGE, -120))
+	hud.add_child(fps_label)
 	# الشريط السفلي بالطول: بطاقة السياق، ثم صف الوقت، ثم أزرار الأقسام. يتكدس من الأسفل للأعلى
 	bottom = VBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 8)
@@ -1801,6 +1809,8 @@ func _process(delta: float) -> void:
 		return
 	_refresh_acc += delta
 	_ticker_step(delta)
+	if fps_label.visible:
+		fps_label.text = "%d إطار/ث" % int(Engine.get_frames_per_second())
 	if _dirty and _refresh_acc > 0.25:
 		_refresh_acc = 0.0
 		_refresh()
@@ -3976,13 +3986,32 @@ func _on_load() -> void:
 
 func _show_menu() -> void:
 	Game.set_paused(true)
-	_show_dialog("القائمة", "", [
-		{"text": "حفظ", "cb": _on_save},
-		{"text": "تحميل", "cb": _on_load},
-		{"text": "الوضع الفاتح" if not Game.light_theme else "الوضع الداكن", "cb": func(): Game.set_light_theme(not Game.light_theme)},
-		{"text": "القائمة الرئيسية", "cb": _back_to_menu},
-		{"text": "متابعة"},
-	])
+	# أزرار عمودية بعرض النافذة: تناسب الشاشة الطولية
+	var v := UI.col()
+	v.add_theme_constant_override("separation", 8)
+	var items: Array = [
+		["حفظ", _on_save, "save"],
+		["تحميل", _on_load, "play"],
+		["الوضع الفاتح" if not Game.light_theme else "الوضع الداكن", func(): Game.set_light_theme(not Game.light_theme), "moon" if Game.light_theme else "sun"],
+		["إخفاء عدّاد الإطارات" if fps_label.visible else "إظهار عدّاد الإطارات", func(): fps_label.visible = not fps_label.visible, "fast"],
+		["القائمة الرئيسية", _back_to_menu, "state"],
+	]
+	for it in items:
+		var cb: Callable = it[1]
+		var b := UI.button(it[0], func():
+			_close_top_dialog()
+			cb.call(), it[2])
+		b.custom_minimum_size = Vector2(0, TOUCH)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(b)
+	_show_dialog("القائمة", "", [{"text": "متابعة"}], v, "menu")
+
+
+## يغلق النافذة المعروضة الآن (لأزرار داخل محتوى النافذة)
+func _close_top_dialog() -> void:
+	if overlay.get_child_count() > 0:
+		overlay.get_child(overlay.get_child_count() - 1).queue_free()
+	_next_dialog()
 
 
 func _back_to_menu() -> void:

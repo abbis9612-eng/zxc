@@ -76,6 +76,7 @@ static func add_facility(sim, rid: String, ftype: String) -> void:
 	if not r.has("built"):
 		r["built"] = {}
 	r["built"][ftype] = int(r["built"].get(ftype, 0)) + 1
+	sim._fac_cache = {}
 	recompute(sim, r["owner"])
 
 
@@ -221,9 +222,21 @@ static func damage_facility(sim, rid: String, ftype: String, months: int) -> voi
 
 
 ## منشآت عاملة لدى طرف ما، مرتبة: الأقرب إلى نقطة مرجعية أولاً
-static func working_facilities(sim, side: Array, ftype: String, near_rid: String = "") -> Array:
+## المناطق التي فيها منشأة من نوع معين (بترتيب المناطق)، محفوظة حتى تُبنى منشأة جديدة
+static func facility_regions(sim, ftype: String) -> Array:
+	if sim._fac_cache.has(ftype):
+		return sim._fac_cache[ftype]
 	var out: Array = []
 	for rid in sim.db.region_ids:
+		if facility_count(sim, rid, ftype) > 0:
+			out.append(rid)
+	sim._fac_cache[ftype] = out
+	return out
+
+
+static func working_facilities(sim, side: Array, ftype: String, near_rid: String = "") -> Array:
+	var out: Array = []
+	for rid in facility_regions(sim, ftype):
 		if not (sim.state["regions"][rid]["owner"] in side):
 			continue
 		if facility_count(sim, rid, ftype) > 0 and facility_working(sim, rid, ftype):
