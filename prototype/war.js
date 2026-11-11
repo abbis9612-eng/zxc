@@ -13,10 +13,46 @@ for (const m of MAP2D.mosques) { const key = 'mosques' + ((m[0] / MCELL) | 0) + 
 const GRAIN = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), d = x.createImageData(128, 128); let s = 9; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; for (let i = 0; i < d.data.length; i += 4) { const v = r(), big = r() < .03; const g = big ? 0 : v < .5 ? 0 : 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = g; d.data[i + 3] = big ? 70 : Math.abs(v - .5) * 70; } x.putImageData(d, 0, 0); return c; })();
 let GRAINP = null;
 // الطرق والمباني والأشجار: مرسومة بخطوط حادة فوق الأرضية، تبقى واضحة مهما قرّبت
+// ---------- الخريطة كقطع جاهزة: كل قطعة 512 بكسل تُرسم مرة واحدة بدقة تناسب التقريب، ثم تُلصق كل إطار
+const MT = new Map(); let MT_BUDGET = 0;
+function mapTile(res, i, j){
+  const key = res + ':' + i + ':' + j; let t = MT.get(key);
+  if (t) { MT.delete(key); MT.set(key, t); return t; }
+  if (MT_BUDGET <= 0) return null;
+  const fs = 512 / res, x0 = i * fs, y0 = j * fs, x1 = x0 + fs, y1 = y0 + fs;
+  // صور الأرضية المطلوبة يجب أن تكون محمّلة قبل بناء القطعة
+  if (!W_IMG.complete) return null;
+  const [bx, by, bw, bh] = SAT_BOX, need = [];
+  if (res > 1 && x1 > bx && x0 < bx + bw && y1 > by && y0 < by + bh) for (let tj = Math.floor((Math.max(y0, by) - by) / TILE); tj * TILE < Math.min(y1, by + bh) - by; tj++) for (let ti = Math.floor((Math.max(x0, bx) - bx) / TILE); ti * TILE < Math.min(x1, bx + bw) - bx; ti++) { const s = satTile(ti, tj); if (!s) return null; need.push([ti, tj, s]); }
+  MT_BUDGET--;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 512; const c = cv.getContext('2d');
+  c.setTransform(res, 0, 0, res, -x0 * res, -y0 * res);
+  c.fillStyle = '#b9ad8f'; c.fillRect(x0, y0, fs, fs);
+  const cx0 = Math.max(0, x0), cy0 = Math.max(0, y0), cx1 = Math.min(FIELD.w, x1), cy1 = Math.min(FIELD.h, y1);
+  if (cx1 > cx0 && cy1 > cy0) c.drawImage(W_IMG, cx0, cy0, cx1 - cx0, cy1 - cy0, cx0, cy0, cx1 - cx0, cy1 - cy0);
+  for (const [ti, tj, s] of need) c.drawImage(s, bx + ti * TILE, by + tj * TILE, s.width / 2, s.height / 2);
+  drawMapFeatures(c, {k: res / WDPR}, x0 - 4, y0 - 4, x1 + 4, y1 + 4);
+  MT.set(key, cv); if (MT.size > 56) MT.delete(MT.keys().next().value);
+  return cv;
+}
+function drawMapTiles(c, cam, Wd, Hd){
+  MT_BUDGET = 3;
+  const want = cam.k * WDPR, res = Math.pow(2, Math.max(-1, Math.min(4, Math.ceil(Math.log2(want) - .15))));
+  const x0 = cam.x - Wd / 2 / cam.k, y0 = cam.y - Hd / 2 / cam.k, x1 = cam.x + Wd / 2 / cam.k, y1 = cam.y + Hd / 2 / cam.k;
+  const fs = 512 / res, e = .6 / cam.k;
+  for (let j = Math.floor(y0 / fs); j * fs < y1; j++) for (let i = Math.floor(x0 / fs); i * fs < x1; i++) {
+    let t = mapTile(res, i, j);
+    if (t) { c.drawImage(t, i * fs - e, j * fs - e, fs + 2 * e, fs + 2 * e); continue; }
+    // القطعة لم تُبنَ بعد: نستعمل قطعة أخشن موجودة، أو الأرضية الخام
+    let done = false;
+    for (const r2 of [res / 2, res / 4, res * 2]) { const f2 = 512 / r2, i2 = Math.floor(i * fs / f2), j2 = Math.floor(j * fs / f2), t2 = MT.get(r2 + ':' + i2 + ':' + j2); if (t2) { const sx = (i * fs - i2 * f2) * r2, sy = (j * fs - j2 * f2) * r2, sw = fs * r2; c.drawImage(t2, sx, sy, Math.min(512, sw), Math.min(512, sw), i * fs - e, j * fs - e, fs + 2 * e, fs + 2 * e); done = true; break; } }
+    if (!done && W_IMG.complete) { const a = Math.max(0, i * fs), b = Math.max(0, j * fs), cc = Math.min(FIELD.w, (i + 1) * fs), d = Math.min(FIELD.h, (j + 1) * fs); if (cc > a && d > b) c.drawImage(W_IMG, a, b, cc - a, d - b, a, b, cc - a, d - b); }
+  }
+}
 function drawMapFeatures(c, cam, x0, y0, x1, y1){
   const k = cam.k, lw = 1 / k;
   // الطرق: حافة داكنة ثم سطح ترابي فاتح
-  if (k > 1.6) { if (!GRAINP) GRAINP = c.createPattern(GRAIN, 'repeat'); GRAINP.setTransform(new DOMMatrix().scale(10 / 128)); c.globalAlpha = Math.min(.9, (k - 1.6) * .5); c.fillStyle = GRAINP; c.fillRect(x0, y0, x1 - x0, y1 - y0); c.globalAlpha = 1; }
+  if (k > 1.6) { const GP = c.createPattern(GRAIN, 'repeat'); GP.setTransform(new DOMMatrix().scale(10 / 128)); c.globalAlpha = Math.min(.9, (k - 1.6) * .5); c.fillStyle = GP; c.fillRect(x0, y0, x1 - x0, y1 - y0); c.globalAlpha = 1; }
   c.lineCap = 'round'; c.lineJoin = 'round';
   for (const pass of [0, 1]) for (const r of MAP2D.roads) {
     if (r.bb[2] < x0 || r.bb[0] > x1 || r.bb[3] < y0 || r.bb[1] > y1 || (r.town && k < .9)) continue;
@@ -655,7 +691,7 @@ function endWar(kind){
 // ------------------------------------------------------------------ الرسم
 const wc = () => document.getElementById('wc');
 let wctx = null;
-let WDPR = Math.min(devicePixelRatio || 1, 2), fpsN = 0, fpsT = 0, lowN = 0;
+let WDPR = Math.min(devicePixelRatio || 1, 1.75), fpsN = 0, fpsT = 0, lowN = 0;
 function wResize(){ const c = wc(), r = c.getBoundingClientRect(), d = WDPR; c.width = r.width * d; c.height = r.height * d; wctx = c.getContext('2d'); wctx.setTransform(d, 0, 0, d, 0, 0); }
 const ADDW = {fireball: 1, sparks: 1, muzzle: 1, exhaust: 1, intercept: 1, tracers: 1, ground_fire: 1, rifle_flash: 1, vehicle_fire: 1, flare: 1, armor_sparks: 1, tank_fire: 1};
 function img(k){ return WS[k] || VI[k]; }
@@ -667,13 +703,7 @@ function drawWar(dt){
   if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 70, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   c.fillStyle = '#1a1712'; c.fillRect(0, 0, Wd, Hd);
   c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
-  {
-    const x0 = Math.max(0, cam.x - Wd / 2 / cam.k - 2), y0 = Math.max(0, cam.y - Hd / 2 / cam.k - 2), x1 = Math.min(FIELD.w, cam.x + Wd / 2 / cam.k + 2), y1 = Math.min(FIELD.h, cam.y + Hd / 2 / cam.k + 2);
-    if (W_IMG.complete && x1 > x0 && y1 > y0) c.drawImage(W_IMG, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
-    const [bx, by, bw, bh] = SAT_BOX, hx0 = Math.max(x0, bx), hy0 = Math.max(y0, by), hx1 = Math.min(x1, bx + bw), hy1 = Math.min(y1, by + bh);
-    if (hx1 > hx0 && hy1 > hy0) for (let j = Math.floor((hy0 - by) / TILE); j * TILE < hy1 - by; j++) for (let i = Math.floor((hx0 - bx) / TILE); i * TILE < hx1 - bx; i++) { const t = satTile(i, j); if (t) c.drawImage(t, bx + i * TILE, by + j * TILE, t.width / 2, t.height / 2); }
-  }
-  drawMapFeatures(c, cam, cam.x - Wd / 2 / cam.k - 4, cam.y - Hd / 2 / cam.k - 4, cam.x + Wd / 2 / cam.k + 4, cam.y + Hd / 2 / cam.k + 4);
+  drawMapTiles(c, cam, Wd, Hd);
   const vis = (x, y, m = 80) => Math.abs(x - cam.x) * cam.k < Wd / 2 + m * cam.k && Math.abs(y - cam.y) * cam.k < Hd / 2 + m * cam.k;
   const spr = (k, x, y, s, rot, a = 1, comp, oy = 0) => { const im = img(k); if (!im || !im.complete || !im.width) return; const w = s * im.width / Math.max(im.width, im.height), h = s * im.height / Math.max(im.width, im.height); c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a; if (comp) c.globalCompositeOperation = comp; c.drawImage(im, -w / 2, -h / 2 + oy, w, h); c.restore(); };
   // جسم طائر: ظله على الأرض يبتعد كلما ارتفع، وهو يكبر قليلاً
