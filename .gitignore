@@ -1,11 +1,17 @@
-# Godot
-.godot/
-/android/
+# الاعتماديات وملفات البناء
+node_modules/
+dist/
+coverage/
 *.tmp
-export/
-build/
+.DS_Store
+# أندرويد (Capacitor): ملفات البناء فقط، المشروع نفسه يُحفظ
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
 # أسرار التوقيع
 *.keystore
-export_credentials.cfg
-.DS_Store
+*.jks
+keys/
 tools/keys/
