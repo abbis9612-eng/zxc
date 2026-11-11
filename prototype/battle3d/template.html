@@ -133,11 +133,25 @@ const terrain = new THREE.Mesh(tg, tmat); terrain.receiveShadow = true; scene.ad
   for (const m of IM) m.instanceMatrix.needsUpdate = true;
 }
 // أرض بعيدة تحت حواف المنطقة حتى لا يبان فراغ
-const far = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({color: 0xa88560}));
-far.position.set(SIZE / 2, -3, SIZE / 2); scene.add(far);
-
+// حول منطقة القتال: الأرض الحقيقية لكل المنطقة (62×66 كم) بدقة أقل، بصورة القمر وارتفاعاتها، حتى الأفق حقيقي
+{
+  const Wd = D3.wide, mpp = SIZE / Wd.fs, HB2 = Uint8Array.from(atob(Wd.H), c => c.charCodeAt(0)), HV2 = new DataView(HB2.buffer);
+  const hw = Wd.hw, hh = Wd.hh, hLow = (fx, fy) => { const gx = Math.max(0, Math.min(hw - 1.001, fx / 8)), gy = Math.max(0, Math.min(hh - 1.001, fy / 8)), i = gx | 0, j = gy | 0, a = gx - i, b = gy - j, H = (x, y) => HV2.getUint16((y * hw + x) * 2, true) / 2; return H(i, j) * (1 - a) * (1 - b) + H(i + 1, j) * a * (1 - b) + H(i, j + 1) * (1 - a) * b + H(i + 1, j + 1) * a * b; };
+  const W0 = -Wd.fx0 * mpp, Z0 = -Wd.fy0 * mpp, WW = Wd.w * mpp, WH = Wd.h * mpp, n = 160;
+  const g = new THREE.PlaneGeometry(WW, WH, n, n); g.rotateX(-Math.PI / 2); g.translate(W0 + WW / 2, 0, Z0 + WH / 2);
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), fx = Wd.fx0 + x / mpp, fy = Wd.fy0 + z / mpp, inside = x > -60 && x < SIZE + 60 && z > -60 && z < SIZE + 60;
+    p.setY(i, inside ? hY(Math.max(0, Math.min(SIZE, x)), Math.max(0, Math.min(SIZE, z))) - 8 : (hLow(fx, fy) - H0) * EX - 2);
+    uv.setXY(i, fx / Wd.w, 1 - fy / Wd.h);
+  }
+  g.computeVertexNormals();
+  const wt = loader.load(Wd.img); wt.colorSpace = THREE.SRGBColorSpace; wt.anisotropy = 4;
+  const wide = new THREE.Mesh(g, new THREE.MeshStandardMaterial({map: wt, roughness: 1})); scene.add(wide);
+}
+scene.fog.far = 32000; scene.fog.near = 7000;
 // ================================================================== المجسمات
-const S_UNIT = 2.2;   // الوحدات مكبّرة 2.2 مرة حتى تُرى من بعيد، والمسافات حقيقية
+const S_UNIT = 3;   // الوحدات مكبّرة 3 مرات حتى تُرى من بعيد، والمسافات حقيقية
 const MAT = {};
 const mat = (k, c, o = {}) => MAT[k] || (MAT[k] = new THREE.MeshStandardMaterial(Object.assign({color: c, roughness: .85, metalness: .15}, o)));
 const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const g = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); g.position.set(x, y, z); g.castShadow = true; return g; };
@@ -257,6 +271,22 @@ const tracers = new THREE.LineSegments(trGeo, new THREE.LineBasicMaterial({verte
 const LIGHTS = [0, 1].map(() => { const l = new THREE.PointLight(0xffa860, 0, 900, 1.6); scene.add(l); return {l, t: 0}; }); let lightI = 0;
 function flashLight(x, y, z, power){ const L = LIGHTS[lightI++ % LIGHTS.length]; L.l.position.set(x, y + 25, z); L.l.intensity = power; L.t = .35; L.p = power; }
 
+const MK = 160, mkGeo = new THREE.BufferGeometry();
+mkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MK * 3), 3).setUsage(THREE.DynamicDrawUsage));
+mkGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MK * 3), 3).setUsage(THREE.DynamicDrawUsage));
+const markers = new THREE.Points(mkGeo, new THREE.ShaderMaterial({vertexShader: 'attribute vec3 color; varying vec3 vC; void main(){ vC = color; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 13.0 * ' + Math.min(devicePixelRatio || 1, 1.75).toFixed(2) + '; }',
+  fragmentShader: 'varying vec3 vC; void main(){ vec2 p = gl_PointCoord - .5; p.y = -p.y; if (p.y > .05 - abs(p.x) * 1.2 || p.y < -.42) discard; float e = step(p.y, -.32) + step(.0 - abs(p.x) * 1.2, p.y); gl_FragColor = vec4(mix(vC, vec3(.05), e * .8), .95); }', transparent: true, depthWrite: false}));
+markers.frustumCulled = false; markers.renderOrder = 5; scene.add(markers);
+function drawMarkers(){
+  const P = mkGeo.attributes.position.array, C = mkGeo.attributes.color.array; let n = 0;
+  for (const u of W.units) {
+    if (u.dead || n >= MK) continue;
+    if (u.side === 'tr' && !(W.t - (u.seenT || -99) < 2)) continue;
+    const y = hY(u.x, u.z) + (u.alt || 0) + 11 * S_UNIT;
+    P.set([u.x, y, u.z], n * 3); C.set(u.side === 'iq' ? (W.sel === u ? [1, 1, 1] : [.95, .72, .25]) : [.9, .3, .25], n * 3); n++;
+  }
+  mkGeo.setDrawRange(0, n); mkGeo.attributes.position.needsUpdate = true; mkGeo.attributes.color.needsUpdate = true;
+}
 // ================================================================== الأصوات: موقعها حقيقي، وتصل متأخرة حسب المسافة (343 م/ث)
 let actx = null; const BUF = {}, LOOPS = {};
 function audioInit(){ if (actx) return; try { actx = new AudioContext(); } catch (e) { return; } for (const k in D3.snd) { const b = Uint8Array.from(atob(D3.snd[k].split(',')[1]), c => c.charCodeAt(0)); actx.decodeAudioData(b.buffer).then(x => BUF[k] = x).catch(() => {}); } }
@@ -332,7 +362,7 @@ function setup(){
   W.init = {iq: strength('iq'), tr: strength('tr')};
   log('المرحلة الأولى: تمهيد ناري. الراجمات تضرب الخط التركي، والدروع تنتظر على بعد 4.5 كم.', 'iq');
   setTimeout(() => { if (W.t < 8) mlrsFire(3700, 4000); }, 2500);
-  cam.tx = 3600; cam.tz = 8000; cam.dist = 1100; cam.yaw = .25; cam.pitch = .38;
+  cam.tx = 3600; cam.tz = 8150; cam.dist = 650; cam.yaw = .25; cam.pitch = .38;
 }
 const strength = side => W.units.filter(u => u.side === side && !u.dead).reduce((s, u) => s + u.hp / UT[u.t].hp, 0);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -468,7 +498,7 @@ function stepMlrs(m, dt){
 const ang = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 // ----- الضربة الجوية: مقاتلتان على ارتفاع 2.5 كم، تطلقان من 10 كم ثم تنعطفان
 function airStrike(tx, tz){
-  for (let i = 0; i < 2; i++) { const m = mkJet(); scene.add(m.g); W.jets.push({m, x: tx - 300 + i * 600, z: tz + 26000 + i * 400, y: 2500, yaw: 0, roll: 0, s: i ? 1 : -1, tx, tz, st: 'in', fired: false, trailT: 0}); }
+  for (let i = 0; i < 2; i++) { const m = mkJet(); scene.add(m.g); W.jets.push({m, x: tx - 300 + i * 600, z: tz + 15000 + i * 400, y: 2500, yaw: 0, roll: 0, s: i ? 1 : -1, tx, tz, st: 'in', fired: false, trailT: 0}); }
   log('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع 2.5 كم، وتطلقان صواريخهما من 10 كم', 'iq');
   snd('jet_high', tx, 2000, tz + 9000, .6);
 }
@@ -497,7 +527,8 @@ function stepProj(dt){
       const k = Math.min(1, p.t / p.dur), x = p.from.x + (p.to.x - p.from.x) * k, z = p.from.z + (p.to.z - p.from.z) * k, y = p.from.y + (p.to.y - p.from.y) * k + p.peak * 4 * k * (1 - k);
       const k2 = Math.min(1, k + .01), x2 = p.from.x + (p.to.x - p.from.x) * k2, z2 = p.from.z + (p.to.z - p.from.z) * k2, y2 = p.from.y + (p.to.y - p.from.y) * k2 + p.peak * 4 * k2 * (1 - k2);
       p.mesh.position.set(x, y, z); p.mesh.lookAt(x2, y2, z2);
-      if (k < .3) { emit('smoke', x, y, z, {s0: 5, s1: 22, a0: .6, life: 5, drag: .5, r: .95, gr: .93, b: .9}); emit('fire', x, y, z, {s0: 7, s1: 3, life: .08}); }
+      if (k < .3) { const lx = p.lx ?? x, ly = p.ly ?? y, lz = p.lz ?? z; for (let i = 0; i < 4; i++) { const f = i / 4; emit('smoke', lx + (x - lx) * f, ly + (y - ly) * f, lz + (z - lz) * f, {s0: 6, s1: 26, a0: .55, life: 5, drag: .5, r: .95, gr: .93, b: .9}); } emit('fire', x, y, z, {s0: 9, s1: 3, life: .08}); }
+      p.lx = x; p.ly = y; p.lz = z;
       if (k > .82 && !p.wh) { p.wh = 1; snd('incoming', p.to.x, p.to.y, p.to.z, .45); }
       if (k >= 1) { p.done = true; scene.remove(p.mesh); explode(p.to.x, p.to.y, p.to.z, 1.2, Math.random() < .5); areaDmg(p.to, 90, 45, 30, p.side); }
       continue;
@@ -507,7 +538,7 @@ function stepProj(dt){
       if (p.t < p.drop) { p.vel.y -= 9.8 * dt; p.p.addScaledVector(p.vel, dt); }
       else { if (!p.lit) { p.lit = true; snd('jet_release', p.p.x, p.p.y, p.p.z, .8); }
         const dir = p.to.clone().sub(p.p), r = dir.length(); dir.normalize(); const v = Math.min(420, p.vel.length() + 120 * dt); p.vel.copy(dir.multiplyScalar(v)); p.p.addScaledVector(p.vel, dt);
-        emit('smoke', p.p.x, p.p.y, p.p.z, {s0: 6, s1: 30, a0: .55, life: 6, drag: .3}); emit('fire', p.p.x, p.p.y, p.p.z, {s0: 9, s1: 4, life: .07});
+        for (let i = 0; i < 4; i++) { const f = i / 4; emit('smoke', p.p.x - p.vel.x * dt * f, p.p.y - p.vel.y * dt * f, p.p.z - p.vel.z * dt * f, {s0: 6, s1: 30, a0: .5, life: 6, drag: .3}); } emit('fire', p.p.x, p.p.y, p.p.z, {s0: 9, s1: 4, life: .07});
         if (r < v * dt * 1.5) { p.done = true; scene.remove(p.mesh); explode(p.to.x, p.to.y, p.to.z, 2, true); snd('strike', p.to.x, p.to.y, p.to.z, .7, .2); areaDmg(p.to, 160, 80, 110, p.side); } }
       p.mesh.position.copy(p.p); p.mesh.lookAt(p.p.clone().add(p.vel)); continue;
     }
@@ -516,7 +547,7 @@ function stepProj(dt){
       if (p.v && !p.v.dead && p.hit) p.to.set(p.v.x, hY(p.v.x, p.v.z) + 2.5 * S_UNIT, p.v.z);
       p.wob += dt * 9; const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(Math.sin(p.wob) * .8);
       p.mesh.visible = true; p.mesh.position.copy(p.p).add(side); p.mesh.lookAt(p.to);
-      emit('smoke', p.p.x, p.p.y, p.p.z, {s0: 2.5, s1: 12, a0: .55, life: 3.5, drag: .4, r: .95, gr: .95, b: .95}); emit('fire', p.p.x, p.p.y, p.p.z, {s0: 4, s1: 2, life: .06});
+      for (let i = 0; i < 2; i++) emit('smoke', p.p.x - dir.x / r * step * i * .5, p.p.y - dir.y / r * step * i * .5, p.p.z - dir.z / r * step * i * .5, {s0: 2.5, s1: 12, a0: .5, life: 3.5, drag: .4, r: .95, gr: .95, b: .95}); emit('fire', p.p.x, p.p.y, p.p.z, {s0: 4, s1: 2, life: .06});
     }
     if (r <= step) {
       p.done = true;
@@ -555,6 +586,7 @@ function step(dt){
     if (u.t === 'mlrs') { stepMlrs(u, dt); }
     u.cd -= dt;
     let tgt = d.rng ? pick(u, d) : null;
+    if (tgt && u.side === 'iq') tgt.seenT = W.t; if (tgt && u.side === 'tr') u.seenT = W.t;
     const aimA = tgt ? Math.atan2(-(tgt.x - u.x), -(tgt.z - u.z)) : u.yaw;
     if (u.t !== 'mlrs') u.ta += Math.max(-1.1 * dt, Math.min(1.1 * dt, ang(u.ta, aimA)));
     if (d.inf || d.air) { u.ta = aimA; if (tgt && u.v < .5) u.yaw += ang(u.yaw, aimA) * Math.min(1, dt * 2); }
@@ -624,7 +656,7 @@ function updateCamera(dt){
     const L = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv'));
     if (L.length) {
       const f = L.reduce((a, u) => u.z < a.z ? u : a), ne = nearestEnemy(f), gx = ne && ne.d < 3500 ? f.x + (ne.v.x - f.x) * .4 : f.x, gz = ne && ne.d < 3500 ? f.z + (ne.v.z - f.z) * .4 : f.z - 80;
-      const want = ne ? Math.max(650, Math.min(2200, ne.d * .9)) : 1100;
+      const want = ne ? Math.max(450, Math.min(1100, ne.d * .5)) : 700;
       cam.tx += (gx - cam.tx) * Math.min(1, dt * .5); cam.tz += (gz - cam.tz) * Math.min(1, dt * .5); cam.dist += (want - cam.dist) * Math.min(1, dt * .3);
     }
   }
@@ -704,11 +736,11 @@ function drawSoldiers(){
 let last = performance.now(), acc = 0, fpsN = 0, fpsT = 0, lowT = 0, uiT = 0;
 function frame(now){
   const real = Math.min(.05, (now - last) / 1000); last = now;
-  if (!W.end) { acc += real * SPEED; while (acc > .05) { step(.05); acc -= .05; } }
+  acc += real * SPEED; while (acc > .05) { step(.05); acc -= .05; }
   stepParticles(real * Math.max(1, SPEED * .6));
   updateCamera(real);
   for (const u of W.units) if (!u.dead || u.m) place(u);
-  drawSoldiers();
+  drawSoldiers(); drawMarkers();
   // خطوط الرصاص: خط قصير يتحرك مع الطلقة
   const P = trGeo.attributes.position.array, C = trGeo.attributes.color.array; let n = 0;
   for (const p of W.proj) {
@@ -735,7 +767,7 @@ function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspe
 addEventListener('resize', resize); resize();
 setup(); ui(); uiCam();
 $('load').remove();
-window.__W = () => W; window.__cam = cam; window.__step = step; window.__mlrs = mlrsFire; window.__air = airStrike;
+window.__R = renderer; window.__PS = PS; window.__LIGHTS = LIGHTS; window.__W = () => W; window.__cam = cam; window.__step = step; window.__mlrs = mlrsFire; window.__air = airStrike;
 requestAnimationFrame(frame);
 </script>
 </body>
