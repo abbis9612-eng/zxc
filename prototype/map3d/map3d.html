@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>خريطة المعركة</title>
+<style>
+:root{--bg:#0b0f12;--panel:rgba(10,16,21,.86);--edge:rgba(214,190,140,.28);--text:#f1ebdd;--muted:#a99f8c;--mine:#e2b04f;--good:#6fbf86;--bad:#e0705f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f12}}
+:root[data-theme="dark"]{--bg:#0b0f12}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 10px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(6,9,12,.8),rgba(6,9,12,0));pointer-events:none}
+.top h1{font-size:16px;font-weight:700}
+#fps{font-size:12px;font-weight:700;direction:ltr;unicode-bidi:isolate;color:var(--good)}
+.bot{position:fixed;left:0;right:0;bottom:0;padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 12px);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:linear-gradient(0deg,rgba(6,9,12,.9),rgba(6,9,12,0))}
+button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--edge);border-radius:11px;min-height:48px;font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+button small{font-size:10.5px;color:var(--muted);font-weight:400}
+#load{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);color:var(--muted);font-size:14px;z-index:9}
+#credit{position:fixed;left:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 132px);font-size:9px;color:rgba(241,235,221,.45);direction:ltr}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top"><h1>خريطة المعركة · تجربة الأرض</h1><span id="fps">--</span></div>
+<div class="bot">
+  <button id="b-view">الزاوية<small>من فوق</small></button>
+  <button id="b-near">المسافة<small>قريب</small></button>
+  <button id="b-home">المركز<small>القرية</small></button>
+  <button id="b-heli">المروحية<small>تتبع</small></button>
+  <button id="b-jet">المقاتلة<small>تتبع</small></button>
+  <button id="b-free">حر<small>بلا تتبع</small></button>
+</div>
+<div id="load">تحميل الأرض…</div>
+<div id="credit">Mi-24V: Rhine_Lab_Muelsyse (CC BY-NC) · F-2: bohmerang (CC BY-NC-SA) · Sketchfab</div>
+<script>/*MAPDATA*/</script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.31.0/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-materials@9.31.0/babylonjs.materials.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.31.0/babylonjs.loaders.min.js"></script>
+<script>
+// ================================================================== خريطة معركة 8×8 كم بأرض مجسمة ومواد حقيقية
+// الإحداثيات بالأمتار: x شرقاً، z شمالاً، y للأعلى. الارتفاعات من بيانات حقيقية مع تفاصيل مضافة.
+const SIZE = MAP.meta.size, N = MAP.meta.n;
+const HB = Uint8Array.from(atob(MAP.h), c => c.charCodeAt(0)), HV = new DataView(HB.buffer), HT = new Float32Array(N * N);
+for (let i = 0; i < N * N; i++) HT[i] = HV.getUint16(i * 2, true) / 10;
+function hAt(x, z){   // الارتفاع فوق أخفض نقطة، بالأمتار
+  const gx = Math.max(0, Math.min(N - 1.001, (x + SIZE / 2) / SIZE * (N - 1))), gz = Math.max(0, Math.min(N - 1.001, (SIZE / 2 - z) / SIZE * (N - 1)));
+  const i = gx | 0, j = gz | 0, fx = gx - i, fz = gz - j, a = HT[j * N + i], b = HT[j * N + i + 1], c = HT[(j + 1) * N + i], d = HT[(j + 1) * N + i + 1];
+  return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
+}
+const canvas = document.getElementById('c');
+const engine = new BABYLON.Engine(canvas, true, {adaptToDeviceRatio: false, powerPreference: 'high-performance', stencil: false});
+let SCALE = Math.min(devicePixelRatio || 1, 1.75); engine.setHardwareScalingLevel(1 / SCALE);
+const scene = new BABYLON.Scene(engine);
+scene.clearColor = new BABYLON.Color4(.78, .79, .76, 1);
+scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR; scene.fogColor = new BABYLON.Color3(.78, .77, .72); scene.fogStart = 5000; scene.fogEnd = 16000;
+scene.skipPointerMovePicking = true; scene.autoClear = true;
+const ip = scene.imageProcessingConfiguration; ip.toneMappingEnabled = true; ip.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES; ip.exposure = 1.0; ip.contrast = 1.1;
+// الشمس من الجنوب الشرقي على ارتفاع 40°، وضوء سماء ناعم
+const SUN = MAP.meta.sun;   // (شرق، شمال، أعلى) نحو الشمس
+const sunDir = new BABYLON.Vector3(-SUN[0], -SUN[2], -SUN[1]).normalize();
+const sun = new BABYLON.DirectionalLight('sun', sunDir, scene); sun.intensity = 1.55; sun.diffuse = new BABYLON.Color3(1, .95, .86);
+const sky = new BABYLON.HemisphericLight('sky', new BABYLON.Vector3(0, 1, 0), scene); sky.intensity = .5; sky.diffuse = new BABYLON.Color3(.78, .84, 1); sky.groundColor = new BABYLON.Color3(.45, .38, .3); sky.specular = BABYLON.Color3.Black();
+const camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(0, 1000, -1000), scene); camera.fov = .75; camera.minZ = 2; camera.maxZ = 30000; camera.inputs.clear();
+// ظلال الأجسام (أشجار، بيوت، صخور) على الأرض، تتبع مكان النظر
+const shadows = new BABYLON.ShadowGenerator(2048, sun); shadows.usePercentageCloserFiltering = true; shadows.filteringQuality = BABYLON.ShadowGenerator.QUALITY_LOW; shadows.bias = .0008; shadows.normalBias = .02; shadows.darkness = .25;
+sun.autoUpdateExtends = false; sun.shadowMinZ = 1; sun.shadowMaxZ = 5000;
+
+// ---------- الأرض
+const tex = (src, o = {}) => { const t = new BABYLON.Texture(src, scene, false, true, BABYLON.Texture.TRILINEAR_SAMPLINGMODE); t.anisotropicFilteringLevel = 8; Object.assign(t, o); return t; };
+const ground = BABYLON.MeshBuilder.CreateGround('ground', {width: SIZE, height: SIZE, subdivisions: 320, updatable: true}, scene);
+{
+  const p = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+  for (let i = 0; i < p.length; i += 3) p[i + 1] = hAt(p[i], p[i + 2]);
+  ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, p);
+  const nrm = []; BABYLON.VertexData.ComputeNormals(p, ground.getIndices(), nrm); ground.updateVerticesData(BABYLON.VertexBuffer.NormalKind, nrm);
+  ground.refreshBoundingInfo();
+}
+const gm = new BABYLON.CustomMaterial('gm', scene);
+gm.specularColor = new BABYLON.Color3(0, 0, 0);
+gm.bumpTexture = tex(MAP.normal); gm.bumpTexture.level = .9; gm.invertNormalMapY = false;
+const GT = {sp1: tex(MAP.splat1), sp2: tex(MAP.splat2), tLight: tex(MAP.light), tTint: tex(MAP.tint)};
+for (const k in MAP.tex) GT['t_' + k] = tex(MAP.tex[k], {wrapU: 1, wrapV: 1});
+for (const k in GT) gm.AddUniform(k, 'sampler2D');
+gm.Fragment_Custom_Diffuse(`
+  vec2 uvm = vMainUV1;
+  vec3 wa = texture2D(sp1, uvm).rgb; vec3 wb = texture2D(sp2, uvm).rgb;
+  vec2 t1 = uvm * 1000.0, t2 = uvm * 233.0 + vec2(.37, .11);
+  #define TX(s) (texture2D(s, t1).rgb * .62 + texture2D(s, t2).rgb * .38)
+  vec3 col = TX(t_dirt) * wa.r + TX(t_grass) * wa.g + TX(t_plow) * wa.b + TX(t_wheat) * wb.r + TX(t_rock) * wb.g + TX(t_gravel) * wb.b;
+  col /= max(wa.r + wa.g + wa.b + wb.r + wb.g + wb.b, .02);
+  // تنوع الألوان الطبيعي من صورة القمر، وتباين أقوى لتفاصيل المواد
+  vec3 tint = texture2D(tTint, uvm).rgb * 2.0;
+  // مقياس ثالث كبير (180 م) للمسافات المتوسطة حتى لا تبدو الأرض ملساء من بعيد
+  vec2 t3 = uvm * 44.0 + vec2(.71, .29);
+  vec3 big = texture2D(t_dirt, t3).rgb * (wa.r + wa.g) + texture2D(t_rock, t3).rgb * (wb.g + wb.b) + texture2D(t_plow, t3).rgb * (wa.b + wb.r);
+  big /= max(wa.r + wa.g + wa.b + wb.r + wb.g + wb.b, .02);
+  col *= mix(vec3(1.0), big / max(dot(big, vec3(.333)), .05), .35);
+  col *= tint;
+  col *= texture2D(tLight, uvm).r;
+  diffuseColor = col;
+`);
+gm.onBindObservable.add(() => { const e = gm.getEffect(); if (!e) return; for (const k in GT) e.setTexture(k, GT[k]); });
+ground.material = gm; ground.receiveShadows = true; ground.freezeWorldMatrix();
+// أرض بعيدة خارج الخريطة تذوب في الضباب
+const farG = BABYLON.MeshBuilder.CreateGround('far', {width: 60000, height: 60000}, scene); farG.position.y = -4; const fm = new BABYLON.StandardMaterial('fm', scene); fm.diffuseColor = new BABYLON.Color3(.62, .52, .38); fm.specularColor = BABYLON.Color3.Black(); farG.material = fm; farG.freezeWorldMatrix();
+
+// ---------- الطرق الترابية: شريط حاد يلتصق بالأرض، أطرافه ناعمة
+{
+  const dt = new BABYLON.DynamicTexture('edge', {width: 64, height: 4}, scene, false); const cx = dt.getContext(); const g = cx.createLinearGradient(0, 0, 64, 0);
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.25, 'rgba(255,255,255,1)'); g.addColorStop(.75, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = g; cx.fillRect(0, 0, 64, 4); dt.update(); dt.hasAlpha = true;
+  const rm = new BABYLON.StandardMaterial('road', scene); rm.diffuseTexture = tex(MAP.tex.gravel, {uScale: 1, vScale: 1}); rm.opacityTexture = dt; rm.specularColor = BABYLON.Color3.Black(); rm.diffuseColor = new BABYLON.Color3(1.05, 1, .92); rm.zOffset = -4;
+  for (const line of MAP.objs.roads) {
+    // نعيد أخذ النقاط كل 12 م حتى يتبع الطريق الأرض بدقة
+    const P = []; for (let i = 0; i < line.length - 1; i++) { const [x0, z0] = line[i], [x1, z1] = line[i + 1], L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / 12)); for (let k = 0; k < n; k++) P.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
+    P.push(line[line.length - 1]);
+    // تنعيم المسار حتى لا يكون متكسراً
+    for (let it = 0; it < 3; it++) for (let i = 1; i < P.length - 1; i++) { P[i][0] = (P[i - 1][0] + P[i][0] * 2 + P[i + 1][0]) / 4; P[i][1] = (P[i - 1][1] + P[i][1] * 2 + P[i + 1][1]) / 4; }
+    const pos = [], uv = [], idx = []; let acc = 0;
+    for (let i = 0; i < P.length; i++) {
+      const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l * 4.5, nz = dx / l * 4.5;
+      if (i) acc += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+      for (const s of [-1, 1]) { const x = P[i][0] + nx * s, z = P[i][1] + nz * s; pos.push(x, hAt(x, z) + .35, z); uv.push(s < 0 ? 0 : 1, acc / 9); }
+      if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+    }
+    const m = new BABYLON.Mesh('road', scene); const vd = new BABYLON.VertexData(); vd.positions = pos; vd.uvs = uv; vd.indices = idx; const nr = []; BABYLON.VertexData.ComputeNormals(pos, idx, nr); vd.normals = nr; vd.applyToMesh(m); m.material = rm; m.receiveShadows = true; m.freezeWorldMatrix();
+  }
+}
+
+// ---------- الأشجار والشجيرات: صورة الشجرة من فوق على سطح أفقي بارتفاعها، مع ظلها الحقيقي
+const spriteMat = (src, name) => { const m = new BABYLON.StandardMaterial(name, scene); m.diffuseTexture = tex(src); m.diffuseTexture.hasAlpha = true; m.useAlphaFromDiffuseTexture = true; m.transparencyMode = BABYLON.Material.MATERIAL_ALPHATEST; m.alphaCutOff = .45; m.specularColor = BABYLON.Color3.Black(); m.backFaceCulling = false; return m; };
+function instances(mesh, list, mk){
+  const buf = new Float32Array(list.length * 16), M = BABYLON.Matrix.Identity();
+  list.forEach((o, i) => { mk(o, M); M.copyToArray(buf, i * 16); });
+  mesh.thinInstanceSetBuffer('matrix', buf, 16, true); mesh.alwaysSelectAsActiveMesh = true; return mesh;
+}
+const TREE_K = ['olive', 'poplar', 'eucal'], TREE_S = [7, 6, 10];
+TREE_K.forEach((k, t) => {
+  const list = MAP.objs.trees.filter(o => o[2] === t); if (!list.length) return;
+  const pl = BABYLON.MeshBuilder.CreatePlane('tree_' + k, {size: 1}, scene); pl.rotation.x = Math.PI / 2; pl.bakeCurrentTransformIntoVertices(); pl.material = spriteMat(MAP.sprites[k], 'tm_' + k);
+  instances(pl, list, (o, M) => { const s = TREE_S[t] * o[3]; BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(s, 1, s), BABYLON.Quaternion.RotationYawPitchRoll(o[0] * 7.1 % 6.28, 0, 0), new BABYLON.Vector3(o[0], hAt(o[0], o[1]) + s * .55, o[1]), M); });
+  shadows.addShadowCaster(pl);
+});
+{
+  const pl = BABYLON.MeshBuilder.CreatePlane('bush', {size: 1}, scene); pl.rotation.x = Math.PI / 2; pl.bakeCurrentTransformIntoVertices(); pl.material = spriteMat(MAP.sprites.bush, 'bm');
+  instances(pl, MAP.objs.bushes, (o, M) => { const s = 2.4 * o[2]; BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(s, 1, s), BABYLON.Quaternion.RotationYawPitchRoll(o[0] % 6.28, 0, 0), new BABYLON.Vector3(o[0], hAt(o[0], o[1]) + .6, o[1]), M); });
+  pl.receiveShadows = true;
+}
+// الصخور: مجسمات حقيقية بنسيج الصخر، بأحجام واتجاهات مختلفة
+{
+  const r = BABYLON.MeshBuilder.CreateIcoSphere('rock', {radius: 1, subdivisions: 1, flat: true}, scene);
+  const p = r.getVerticesData(BABYLON.VertexBuffer.PositionKind); for (let i = 0; i < p.length; i += 3) { const k = .75 + ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1 * .5; p[i] *= k; p[i + 1] *= k * .6; p[i + 2] *= k; } r.updateVerticesData(BABYLON.VertexBuffer.PositionKind, p); r.convertToFlatShadedMesh();
+  const rm = new BABYLON.StandardMaterial('rockm', scene); rm.diffuseTexture = tex(MAP.tex.rock, {uScale: 2, vScale: 2}); rm.diffuseColor = new BABYLON.Color3(.92, .88, .82); rm.specularColor = new BABYLON.Color3(.05, .05, .05); r.material = rm;
+  instances(r, MAP.objs.rocks, (o, M) => { const s = o[2] * 1.4; BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(s * 1.3, s, s), BABYLON.Quaternion.RotationYawPitchRoll(o[3], .2, .1), new BABYLON.Vector3(o[0], hAt(o[0], o[1]) + s * .15, o[1]), M); });
+  r.receiveShadows = true; shadows.addShadowCaster(r);
+}
+// ---------- القرى: بيوت بسطوح من صور حقيقية، وجدران خرسانية، وأسوار أفنية
+{
+  const wall = BABYLON.MeshBuilder.CreateBox('house', {size: 1}, scene); wall.position.y = .5; wall.bakeCurrentTransformIntoVertices();
+  const wm = new BABYLON.StandardMaterial('wallm', scene); wm.diffuseColor = new BABYLON.Color3(.86, .8, .7); wm.specularColor = BABYLON.Color3.Black(); wm.diffuseTexture = tex(MAP.tex.gravel, {uScale: .5, vScale: .5}); wall.material = wm;
+  const H = MAP.objs.houses;
+  const base = o => hAt(o[0], o[1]) - 1;
+  instances(wall, H, (o, M) => BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(o[4], o[6] + 1, o[5]), BABYLON.Quaternion.RotationYawPitchRoll(o[2], 0, 0), new BABYLON.Vector3(o[0], base(o), o[1]), M));
+  wall.receiveShadows = true; shadows.addShadowCaster(wall);
+  ['roof1', 'roof2', 'roof3', 'roof4'].forEach((k, t) => {
+    const list = H.filter(o => o[3] === t); if (!list.length) return;
+    const pl = BABYLON.MeshBuilder.CreatePlane('roof' + t, {size: 1}, scene); pl.rotation.x = Math.PI / 2; pl.bakeCurrentTransformIntoVertices(); pl.material = spriteMat(MAP.sprites[k], 'rm' + t);
+    instances(pl, list, (o, M) => BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(o[4] * 1.04, 1, o[5] * 1.04), BABYLON.Quaternion.RotationYawPitchRoll(o[2], 0, 0), new BABYLON.Vector3(o[0], base(o) + o[6] + 1.03, o[1]), M));
+    pl.receiveShadows = true;
+  });
+  // أسوار الأفنية: جدار منخفض حول نصف البيوت
+  const yard = BABYLON.MeshBuilder.CreateBox('yard', {size: 1}, scene); yard.position.y = .5; yard.bakeCurrentTransformIntoVertices(); yard.material = wm;
+  const seg = []; H.forEach((o, i) => { if (i % 2) return; const w = o[4] + 10, d = o[5] + 10, ca = Math.cos(o[2]), sa = Math.sin(o[2]); for (const [ox, oz, sx, sz] of [[0, d / 2, w, .4], [0, -d / 2, w, .4], [w / 2, 0, .4, d], [-w / 2, 0, .4, d]]) seg.push([o[0] + ca * ox + sa * oz, o[1] - sa * ox + ca * oz, sx, sz, o[2]]); });
+  instances(yard, seg, (s, M) => BABYLON.Matrix.ComposeToRef(new BABYLON.Vector3(s[2], 2.2, s[3]), BABYLON.Quaternion.RotationYawPitchRoll(s[4], 0, 0), new BABYLON.Vector3(s[0], hAt(s[0], s[1]) - .6, s[1]), M));
+  yard.receiveShadows = true; shadows.addShadowCaster(yard);
+}
+
+// ================================================================== الكاميرا: من فوق مثل غرفة القيادة، وتميل بإصبعين
+const V = MAP.meta.villages[0];
+const cam = {x: V[0], z: V[1], dist: 900, yaw: 0, pitch: 1.2};
+function updateCamera(){
+  cam.x = Math.max(-SIZE / 2, Math.min(SIZE / 2, cam.x)); cam.z = Math.max(-SIZE / 2, Math.min(SIZE / 2, cam.z));
+  const ty = hAt(cam.x, cam.z) + (cam.lift || 0), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  camera.position.set(cam.x - Math.sin(cam.yaw) * cp * cam.dist, ty + sp * cam.dist, cam.z - Math.cos(cam.yaw) * cp * cam.dist);
+  const g = hAt(camera.position.x, camera.position.z) + 15; if (camera.position.y < g) camera.position.y = g;
+  camera.setTarget(new BABYLON.Vector3(cam.x, ty, cam.z));
+  // الظلال تغطي ما حول مكان النظر
+  const s = Math.min(1600, Math.max(300, cam.dist * .9)); sun.orthoLeft = -s; sun.orthoRight = s; sun.orthoBottom = -s; sun.orthoTop = s;
+  sun.position.set(cam.x - sunDir.x * 2500, ty - sunDir.y * 2500, cam.z - sunDir.z * 2500);
+}
+const ptr = new Map(); let prev = null, moved = 0;
+const snap = () => { const p = [...ptr.values()]; if (p.length === 1) return {n: 1, x: p[0].x, y: p[0].y}; if (p.length >= 2) return {n: 2, x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x)}; return null; };
+canvas.addEventListener('pointerdown', e => { if (cam.track && ptr.size === 0) { /* السحب بإصبع واحد يلغي التتبع */ } canvas.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); prev = snap(); moved = 0; });
+canvas.addEventListener('pointermove', e => {
+  if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); const s = snap(); if (!s || !prev || s.n !== prev.n) { prev = s; return; }
+  if (s.n === 1) { const dx = s.x - prev.x, dy = s.y - prev.y, k = cam.dist / innerHeight * 1.1; cam.x += (-Math.cos(cam.yaw) * dx + Math.sin(cam.yaw) * dy) * k; cam.z += (Math.sin(cam.yaw) * dx + Math.cos(cam.yaw) * dy) * k; }
+  else { cam.dist = Math.max(60, Math.min(9000, cam.dist * prev.d / s.d)); cam.yaw += Math.atan2(Math.sin(s.a - prev.a), Math.cos(s.a - prev.a)); cam.pitch = Math.max(.35, Math.min(1.5, cam.pitch - (s.y - prev.y) * .004)); }
+  prev = s;
+});
+const endP = e => { ptr.delete(e.pointerId); prev = snap(); };
+canvas.addEventListener('pointerup', endP); canvas.addEventListener('pointercancel', endP);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.max(60, Math.min(9000, cam.dist * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, {passive: false});
+const $ = id => document.getElementById(id);
+$('b-view').onclick = () => { cam.pitch = cam.pitch > 1 ? .6 : 1.2; $('b-view').querySelector('small').textContent = cam.pitch > 1 ? 'من فوق' : 'مائلة'; };
+const DISTS = [350, 900, 2500, 6000]; let di = 1;
+$('b-near').onclick = () => { di = (di + 1) % DISTS.length; cam.dist = DISTS[di]; $('b-near').querySelector('small').textContent = ['قريب جداً', 'قريب', 'متوسط', 'كل الخريطة'][di]; };
+let vi = 0; $('b-home').onclick = () => { cam.track = null; vi = (vi + 1) % MAP.meta.villages.length; const v = MAP.meta.villages[vi]; cam.x = v[0]; cam.z = v[1]; };
+$('b-heli').onclick = () => { cam.track = 'heli'; cam.dist = 120; cam.pitch = .7; };
+$('b-jet').onclick = () => { cam.track = 'jet'; cam.dist = 140; cam.pitch = .6; };
+$('b-free').onclick = () => { cam.track = null; cam.dist = 900; cam.pitch = 1.2; };
+
+// ================================================================== الحلقة وعداد الإطارات، وخفض الدقة تلقائياً إذا نزل الأداء
+let fN = 0, fT = 0, low = 0, last = performance.now();
+engine.runRenderLoop(() => {
+  scene.render();
+  const now = performance.now(); fT += (now - last) / 1000; last = now; fN++;
+  if (fT >= 1) { const f = Math.round(fN / fT); $('fps').textContent = f + ' fps'; $('fps').style.color = f >= 55 ? 'var(--good)' : f >= 40 ? 'var(--mine)' : 'var(--bad)'; if (f < 45) low++; else low = 0; if (low >= 3 && SCALE > 1) { SCALE = Math.max(1, SCALE - .25); engine.setHardwareScalingLevel(1 / SCALE); low = 0; } fN = 0; fT = 0; }
+});
+addEventListener('resize', () => engine.resize());
+scene.executeWhenReady(() => { const l = $('load'); if (l) l.remove(); });
+// ================================================================== مجسماتك: المروحية تحلق فوق القرية، والمقاتلة تدور فوق المنطقة
+// نقيس كل مجسم بعد تحميله، ونضبط اتجاهه (المقدمة للأمام) وحجمه بالأمتار
+async function loadModel(dir, length, yaw = 0){
+  const r = await BABYLON.SceneLoader.ImportMeshAsync('', dir, 'scene.json', scene, null, '.gltf');
+  const root = r.meshes[0], holder = new BABYLON.TransformNode(dir, scene), pivot = new BABYLON.TransformNode(dir + 'p', scene); pivot.parent = holder; pivot.rotation.y = yaw; root.parent = pivot;
+  root.computeWorldMatrix(true); r.meshes.forEach(m => m.computeWorldMatrix(true));
+  const bb = root.getHierarchyBoundingVectors(true), sz = bb.max.subtract(bb.min);
+  const k = length / Math.max(sz.x, sz.z); root.scaling.scaleInPlace(k);
+  const c = bb.min.add(bb.max).scale(.5); root.position.subtractInPlace(c.scale(k));
+  for (const m of r.meshes) { if (m.getTotalVertices && m.getTotalVertices() > 0) { shadows.addShadowCaster(m); m.receiveShadows = true; } }
+  return {holder, root, meshes: r.meshes, nodes: r.transformNodes, size: sz.scale(k)};
+}
+const AIR = {};
+(async () => {
+  try {
+    const heli = await loadModel('models/mi24/', 17.5 * 1.6);
+    const rotor = heli.nodes.concat(heli.meshes).find(n => /rotor_stop/.test(n.name) && !/_0$/.test(n.name)) || heli.meshes.find(m => /rotor/.test(m.name));
+    const tail = heli.nodes.concat(heli.meshes).find(n => /vint_rul/.test(n.name) && !/_0$/.test(n.name)) || heli.meshes.find(m => /vint_rul/.test(m.name));
+    AIR.heli = {...heli, rotor, tail, a: 0};
+  } catch (e) { console.warn('heli', e); }
+  try { AIR.jet = {...await loadModel('models/f2/', 15.5 * 1.6, Math.PI / 2), a: 0}; } catch (e) { console.warn('jet', e); }
+  window.__air = AIR;
+})();
+const HV0 = MAP.meta.villages[0];
+scene.registerBeforeRender(() => {
+  const dt = engine.getDeltaTime() / 1000;
+  const H = AIR.heli; if (H) {
+    H.a += dt * .07; const R = 420, x = HV0[0] + Math.cos(H.a) * R, z = HV0[1] + Math.sin(H.a) * R;
+    H.holder.position.set(x, hAt(x, z) + 70, z); H.holder.rotation.set(.08, -H.a + Math.PI * (H.yawFix || 0), -.12);
+    if (H.rotor) H.rotor.rotate(BABYLON.Axis[H.rotAxis || 'Z'], dt * 28, BABYLON.Space.LOCAL);
+    if (H.tail) H.tail.rotate(BABYLON.Axis[H.tailAxis || 'X'], dt * 40, BABYLON.Space.LOCAL);
+  }
+  const J = AIR.jet; if (J) {
+    J.a += dt * .09; const R = 2600, x = Math.cos(J.a) * R, z = Math.sin(J.a) * R;
+    J.holder.position.set(x, hAt(x, z) + 420, z); J.holder.rotation.set(0, -J.a, -.55);
+  }
+  // تتبع طائرة: الكاميرا تلحقها
+  if (cam.track && AIR[cam.track]) { const P = AIR[cam.track].holder.position; cam.x = P.x; cam.z = P.z; cam.lift = P.y - hAt(P.x, P.z); } else cam.lift = 0;
+  updateCamera();
+});
+window.__cam = cam; window.__scene = scene;
+</script>
+</body>
+</html>
