@@ -26,6 +26,7 @@ const UT = {
   drone:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: 26, sz: 32, cost: 0, air: true},
   heli:   {hp: 70,  arm: 1, rng: 3 * KM,   rof: 1.6, ds: 14, dh: 30, acc: .5,  spd: 9,   sz: 42, cost: 3, snd: 'hmg', fx: 'rocket', air: true},
 };
+const STANDOFF = {tank: .72, ifv: .8, squad: 1.9, atgm: .85, mg: .85, sniper: .9, mortar: .7, arty: .3, ad: 0, heli: .75};
 const SPRITE = {
   iq: {tank: ['qaqaa', 't72'], ifv: ['bmp1'], squad: ['squad_iq'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['samsama'], ad: ['pantsir'], heli: ['mi35']},
   tr: {tank: ['leopard2a4', 'altay'], ifv: ['acv15'], squad: ['squad_tr'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['firtina'], ad: ['ad_truck'], heli: ['t129']}
@@ -43,7 +44,7 @@ function mkUnit(side, t, x, y, o = {}){
   W.units.push(u); return u;
 }
 function setupWar(){
-  W = {t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], log: [], order: 'attack', end: null,
+  W = {sel: [], aim: null, t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], log: [], order: 'attack', end: null,
     stats: {iq: {lost: {}, fired: 0}, tr: {lost: {}, fired: 0}, msl: 0, mslInt: 0, trMsl: 0, trInt: 0, jetsLost: 0},
     uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 55, droneT: 70, follow: true,
     cam: {x: 1250, y: 1380, k: 1.7}};
@@ -72,10 +73,10 @@ function setupWar(){
   mkUnit('tr', 'arty', 1130, 520); mkUnit('tr', 'arty', 1220, 515); mkUnit('tr', 'ad', 1260, 600); mkUnit('tr', 'heli', 1230, 560);
   // العراق: ثلاث مجموعات على خط البداية جنوب السلسلة
   const east = [[1445, 1147], [1300, 840], [1170, 680]], center = [[1220, 1085], [1180, 830], [1165, 670]], west = [[960, 1000], [760, 720]];
-  const grp = (pts, list, x0, y0) => list.forEach(([t, dx, dy]) => mkUnit('iq', t, x0 + dx, y0 + dy, {path: pts.map(([x, y]) => ({x: x + dx * .4, y: y + dy * .2}))}));
-  grp(center, [['tank', -40, 0], ['tank', 0, -8], ['tank', 40, 0], ['ifv', -20, 30], ['ifv', 20, 30], ['squad', -45, 50], ['squad', 0, 55], ['squad', 45, 50], ['atgm', 0, 80], ['mg', -30, 85], ['sniper', 30, 85]], 1220, 1460);
-  grp(east, [['tank', -30, 0], ['tank', 10, -6], ['tank', 50, 4], ['ifv', 0, 30], ['squad', -25, 50], ['squad', 25, 50], ['atgm', 0, 75]], 1500, 1480);
-  grp(west, [['tank', -20, 0], ['tank', 20, 0], ['ifv', 0, 28], ['squad', -20, 50], ['squad', 20, 50]], 980, 1440);
+  const grp = (pts, list, x0, y0, g) => list.forEach(([t, dx, dy]) => mkUnit('iq', t, x0 + dx, y0 + dy, {grp: g, path: pts.map(([x, y]) => ({x: x + dx * .4, y: y + dy * .2}))}));
+  grp(center, [['tank', -40, 0], ['tank', 0, -8], ['tank', 40, 0], ['ifv', -20, 30], ['ifv', 20, 30], ['squad', -45, 50], ['squad', 0, 55], ['squad', 45, 50], ['atgm', 0, 80], ['mg', -30, 85], ['sniper', 30, 85]], 1220, 1460, 'الوسط');
+  grp(east, [['tank', -30, 0], ['tank', 10, -6], ['tank', 50, 4], ['ifv', 0, 30], ['squad', -25, 50], ['squad', 25, 50], ['atgm', 0, 75]], 1500, 1480, 'الشرق');
+  grp(west, [['tank', -20, 0], ['tank', 20, 0], ['ifv', 0, 28], ['squad', -20, 50], ['squad', 20, 50]], 980, 1440, 'الغرب');
   mkUnit('iq', 'mortar', 1240, 1560); mkUnit('iq', 'mortar', 1470, 1570);
   mkUnit('iq', 'arty', 1180, 1700); mkUnit('iq', 'arty', 1260, 1710); mkUnit('iq', 'arty', 1340, 1700);
   mkUnit('iq', 'ad', 1300, 1620);
@@ -84,6 +85,8 @@ function setupWar(){
   W.init = {iq: strength('iq'), tr: strength('tr')};
   wlog('صدر أمر الهجوم: ثلاث مجموعات عراقية تتقدم نحو ألقوش ودهوك وسميل.', 'iq');
 }
+function nearestEnemy(u){ let best = null, bd = 1e9; for (const v of W.units) { if (v.side === u.side || v.dead || v.jetPath || v.t === 'drone' || UT[v.t].air) continue; const r = dist(u, v); if (r < bd) { bd = r; best = v; } } return best ? {v: best, d: bd} : null; }
+function localStr(side, at, R){ let s = 0; for (const v of W.units) if (v.side === side && !v.dead && !v.jetPath && v.t !== 'drone' && dist(v, at) < R) s += UT[v.t].cost * v.hp / UT[v.t].hp; return s; }
 function strength(side){ let s = 0; for (const u of W.units) if (u.side === side && !u.dead) s += UT[u.t].cost * u.hp / UT[u.t].hp; return s; }
 function wlog(t, side){ W.log.unshift({t, side, at: W.t}); if (W.log.length > 30) W.log.pop(); const el = document.getElementById('wlog'); if (el) el.innerHTML = W.log.slice(0, 3).map((l, i) => `<div style="opacity:${1 - i * .28};color:${l.side === 'iq' ? 'var(--mine)' : l.side === 'tr' ? '#e07b6e' : 'var(--text)'}">${l.t}</div>`).join(''); }
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -98,8 +101,8 @@ function wboom(x, y, big = 1, snd = true){
   wp('sparks', x, y, {s0: r * .6, s1: r * 2, life: .45});
   wp('shock', x, y, {s0: r * .5, s1: r * 2.4, a0: .6, life: .9, layer: 'mid', vr: 0});
   for (let i = 0; i < 2 + big; i++) wp('smoke_dark', x + (wrand() - .5) * r * .5, y + (wrand() - .5) * r * .5, {s0: r * .4, s1: r * (1.3 + wrand() * .6), a0: .75, life: 2.4 + wrand() * 1.5, delay: .12 + i * .08, vx: 2 + wrand() * 3, vy: -3 - wrand() * 4, layer: 'mid'});
-  if (W.decals.length > 260) W.decals.shift();
-  W.decals.push({k: big > 1.2 ? 'crater_big' : 'crater_small', x, y, s: r * 1.3, rot: wrand() * 6.28, a: .85});
+  // حفرة فقط للانفجارات الكبيرة (مدفعية وصواريخ)، أما قذائف الرمي المباشر فلا تترك حفرة
+  if (big >= .8) { if (W.decals.length > 260) W.decals.shift(); W.decals.push({k: big > 1.2 ? 'crater_big' : 'crater_small', x, y, s: r * (big > 1.2 ? 1.1 : .8), rot: wrand() * 6.28, a: .6}); }
   if (snd) wsound(big > 1.3 ? 'explosion_big' : big > .8 ? 'explosion_med' : 'explosion_med2', x, y, .6 + big * .15);
 }
 // ------------------------------------------------------------------ الصوت بموضعه: يسار ويمين حسب الشاشة، ويخفت ويُكتم بالبعد
@@ -115,6 +118,7 @@ function wsound(k, x, y, vol = .7){
 function enemiesOf(u){ return W.units.filter(v => v.side !== u.side && !v.dead && !v.air && !(UT[v.t].air)); }
 function pickTarget(u, d){
   let best = null, bs = -1;
+  if (u.focus) { const f = W.units.find(v => v.id === u.focus && !v.dead); if (f && dist(u, f) <= d.rng && !(d.heavyOnly && !UT[f.t].arm) && !(d.softOnly && UT[f.t].arm)) return f; if (!f) u.focus = null; }
   for (const v of W.units) {
     if (v.side === u.side || v.dead || UT[v.t].air) continue;
     const r = dist(u, v); if (r > d.rng * (1 + Math.max(0, hAt(u.x, u.y) - hAt(v.x, v.y)) / 600)) continue;
@@ -141,8 +145,13 @@ function fire(u, v){
     W.proj.push({k: 'shell', x0: u.x, y0: u.y, x1: tx, y1: ty, t: 0, dur: 2.6 + r / 300, side: u.side, dmg, area: d.area, soft: d.ds, hard: d.dh});
     if (u.t === 'arty') { wp('muzzle', u.x + Math.cos(u.ang) * 14, u.y + Math.sin(u.ang) * 14, {s0: 14, s1: 20, life: .18, rot: u.ang + Math.PI / 2, vr: 0}); wp('smoke_light', u.x, u.y, {s0: 10, s1: 40, a0: .5, life: 2, vx: 3, vy: -3, layer: 'mid'}); }
   } else {
-    const fx = d.fx;
-    W.proj.push({k: fx, x0: u.x, y0: u.y, x1: v.x + (hit ? 0 : (wrand() - .5) * 30), y1: v.y + (hit ? 0 : (wrand() - .5) * 30), t: 0, dur: fx === 'atgm' ? 1.4 : fx === 'rocket' ? .8 : .25, target: v, hit, dmg, side: u.side});
+    const fx = d.fx, mx = (hit ? 0 : (wrand() - .5) * 30), my = (hit ? 0 : (wrand() - .5) * 30);
+    const spd = {shell: 340, tracer: 280, atgm: 95, rocket: 170, none: 600}[fx] || 300;
+    const ox = u.x + Math.cos(u.ang) * d.sz * .5, oy = u.y + Math.sin(u.ang) * d.sz * .5;
+    W.proj.push({k: fx, x0: ox, y0: oy, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.08, r / spd), target: v, hit, dmg, side: u.side});
+    if (fx === 'tracer') for (let i = 1; i < 4; i++) W.proj.push({k: 'tracer', vis: true, x0: ox, y0: oy, x1: v.x + (wrand() - .5) * 12, y1: v.y + (wrand() - .5) * 12, t: -i * .09, dur: Math.max(.08, r / spd), side: u.side});
+    if (fx === 'rocket') for (let i = 1; i < 3; i++) W.proj.push({k: 'rocket', vis: true, x0: ox, y0: oy, x1: v.x + (wrand() - .5) * 18, y1: v.y + (wrand() - .5) * 18, t: -i * .15, dur: Math.max(.08, r / spd), side: u.side});
+    if (fx === 'atgm') { wp('smoke_light', ox, oy, {s0: 6, s1: 26, a0: .55, life: 1.6, vx: -Math.cos(u.ang) * 6, vy: -Math.sin(u.ang) * 6, layer: 'mid'}); wp('muzzle', ox, oy, {s0: 8, s1: 12, life: .15, rot: u.ang + Math.PI / 2, vr: 0}); }
     if (fx === 'shell') { wp('muzzle', u.x + Math.cos(u.ang) * d.sz * .55, u.y + Math.sin(u.ang) * d.sz * .55, {s0: 10, s1: 15, life: .16, rot: u.ang + Math.PI / 2, vr: 0}); wp('smoke_light', u.x + Math.cos(u.ang) * d.sz * .7, u.y + Math.sin(u.ang) * d.sz * .7, {s0: 6, s1: 22, a0: .45, life: 1.4, vx: 2, vy: -2, layer: 'mid'}); }
     if (fx === 'tracer') wp('rifle_flash', u.x + Math.cos(u.ang) * d.sz * .4, u.y + Math.sin(u.ang) * d.sz * .4, {s0: 5, s1: 7, life: .1, vr: 0});
   }
@@ -184,24 +193,65 @@ function stepWar(dt){
     // الحركة
     let goal = null, sp = d.spd;
     const order = u.side === 'iq' ? W.order : (W.trCollapse ? 'retreat' : 'hold');
-    if (u.retreat || order === 'retreat') goal = u.side === 'iq' ? u.start : {x: u.x, y: 280};
-    else if (u.side === 'iq' && order === 'attack' && u.path.length) {
+    const ne = nearestEnemy(u);
+    // هل نتقدم؟ نعم إذا لم يكن العدو في مسافة الاشتباك، أو انكسر، أو صار تفوقنا المحلي كبيراً
+    let mayAdvance = true;
+    if (ne && !d.air) {
+      const stand = Math.max(d.rng * STANDOFF[u.t], u.t === 'squad' ? 1.5 * KM : 0);
+      const broken = ne.v.retreat || ne.v.mor < 30;
+      const fr = localStr(u.side, u, 5 * KM), en = localStr(ne.v.side, u, 5 * KM);
+      // التقدم بالتناوب: نصف المجموعة يتقدم والنصف الآخر يغطيه بالنار، ثم يتبادلان
+      const bound = (Math.floor(W.t / 7) + u.id) % 2 === 0;
+      if (ne.d < stand && !broken && fr < en * 2.4) mayAdvance = false;
+      else if (ne.d < stand * 1.25 && !broken && !bound) mayAdvance = false;
+      if (ne.d < 14 + d.sz * .4 && !broken) mayAdvance = false;
+      // الاقتحام: العدو المنكسر أو الضعيف جداً في المدينة يُطارد
+      if (broken && ne.d < 5 * KM && (u.side === 'iq' ? order === 'attack' : !u.dug)) { goal = {x: ne.v.x, y: ne.v.y}; sp *= .8; }
+    }
+    if (u.manual) {
+      // أمر مباشر من اللاعب: تحرك أو هجوم على هدف محدد
+      const f = u.focus && W.units.find(v => v.id === u.focus && !v.dead);
+      if (f) { goal = dist(u, f) > d.rng * .85 ? {x: f.x, y: f.y} : null; }
+      else { goal = dist(u, u.manual) > 6 ? u.manual : null; }
+    } else if (u.retreat || order === 'retreat') goal = u.side === 'iq' ? u.start : {x: u.x, y: 280};
+    else if (u.side === 'iq' && order === 'attack' && u.path.length && !goal) {
       while (u.pi < u.path.length - 1 && dist(u, u.path[u.pi]) < 26) u.pi++;
-      goal = u.path[u.pi];
-      if (tgt && !d.air) sp *= u.t === 'tank' || u.t === 'ifv' ? .7 : .4;
+      goal = mayAdvance ? u.path[u.pi] : null;
+      if (goal && tgt && !d.air) sp *= u.t === 'tank' || u.t === 'ifv' ? .6 : .45;
     } else if (u.side === 'tr' && !u.dug && (u.t === 'tank' || u.t === 'ifv')) {
       // هجوم مضاد محلي: الدروع التركية تتقدم نحو عدو قريب إذا كان الميزان المحلي لصالحها
       const e = enemiesOf(u).filter(v => dist(u, v) < 6 * KM);
       const f = W.units.filter(v => v.side === 'tr' && !v.dead && dist(u, v) < 6 * KM);
-      if (e.length && f.length > e.length * 1.3 && !tgt) { const n = e.sort((a, b) => dist(u, a) - dist(u, b))[0]; goal = {x: n.x, y: n.y}; sp *= .7; if (!u.ca) { u.ca = 1; wlog('هجوم مضاد تركي بالدروع', 'tr'); } }
+      if (e.length && f.length > e.length * 1.3 && mayAdvance) { const n = e.sort((a, b) => dist(u, a) - dist(u, b))[0]; goal = {x: n.x, y: n.y}; sp *= .7; if (!u.ca) { u.ca = 1; wlog('هجوم مضاد تركي بالدروع', 'tr'); } }
     }
-    if (d.air && u.side === 'iq' && order === 'attack') {
+    if (d.air && u.side === 'iq' && order === 'attack' && !u.manual) {
       // المروحيات تتبع مقدمة القوات من الخلف
       const lead = W.units.filter(v => v.side === 'iq' && !v.dead && !UT[v.t].air && (v.t === 'tank' || v.t === 'ifv'));
       if (lead.length) { const ly = Math.min(...lead.map(v => v.y)); goal = {x: lead.reduce((s, v) => s + v.x, 0) / lead.length, y: ly + 90}; }
     }
+    // إذا صار عدو صامد قريباً جداً (خارج المدن) نتراجع قليلاً إلى مسافة الرمي بدل الالتحام
+    if (ne && !d.air && !u.dug && !u.manual && !inTown(u) && !(ne.v.retreat || ne.v.mor < 30) && ne.d < 40) {
+      goal = {x: u.x + (u.x - ne.v.x) / ne.d * 30, y: u.y + (u.y - ne.v.y) / ne.d * 30}; sp *= .5;
+    }
+    // لا تلاحم: الوحدة الأرضية لا تقترب من عدو صامد أكثر من حد أدنى، بل تقاتله من مكانها
+    if (goal && ne && !d.air && !u.retreat && order !== 'retreat') {
+      const broken = ne.v.retreat || ne.v.mor < 30, minD = broken ? 30 : Math.max(58, d.rng * .4);
+      // نحسب هل الخطوة القادمة تقرّبنا من أي عدو صامد داخل الحد الأدنى
+      const gx = goal.x - u.x, gy = goal.y - u.y, gr = Math.hypot(gx, gy) || 1;
+      for (const v of W.units) {
+        if (v.side === u.side || v.dead || v.jetPath || v.t === 'drone' || UT[v.t].air) continue;
+        const ex = v.x - u.x, ey = v.y - u.y, er = Math.hypot(ex, ey);
+        if (er > minD * 1.4) continue;
+        const toward = (gx * ex + gy * ey) / (gr * (er || 1));
+        const vb = v.retreat || v.mor < 30, md = vb ? 36 : minD;
+        if (toward > .2 && er < md) { goal = null; break; }
+        if (toward > .2 && er < md * 1.4) sp *= .5;
+      }
+    }
+    // المروحية تضرب من بعيد: لا تحلّق فوق العدو بل تبقى على ثلثي مداها
+    if (goal && d.air && ne && ne.d < d.rng * .7) { const tw = (goal.x - u.x) * (ne.v.x - u.x) + (goal.y - u.y) * (ne.v.y - u.y); if (tw > 0) goal = null; }
     u.moving = false;
-    if (goal && (u.side === 'tr' || order !== 'hold' || u.retreat)) {
+    if (goal && (u.side === 'tr' || order !== 'hold' || u.retreat || u.manual)) {
       const dx = goal.x - u.x, dy = goal.y - u.y, r = Math.hypot(dx, dy);
       if (r > 4) {
         let f = 1;
@@ -214,6 +264,13 @@ function stepWar(dt){
       }
     }
     if (u.dug && u.moving && dist(u, u.home) > 30) u.dug = false;
+  }
+  // تباعد: كل وحدة أرضية تدفع جارتها إذا تراكبت، والأعداء لا يتداخلون أبداً
+  const gr = W.units.filter(u => !u.dead && !u.jetPath && u.t !== 'drone' && !UT[u.t].air);
+  for (let i = 0; i < gr.length; i++) for (let j = i + 1; j < gr.length; j++) {
+    const a = gr[i], b = gr[j], dx = b.x - a.x, dy = b.y - a.y, r = Math.hypot(dx, dy) || .01;
+    const min = a.side === b.side ? (UT[a.t].sz + UT[b.t].sz) * .58 : 22;
+    if (r < min) { const push = (min - r) / 2, ux = dx / r, uy = dy / r; if (!a.dug) { a.x -= ux * push; a.y -= uy * push; } if (!b.dug) { b.x += ux * push; b.y += uy * push; } }
   }
   // المقذوفات
   for (const p of W.proj) {
@@ -229,9 +286,12 @@ function stepWar(dt){
       const m = p.vs; if (!m || m.done) continue;
       if (p.ok) { m.intercepted = true; m.done = true; if (m.jet) { kill(m.jet, p.side); } wp('intercept', p.x1, p.y1, {s0: 12, s1: 46, life: .7}); wp('smoke_dark', p.x1, p.y1, {s0: 10, s1: 34, a0: .55, life: 2.2, vx: 3, vy: -2, layer: 'mid'}); wsound('intercept', p.x1, p.y1, .6); }
       else wp('intercept', p.x1, p.y1, {s0: 8, s1: 24, life: .5});
+    } else if (p.vis) {
+      if (p.k === 'rocket') wboom(p.x1, p.y1, .4, false); else if (wrand() < .4) wp('smoke_light', p.x1, p.y1, {s0: 2, s1: 7, a0: .5, life: .6, layer: 'mid'});
     } else if (p.target) {
       if (p.hit) { damage(p.target, p.dmg, p.side); if (p.k === 'shell' || p.k === 'atgm' || p.k === 'rocket') { wp('sparks', p.x1, p.y1, {s0: 8, s1: 18, life: .35}); if (p.k !== 'shell' || wrand() < .5) wboom(p.x1, p.y1, .55, wrand() < .5); } }
-      else if (p.k !== 'tracer') wboom(p.x1, p.y1, .45, false);
+      else if (p.k === 'tracer') wp('smoke_light', p.x1, p.y1, {s0: 2, s1: 8, a0: .5, life: .6, layer: 'mid'});
+      else { wp('smoke_light', p.x1, p.y1, {s0: 5, s1: 20, a0: .6, life: 1.2, layer: 'mid'}); wp('sparks', p.x1, p.y1, {s0: 4, s1: 10, life: .25}); }
     }
   }
   W.proj = W.proj.filter(p => !p.done);
@@ -292,16 +352,27 @@ function densest(side){
   return best ? {x: best.x, y: best.y} : null;
 }
 function salvo(side, from, tg, n){
-  wsound(side === 'iq' ? 'mlrs' : 'ballistic_launch', from.x, from.y, .7);
-  for (let i = 0; i < n; i++) W.proj.push({k: 'msl', x0: from.x + (i % 3 - 1) * 8, y0: from.y, x1: tg.x + (wrand() - .5) * 50, y1: tg.y + (wrand() - .5) * 50, t: -i * .25, dur: 4.2, side});
+  // الصواريخ تنطلق من منصات الراجمات الموجودة فعلاً في الميدان، كل منصة بدورها
+  const L = W.units.filter(u => u.side === side && u.t === 'arty' && !u.dead);
+  wsound(side === 'iq' ? 'mlrs' : 'ballistic_launch', (L[0] || from).x, (L[0] || from).y, .7);
+  for (let i = 0; i < n; i++) {
+    const s = L.length ? L[i % L.length] : from, x0 = s.x + (wrand() - .5) * 6, y0 = s.y + (wrand() - .5) * 6, dl = i * .3;
+    if (s.ang !== undefined) s.ang = Math.atan2(tg.y - s.y, tg.x - s.x);
+    wp('fireball', x0, y0, {s0: 6, s1: 18, life: .35, delay: dl, vr: 0});
+    wp('smoke_light', x0, y0, {s0: 10, s1: 55, a0: .75, life: 4.5, delay: dl, vx: 3 + wrand() * 3, vy: -2 - wrand() * 2, layer: 'mid'});
+    wp('smoke_light', x0 + (wrand() - .5) * 14, y0 + (wrand() - .5) * 14, {s0: 8, s1: 40, a0: .55, life: 3.5, delay: dl + .1, vx: -2, vy: -3, layer: 'mid'});
+    W.proj.push({k: 'msl', x0, y0, x1: tg.x + (wrand() - .5) * 50, y1: tg.y + (wrand() - .5) * 50, t: -dl, dur: 4.2, side});
+  }
 }
 // ------------------------------------------------------------------ أوامر اللاعب
 function wOrder(k){
   if (!W || W.end) return;
-  if (k === 'attack' || k === 'hold' || k === 'retreat') { W.order = k; wlog({attack: 'أمر: هجوم شامل', hold: 'أمر: تثبيت المواقع والرد بالنار', retreat: 'أمر: انسحاب منظم إلى خط البداية'}[k], 'iq'); }
-  if (k === 'msl' && W.uses.msl > 0 && W.cool.msl <= 0) { const tg = densest('tr'); if (tg) { W.uses.msl--; W.cool.msl = 25; salvo('iq', {x: 1300, y: 1960}, tg, 8); W.stats.msl += 8; wlog('رشقة من 8 صواريخ على أكبر تجمع للعدو', 'iq'); } }
-  if (k === 'air' && W.uses.air > 0 && W.cool.air <= 0) {
-    const tg = densest('tr'); if (tg) { W.uses.air--; W.cool.air = 40; wlog('ضربة جوية: 4 مقاتلات F-16 تتجه إلى الهدف', 'iq'); wsound('jet_flyby', tg.x, tg.y, .8);
+  if (k === 'attack' || k === 'hold' || k === 'retreat') { for (const u of W.units) if (u.side === 'iq') { u.manual = null; u.focus = null; } W.order = k; wlog({attack: 'أمر: هجوم شامل', hold: 'أمر: تثبيت المواقع والرد بالنار', retreat: 'أمر: انسحاب منظم إلى خط البداية'}[k], 'iq'); }
+  if ((k === 'msl' || k === 'air') && W.aim === k) { W.aim = null; hint(''); syncWarUI(); return; }
+  if ((k === 'msl' || k === 'air') && !W.aim && ((k === 'msl' && W.uses.msl > 0 && W.cool.msl <= 0) || (k === 'air' && W.uses.air > 0 && W.cool.air <= 0))) { W.aim = k; hint(k === 'air' ? 'اضغط على الخريطة: مكان الضربة الجوية' : 'اضغط على الخريطة: هدف رشقة الصواريخ'); syncWarUI(); return; }
+  if (k === 'msl-go' && W.uses.msl > 0) { const tg = W.aimAt || densest('tr'); if (tg) { W.uses.msl--; W.cool.msl = 25; salvo('iq', {x: 1300, y: 1960}, tg, 8); W.stats.msl += 8; wlog('رشقة من 8 صواريخ على الهدف المحدد', 'iq'); } }
+  if (k === 'air-go' && W.uses.air > 0) {
+    const tg = W.aimAt || densest('tr'); if (tg) { W.uses.air--; W.cool.air = 40; wlog('ضربة جوية: 4 مقاتلات F-16 تتجه إلى الهدف', 'iq'); wsound('jet_flyby', tg.x, tg.y, .8);
       for (let i = 0; i < 4; i++) { const x0 = tg.x - 90 + i * 60, j = mkUnit('iq', 'heli', x0, 2200 + i * 40, {jetPath: true, jt: 0, jdur: 9, jx0: x0, jy0: 2200 + i * 40, jx1: tg.x - 90 + i * 60 + 40, jy1: -150, tx: tg.x + (i - 1.5) * 20, ty: tg.y, spr: 'f16', hp: 40}); j.t = 'heli'; } }
   }
   if (k === 'res' && W.uses.res > 0) { W.uses.res--; const c = [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -30], ['tank', 10], ['tank', 50], ['ifv', -10], ['squad', -30], ['squad', 30]]) { const u = mkUnit('iq', t, 1240 + dx, 1600 + (t === 'squad' ? 40 : 0), {path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
@@ -313,6 +384,8 @@ function syncWarUI(){
   set('wo-msl', W.uses.msl ? (W.cool.msl > 0 ? `بعد ${Math.ceil(W.cool.msl)} ث` : `باقي ${W.uses.msl}`) : 'نفدت', !W.uses.msl || W.cool.msl > 0);
   set('wo-res', W.uses.res ? '6 وحدات' : 'استُخدم', !W.uses.res);
   for (const k of ['attack', 'hold', 'retreat']) { const b = document.getElementById('wo-' + k); if (b) b.classList.toggle('on', W.order === k); }
+  for (const k of ['air', 'msl']) { const b = document.getElementById('wo-' + k); b.classList.toggle('on', W.aim === k); if (W.aim === k) b.disabled = false; }
+  W.sel = W.sel.filter(id => W.units.some(u => u.id === id && !u.dead)); selUI();
   const m = Math.floor(W.t / 60), s = Math.floor(W.t % 60);
   document.getElementById('wtime').textContent = `${m}:${String(s).padStart(2, '0')} / 5:00`;
   const cnt = side => W.units.filter(u => u.side === side && !u.dead && (u.t === 'tank')).length;
@@ -365,14 +438,32 @@ function drawWar(dt){
     c.fillStyle = u.side === 'iq' ? '#d2a24c' : '#c0473b'; c.beginPath(); c.arc(u.x - s * .45, u.y - s * .45, 2.6, 0, 7); c.fill();
     if (cam.k > .8 && u.hp < d.hp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(u.x - 9, u.y + s * .55, 18, 3); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(u.x - 9, u.y + s * .55, 18 * u.hp / d.hp, 3); }
   }
+  for (const u of W.units) if (W.sel && W.sel.includes(u.id) && !u.dead) {
+    c.strokeStyle = 'rgba(255,230,150,.95)'; c.lineWidth = 1.6 / cam.k * 1.2; c.beginPath(); c.arc(u.x, u.y, UT[u.t].sz * .62, 0, 7); c.stroke();
+    if (u.manual) { const f = u.focus && W.units.find(v => v.id === u.focus && !v.dead); const g = f || u.manual; c.setLineDash([4 / cam.k, 4 / cam.k]); c.strokeStyle = f ? 'rgba(230,90,70,.9)' : 'rgba(255,230,150,.7)'; c.beginPath(); c.moveTo(u.x, u.y); c.lineTo(g.x, g.y); c.stroke(); c.setLineDash([]); }
+  }
   drawWParts(dt, 'mid');
   // المقذوفات
   for (const p of W.proj) {
     if (p.t < 0) continue; const k = Math.min(1, p.t / p.dur);
     const x = p.x0 + (p.x1 - p.x0) * k, y = p.y0 + (p.y1 - p.y0) * k;
-    if (p.k === 'tracer') { const x2 = p.x0 + (p.x1 - p.x0) * Math.max(0, k - .25), y2 = p.y0 + (p.y1 - p.y0) * Math.max(0, k - .25); c.strokeStyle = p.side === 'iq' ? 'rgba(255,210,120,.95)' : 'rgba(255,150,110,.95)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x2, y2); c.lineTo(x, y); c.stroke(); }
-    else if (p.k === 'shell') { if (p.dur < 1) { c.strokeStyle = 'rgba(255,240,200,.9)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(x - (p.x1 - p.x0) * .06, y - (p.y1 - p.y0) * .06); c.lineTo(x, y); c.stroke(); } else { const hy = y - Math.sin(k * Math.PI) * 60; c.fillStyle = 'rgba(255,230,180,.9)'; c.beginPath(); c.arc(x, hy, 1.4, 0, 7); c.fill(); } }
-    else if (p.k === 'atgm' || p.k === 'rocket') { const ang = Math.atan2(p.y1 - p.y0, p.x1 - p.x0); if (wrand() < .5) wp('smoke_light', x, y, {s0: 3, s1: 12, a0: .45, life: 1.2, layer: 'mid'}); c.fillStyle = '#fff2c0'; c.beginPath(); c.arc(x, y, 1.8, 0, 7); c.fill(); spr('exhaust', x - Math.cos(ang) * 4, y - Math.sin(ang) * 4, 8, ang - Math.PI / 2, .9, 'lighter'); }
+    if (p.k === 'tracer' || (p.k === 'shell' && p.dur < 1.5)) {
+      // خط مضيء قصير يتحرك بسرعة المقذوف: هالة عريضة شفافة ثم قلب أبيض
+      const sh = p.k === 'shell', L = sh ? 16 : 9, r = Math.hypot(p.x1 - p.x0, p.y1 - p.y0) || 1, ux = (p.x1 - p.x0) / r, uy = (p.y1 - p.y0) / r;
+      c.lineCap = 'round'; c.globalCompositeOperation = 'lighter';
+      c.strokeStyle = sh ? 'rgba(255,200,120,.35)' : (p.side === 'iq' ? 'rgba(255,180,60,.4)' : 'rgba(255,90,60,.45)'); c.lineWidth = sh ? 5 : 3.2;
+      c.beginPath(); c.moveTo(x - ux * L, y - uy * L); c.lineTo(x, y); c.stroke();
+      c.strokeStyle = sh ? 'rgba(255,250,230,1)' : (p.side === 'iq' ? 'rgba(255,225,150,1)' : 'rgba(255,170,130,1)'); c.lineWidth = sh ? 2 : 1.3;
+      c.beginPath(); c.moveTo(x - ux * L * .8, y - uy * L * .8); c.lineTo(x, y); c.stroke();
+      c.lineCap = 'butt'; c.globalCompositeOperation = 'source-over';
+    }
+    else if (p.k === 'shell') { if (false) {} else { const hy = y - Math.sin(k * Math.PI) * 60; c.fillStyle = 'rgba(255,230,180,.9)'; c.beginPath(); c.arc(x, hy, 1.4, 0, 7); c.fill(); } }
+    else if (p.k === 'atgm' || p.k === 'rocket') {
+      const wob = p.k === 'atgm' ? Math.sin(p.t * 18) * 1.5 : 0, ang = Math.atan2(p.y1 - p.y0, p.x1 - p.x0), nx = -Math.sin(ang) * wob, ny = Math.cos(ang) * wob;
+      wp('smoke_light', x + nx, y + ny, {s0: 2.5, s1: p.k === 'atgm' ? 13 : 9, a0: .5, life: p.k === 'atgm' ? 1.6 : 1, vx: 1, vy: -1, layer: 'mid'});
+      spr('exhaust', x + nx - Math.cos(ang) * 4, y + ny - Math.sin(ang) * 4, p.k === 'atgm' ? 9 : 7, ang - Math.PI / 2, .95, 'lighter');
+      c.save(); c.translate(x + nx, y + ny); c.rotate(ang); c.fillStyle = p.k === 'atgm' ? '#e4dcc0' : '#d6d6cf'; c.fillRect(-6, -1.5, 9, 3); c.fillStyle = '#6f5f30'; c.fillRect(2, -1.8, 3, 3.6); c.fillStyle = '#222'; c.fillRect(-5, -2.6, 2, 5.2); c.restore();
+    }
     else if (p.k === 'msl' || p.k === 'int' || p.k === 'bomb') {
       if (p.k === 'msl' && p.intercepted) continue;
       const arc = p.k === 'msl' ? Math.sin(k * Math.PI) * 140 : 0, hy = y - arc;
@@ -440,11 +531,14 @@ addEventListener('resize', () => { if (W) wResize(); });
   document.addEventListener('DOMContentLoaded', () => {});
   const attach = () => {
     const c = el();
-    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = e; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } });
+    let down = null, moved = 0;
+    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = e; if (pts.size === 1) { down = {x: e.clientX, y: e.clientY, t: performance.now()}; moved = 0; } if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } });
     c.addEventListener('pointermove', e => { if (!W || !pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
       if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); W.cam.k = Math.max(.3, Math.min(4, W.cam.k * d / pinch)); pinch = d; W.follow = false; return; }
+      moved += Math.abs(e.clientX - last.clientX) + Math.abs(e.clientY - last.clientY);
+      if (moved < 10) { last = e; return; }
       W.cam.x -= (e.clientX - last.clientX) / W.cam.k; W.cam.y -= (e.clientY - last.clientY) / W.cam.k; last = e; if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) { W.follow = false; document.getElementById('wfollow').classList.remove('on'); } });
-    c.addEventListener('pointerup', e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; });
+    c.addEventListener('pointerup', e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; if (down && moved < 10 && performance.now() - down.t < 600 && pts.size === 0) { const r = c.getBoundingClientRect(); wTap(e.clientX - r.left, e.clientY - r.top); } down = null; });
     c.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = 0; });
     c.addEventListener('wheel', e => { e.preventDefault(); if (W) { W.cam.k = Math.max(.3, Math.min(4, W.cam.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); } }, {passive: false});
   };
@@ -456,3 +550,41 @@ document.getElementById('wzin').onclick = () => { if (W) W.cam.k = Math.min(4, W
 document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(.3, W.cam.k / 1.4); };
 document.getElementById('wclose').onclick = closeWar;
 document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 6000) { stepWar(.05); n++; } };
+
+// ------------------------------------------------------------------ التحكم المباشر: تحديد وحدة ثم أمرها
+function hint(t){ const el = document.getElementById('whint'); el.textContent = t; el.hidden = !t; }
+function wTap(sx, sy){
+  if (!W || W.end) return;
+  const cv = wc(), x = (sx - cv.clientWidth / 2) / W.cam.k + W.cam.x, y = (sy - cv.clientHeight / 2) / W.cam.k + W.cam.y;
+  if (W.aim) { W.aimAt = {x, y}; const k = W.aim; W.aim = null; hint(''); wOrder(k + '-go'); W.aimAt = null; wp('flare', x, y, {s0: 10, s1: 30, life: .8}); return; }
+  const R = Math.max(14, 22 / W.cam.k);
+  let hitU = null, bd = R;
+  for (const u of W.units) { if (u.dead || u.jetPath || u.t === 'drone') continue; const r = Math.hypot(u.x - x, u.y - y); if (r < bd) { bd = r; hitU = u; } }
+  if (hitU && hitU.side === 'iq') {
+    if (W.sel.length === 1 && W.sel[0] === hitU.id && hitU.grp) W.sel = W.units.filter(u => u.side === 'iq' && !u.dead && u.grp === hitU.grp).map(u => u.id);
+    else W.sel = [hitU.id];
+    selUI(); return;
+  }
+  if (!W.sel.length) return;
+  const sel = W.units.filter(u => W.sel.includes(u.id) && !u.dead);
+  if (hitU && hitU.side === 'tr') {
+    for (const u of sel) { u.focus = hitU.id; u.manual = {x: hitU.x, y: hitU.y}; }
+    wlog(`أمر: ${sel.length > 1 ? sel.length + ' وحدات تهاجم' : NAME[sel[0].t] + ' تهاجم'} ${NAME[hitU.t]} للعدو`, 'iq');
+  } else {
+    // التحرك بتشكيل: كل وحدة تحافظ على موضعها النسبي من مركز المجموعة
+    const cx = sel.reduce((s, u) => s + u.x, 0) / sel.length, cy = sel.reduce((s, u) => s + u.y, 0) / sel.length;
+    for (const u of sel) { u.focus = null; u.manual = {x: x + (u.x - cx) * .7, y: y + (u.y - cy) * .7}; }
+    wp('flare', x, y, {s0: 6, s1: 16, life: .6});
+    wlog(`أمر: ${sel.length > 1 ? sel.length + ' وحدات تتحرك' : NAME[sel[0].t] + ' تتحرك'} إلى النقطة المحددة`, 'iq');
+  }
+}
+function selUI(){
+  const box = document.getElementById('wsel'), sel = W.units.filter(u => W.sel.includes(u.id) && !u.dead);
+  if (!sel.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const u = sel[0], d = UT[u.t];
+  document.getElementById('wsel-t').textContent = sel.length > 1 ? `${sel.length} وحدات · مجموعة ${u.grp || ''}` : `${NAME[u.t]} · قوة ${Math.round(u.hp / d.hp * 100)}% · معنويات ${Math.round(u.mor)}`;
+  document.getElementById('wsel-s').textContent = sel.length > 1 ? 'اضغط مكاناً للتحرك أو عدواً للهجوم' : `المدى ${(d.rng / KM).toFixed(1)} كم · اضغط مكاناً أو عدواً · اضغطها ثانية لتحديد مجموعتها`;
+}
+document.getElementById('wsel-x').onclick = () => { if (W) { W.sel = []; selUI(); } };
+document.getElementById('wsel-free').onclick = () => { if (W) { for (const u of W.units) if (W.sel.includes(u.id)) { u.manual = null; u.focus = null; } W.sel = []; selUI(); wlog('الوحدات المحددة تعود للخطة', 'iq'); } };
