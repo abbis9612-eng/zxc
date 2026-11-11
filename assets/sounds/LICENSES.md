@@ -51,3 +51,27 @@
 | `ui_click.mp3` | Mixkit #1109 (Mixkit Sound Effects Free License) |
 | `victory.mp3` | Mixkit #2293 (Mixkit Sound Effects Free License) |
 | `war_horn.mp3` | Mixkit #2289 (Mixkit Sound Effects Free License) |
+
+## أصوات المعركة — الدفعة الثالثة
+
+نفس المعالجة: قصّ للمدة المطلوبة، وتوحيد العلو، وMP3 أحادي 80k. الأسماء بأرقامها كما طلب كلود.
+
+| الملف | المدة | المصدر والترخيص |
+|---|---|---|
+| `24.mp3` | 3 ث | Mixkit #1715 إشعال محرك صاروخ (Mixkit Sound Effects Free License) |
+| `25.mp3` | 3 ث | Mixkit #1714 مرور صاروخ (Mixkit Sound Effects Free License) |
+| `26.mp3` | 3 ث | Mixkit #1580 طائرة نفاثة تعبر (Mixkit Sound Effects Free License) |
+| `27.mp3` | 2 ث | Mixkit #1687 انفجار معدني (Mixkit Sound Effects Free License) |
+| `28.mp3` | 3 ث | SoundBible #2071 Winchester 1873 مع ارتداد الرصاص (Attribution 3.0) |
+| `29.mp3` | 3 ث | Mixkit #1703 انفجار مع حطام صخري (Mixkit Sound Effects Free License) |
+| `30.mp3` | 2 ث | SoundBible #709 Bottle Rocket، صاروخ حقيقي (Attribution 3.0) |
+| `31.mp3` | 3 ث | Mixkit #2804 سقوط قنبلة واصطدام (Mixkit Sound Effects Free License) |
+| `32.mp3` | 2 ث | Mixkit #2757 تعشيق معدني لدبابة، مكرّر حتى ثانيتين (Mixkit Sound Effects Free License) |
+| `33.mp3` | 5 ث | Mixkit #2756 دبابة حرب قديمة (Mixkit Sound Effects Free License) |
+| `34.mp3` | 3 ث | Mixkit #1725 لهب إشعال صاروخ (Mixkit Sound Effects Free License) |
+| `35.mp3` | 3 ث | SoundBible #1920 Minigun، رشّ حقيقي (Attribution 3.0، Jim Rogers) |
+| `36.mp3` | 6 ث | Mixkit #1574 طنين طائرة نفاثة (Mixkit Sound Effects Free License) |
+| `37.mp3` | 5 ث | Mixkit #2777 انفجارات معركة متتالية (Mixkit Sound Effects Free License) |
+| `38.mp3` | 4 ث | Mixkit #1274 جري على طريق خشن (Mixkit Sound Effects Free License) |
+| `39.mp3` | 5 ث | Mixkit #1446 تشويش راديو وطقطقة (Mixkit Sound Effects Free License) |
+| `40.mp3` | 3 ث | Mixkit #2802 قنبلة دخان (Mixkit Sound Effects Free License) |
