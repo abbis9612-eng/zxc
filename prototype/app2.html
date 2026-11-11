@@ -1,0 +1,1101 @@
+<title>غرفة القيادة</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap">
+<style>
+/* التصميم: غرفة قيادة ليلية. الخريطة تملأ الشاشة، والمعلومات على ألواح معتمة فوقها. لون اللاعب نحاسي، والحلفاء فولاذي، والأعداء آجري */
+:root{
+  --ocean:#0b1720; --ocean2:#0f2230; --line:#06101a;
+  --panel:#121e27; --panel2:#182833; --edge:#26394a;
+  --text:#ece6d8; --muted:#93a1ab; --faint:#5d6d79;
+  --mine:#d2a24c; --ally:#4f86b3; --foe:#b9493c; --good:#5fae7b; --warn:#d99a3e; --bad:#d4574a;
+  --display:"Reem Kufi","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--ocean);color:var(--text);font-family:var(--body);font-size:15px;overflow:hidden;
+  font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible{outline:2px solid var(--mine);outline-offset:2px}
+.num{font-family:var(--display);font-weight:600}
+/* الخريطة */
+#map{position:absolute;inset:0;touch-action:none;background:radial-gradient(120% 80% at 60% 40%,var(--ocean2),var(--ocean))}
+#map svg{width:100%;height:100%;display:block}
+.prov{stroke:var(--line);stroke-width:.45;vector-effect:non-scaling-stroke;transition:filter .15s}
+.prov.sel{stroke:#fff;stroke-width:2.2}
+.bgc{fill:#262c27;stroke:var(--line);stroke-width:.8;vector-effect:non-scaling-stroke}
+.cap circle{fill:var(--text);stroke:#000;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.lbl{font-family:var(--display);font-weight:600;fill:var(--text);paint-order:stroke;stroke:#05090d;stroke-width:3px;stroke-linejoin:round;text-anchor:middle;pointer-events:none}
+.clbl{font-family:var(--display);font-weight:700;fill:rgba(236,230,216,.55);letter-spacing:.5px;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:rgba(5,9,13,.6);stroke-width:4px}
+/* الشريط العلوي */
+.hud{position:relative;z-index:5;padding:calc(env(safe-area-inset-top,0px) + 8px) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.hud>*{pointer-events:auto}
+.bar{display:flex;gap:6px;align-items:stretch}
+.chip{background:rgba(18,30,39,.92);border:1px solid var(--edge);border-radius:10px;padding:6px 10px;display:flex;align-items:center;gap:7px;backdrop-filter:blur(6px)}
+.who{flex:1;min-width:0}
+.flag{width:26px;height:18px;border-radius:3px;overflow:hidden;display:grid;grid-template-rows:1fr 1fr 1fr;box-shadow:0 0 0 1px #000}
+.flag i:nth-child(1){background:#ce1126}.flag i:nth-child(2){background:#fff;display:grid;place-items:center;color:#007a3d;font-size:7px;font-style:normal;font-weight:700}.flag i:nth-child(3){background:#000}
+.who b{font-family:var(--display);font-size:17px}
+.who small{color:var(--muted);font-size:12px;display:block;line-height:1.1}
+.kv{display:flex;flex-direction:column;line-height:1.05}
+.kv small{color:var(--muted);font-size:11px}
+.kv span{font-family:var(--display);font-size:16px;font-weight:600}
+.pts{display:flex;gap:3px}.pts i{width:9px;height:9px;border-radius:50%;background:var(--mine)}.pts i.off{background:transparent;box-shadow:inset 0 0 0 1.5px var(--faint)}
+.risk{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.risk::-webkit-scrollbar{display:none}
+.rk{flex:0 0 auto;font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(18,30,39,.9);border:1px solid var(--edge);color:var(--muted);display:flex;gap:6px;align-items:center}
+.rk b{font-weight:600;color:var(--text)}
+.dot{width:7px;height:7px;border-radius:50%}
+/* أدوات الخريطة */
+.tools{position:absolute;z-index:4;left:max(12px,env(safe-area-inset-left,0px));top:42%;display:flex;flex-direction:column;gap:6px}
+.tool{width:44px;height:44px;border-radius:12px;background:rgba(18,30,39,.92);border:1px solid var(--edge);display:grid;place-items:center}
+.tool svg{width:22px;height:22px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* الأسفل */
+.bottom{margin-top:auto;position:relative;z-index:5;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.bottom>*{pointer-events:auto}
+.advice{display:flex;gap:10px;align-items:center;text-align:right;background:rgba(18,30,39,.94);border:1px solid var(--edge);border-right:3px solid var(--warn);border-radius:12px;padding:9px 12px;font-size:14px}
+.advice small{color:var(--muted);display:block;font-size:12px}
+.dock{display:flex;gap:8px;align-items:stretch}
+.next{flex:0 0 auto;background:var(--mine);color:#1a1206;border-radius:14px;padding:0 16px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:58px}
+.next b{font-family:var(--display);font-size:17px;line-height:1.1}
+.next small{font-size:11px;opacity:.75}
+.tabs{flex:1;display:grid;grid-template-columns:repeat(6,1fr);background:rgba(18,30,39,.95);border:1px solid var(--edge);border-radius:14px;overflow:hidden}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--muted);min-height:58px}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:var(--mine);background:rgba(210,162,76,.1)}
+/* الألواح المنزلقة */
+.sheet{position:fixed;inset:auto 0 0 0;z-index:20;max-height:86%;background:var(--panel);border-top:1px solid var(--edge);border-radius:18px 18px 0 0;
+  transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+.sheet.open{transform:none}
+.sh-head{display:flex;align-items:center;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
+.grip{position:absolute;top:6px;left:50%;width:40px;height:4px;border-radius:2px;background:var(--edge);transform:translateX(-50%)}
+.sh-head h2{font-family:var(--display);font-size:20px;margin:6px 0 0;flex:1}
+.x{width:38px;height:38px;border-radius:10px;background:var(--panel2);display:grid;place-items:center;font-size:18px}
+.sh-body{overflow-y:auto;padding:4px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;-webkit-overflow-scrolling:touch}
+.scrim{position:fixed;inset:0;z-index:15;background:rgba(3,7,10,.45);opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+/* مكونات */
+.answer{background:linear-gradient(180deg,rgba(210,162,76,.12),rgba(210,162,76,.04));border:1px solid rgba(210,162,76,.35);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.answer .cap{color:var(--muted);font-size:12px}
+.answer .big{font-family:var(--display);font-size:22px;font-weight:600;line-height:1.25}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.c{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+.c.g{color:var(--good)}.c.b{color:var(--bad)}.c.w{color:var(--warn)}
+.sec{font-size:12px;color:var(--muted);letter-spacing:.4px;margin:4px 0 -4px}
+.card{background:var(--panel2);border:1px solid var(--edge);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px}
+.row .grow{flex:1;min-width:0}
+.meter{height:7px;border-radius:4px;background:#0c151c;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:4px}
+.act{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{display:flex;flex-direction:column;align-items:center;gap:2px}
+.btn button{width:100%;min-height:46px;border-radius:12px;background:var(--panel);border:1px solid var(--edge);font-weight:600;font-size:15px}
+.btn button.pri{background:var(--mine);color:#1a1206;border-color:var(--mine)}
+.btn button.dng{background:var(--foe);border-color:var(--foe)}
+.btn small{font-size:11.5px;color:var(--muted);text-align:center}
+.btn small.g{color:var(--good)}.btn small.b{color:var(--bad)}
+.budget .r{display:grid;grid-template-columns:7.5em 1fr 4.6em;gap:8px;align-items:center;font-size:13.5px}
+.budget .r .v{text-align:left;font-family:var(--display)}
+.unit{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center}
+.unit .ic{width:34px;height:34px;border-radius:9px;background:var(--panel);display:grid;place-items:center}
+.unit .ic svg{width:22px;height:22px;stroke:var(--text);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gen{display:flex;gap:3px}.gen i{width:14px;height:5px;border-radius:2px;background:var(--edge)}.gen i.on{background:var(--mine)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--panel2);border:1px solid var(--edge);border-radius:12px;padding:3px;gap:3px}
+.seg button{padding:9px 4px;border-radius:9px;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:0 0 0 1px var(--edge)}
+.fc{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.fc div{background:var(--panel2);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.fc small{color:var(--muted);font-size:12px}
+.fc b{font-family:var(--display);font-size:20px}
+.tag{font-size:11px;color:var(--faint);text-align:center}
+/* التقرير الشهري */
+.modal{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));background:rgba(3,7,10,.6);opacity:0;pointer-events:none;transition:opacity .2s}
+.modal.on{opacity:1;pointer-events:auto}
+.mbox{width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background:var(--panel);border:1px solid var(--edge);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.mbox h3{font-family:var(--display);font-size:21px;margin:0}
+.delta{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--panel2);border-radius:12px;padding:10px 12px}
+.delta b{font-family:var(--display);font-size:18px}
+.delta small{color:var(--muted);display:block;font-size:12.5px}
+/* شاشة المعركة */
+#battle{position:fixed;inset:0;z-index:40;background:#071017;display:none;flex-direction:column}
+#battle.on{display:flex}
+.bt-top{padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px}
+.bt-top h3{margin:0;font-family:var(--display);font-size:19px}
+.phases{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.ph{font-size:11.5px;text-align:center;padding:6px 2px;border-radius:8px;background:var(--panel);color:var(--faint)}
+.ph.on{color:#1a1206;background:var(--mine);font-weight:600}.ph.done{color:var(--muted)}
+.scale{display:flex;align-items:center;gap:8px;font-size:12px}
+.scale .meter{flex:1;height:9px;display:flex}
+#bc{flex:1;width:100%;display:block}
+.log{height:118px;overflow:hidden;padding:0 max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:4px;font-size:13.5px}
+.log div{color:var(--muted)}.log div:first-child{color:var(--text)}
+.bt-ctl{display:flex;gap:8px;padding:10px max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(14px,env(safe-area-inset-left,0px))}
+.bt-ctl button{flex:1;min-height:46px;border-radius:12px;background:var(--panel);border:1px solid var(--edge);font-weight:600}
+.bt-ctl button.on{border-color:var(--mine);color:var(--mine)}
+.mock{position:fixed;z-index:50;top:calc(env(safe-area-inset-top,0px) + 4px);left:50%;transform:translateX(-50%);font-size:10.5px;color:var(--faint);pointer-events:none}
+
+/* المعركة على الأرض الحقيقية */
+#war{position:fixed;inset:0;z-index:45;background:#0e0c09;display:none;flex-direction:column}
+#war.on{display:flex}
+#wc{flex:1;width:100%;display:block;touch-action:none}
+.wtop{position:absolute;z-index:3;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 8px) max(10px,env(safe-area-inset-right,0px)) 6px max(10px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(8,10,12,.92),rgba(8,10,12,0));pointer-events:none}
+.wtop>*{pointer-events:auto}
+.wrow{display:flex;align-items:center;gap:8px}
+.wrow h3{margin:0;font-family:var(--display);font-size:17px;flex:1}
+#wtime,#wforce{font-size:12.5px;color:var(--muted)}
+#wobj{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.wob{display:flex;flex-direction:column;gap:3px;font-size:12px;min-width:0}.wob .meter{height:5px;background:#c0473b;width:100%;display:block}.wob .meter i{display:block;height:100%}
+#wlog{font-size:12.5px;line-height:1.35;min-height:52px;display:flex;flex-direction:column;gap:1px;text-shadow:0 1px 3px #000}
+.wbot{position:absolute;left:0;right:0;bottom:0;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(10px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:6px;background:linear-gradient(0deg,rgba(8,10,12,.95),rgba(8,10,12,0))}
+.word{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.word button{background:rgba(18,30,39,.95);border:1px solid var(--edge);border-radius:10px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;padding:2px}
+.word button small{font-size:10px;color:var(--muted);font-weight:400}
+.word button.on{border-color:var(--mine);color:var(--mine)}
+.word button:disabled{opacity:.4}
+.wspd{display:flex;gap:5px}
+.wspd button{flex:1;min-height:40px;border-radius:10px;background:rgba(18,30,39,.95);border:1px solid var(--edge);font-weight:600;font-size:13px}
+.wspd button.on{border-color:var(--mine);color:var(--mine)}
+.wside{position:absolute;left:max(10px,env(safe-area-inset-left,0px));top:46%;display:flex;flex-direction:column;gap:6px}
+.wside button{width:42px;height:42px;border-radius:11px;background:rgba(18,30,39,.92);border:1px solid var(--edge);font-size:18px;font-weight:700}
+.wside button.on{border-color:var(--mine);color:var(--mine)}
+#wres{position:absolute;z-index:2;inset:0;display:grid;place-items:center;padding:20px 16px;background:rgba(3,7,10,.6);opacity:0;pointer-events:none;transition:opacity .2s}
+#wres.on{opacity:1;pointer-events:auto}
+@media (prefers-reduced-motion:reduce){.sheet,.modal,.scrim{transition:none}}
+</style>
+
+<div id="app">
+  <div id="map"><svg id="svg" viewBox="0 0 1000 1300" preserveAspectRatio="xMidYMid slice"><g id="cam"><g id="g-bg"></g><g id="g-prov"></g></g><g id="ov"><g id="g-lbl"></g><g id="g-cap"></g><g id="g-front"></g></g></svg></div>
+
+  <div class="hud">
+    <div class="bar">
+      <button class="chip who" data-tab="me" aria-label="دولتي">
+        <span class="flag"><i></i><i>الله</i><i></i></span>
+        <span><b>العراق</b><small>تشرين الأول 2026 · متوسط</small></span>
+      </button>
+      <div class="chip kv"><small>الخزينة</small><span>18.4 مليار</span></div>
+      <div class="chip kv"><small>نقاط القرار</small><span class="pts"><i></i><i></i><i></i><i class="off"></i><i class="off"></i></span></div>
+    </div>
+    <div class="risk">
+      <span class="rk">مؤشر القوة <b>#34</b> عالمياً</span>
+      <span class="rk"><span class="dot" style="background:var(--good)"></span>الاستقرار <b>62</b></span>
+      <span class="rk"><span class="dot" style="background:var(--warn)"></span>رضا الجيش <b>41</b></span>
+      <span class="rk"><span class="dot" style="background:var(--bad)"></span>حرب مع <b>تركيا</b></span>
+      <span class="rk">الدين <b>48%</b></span>
+    </div>
+  </div>
+
+  <div class="tools">
+    <button class="tool" id="zin" aria-label="تكبير"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tool" id="zout" aria-label="تصغير"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="tool" id="home" aria-label="دولتي"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7M6 10v10h12V10"/></svg></button>
+  </div>
+
+  <div class="bottom">
+    <button class="advice" id="advice">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round"><path d="M12 3 2 20h20zM12 9v5M12 17h.01"/></svg>
+      <span>معركة دهوك جاهزة: اضغط لتشاهدها وتقودها<small>أرض حقيقية · مشاة ودروع ومدفعية · صواريخ واعتراض · حتى 5 دقائق</small></span>
+    </button>
+    <div class="dock">
+      <button class="next" id="next"><b>الشهر التالي</b><small>تشرين الثاني</small></button>
+      <nav class="tabs" aria-label="الأقسام">
+        <button class="tab" data-tab="me"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21v-9M10 21v-9M14 21v-9M19 21v-9M2.5 10 12 4l9.5 6z"/></svg>دولتي</button>
+        <button class="tab" data-tab="eco"><svg viewBox="0 0 24 24"><path d="M3 20h18M5 16l4.5-5 4 3L19 7M15 7h4v4"/></svg>الاقتصاد</button>
+        <button class="tab" data-tab="army"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>الجيش</button>
+        <button class="tab" data-tab="tech"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/></svg>البحث</button>
+        <button class="tab" data-tab="world"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>العالم</button>
+        <button class="tab" data-tab="news"><svg viewBox="0 0 24 24"><path d="M4 5h12v14H6a2 2 0 0 1-2-2zM16 9h3a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2h-2M7 9h6M7 12.5h6M7 16h4"/></svg>الأخبار</button>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" aria-live="polite"><div class="grip"></div><div class="sh-head"><h2 id="sh-title"></h2><button class="x" id="sh-x" aria-label="إغلاق">✕</button></div><div class="sh-body" id="sh-body"></div></section>
+
+<div class="modal" id="report"><div class="mbox" id="rbox"></div></div>
+
+<div id="battle">
+  <div class="bt-top">
+    <h3>عملية «درع الشمال» · دهوك</h3>
+    <div class="phases" id="phases"><div class="ph">حشد</div><div class="ph">جو</div><div class="ph">صواريخ</div><div class="ph">بر</div><div class="ph">النتيجة</div></div>
+    <div class="scale"><span style="color:var(--mine)">العراق</span><div class="meter" id="bal"><i style="background:var(--mine);width:50%"></i><i style="background:var(--foe);width:50%"></i></div><span style="color:var(--foe)">تركيا</span></div>
+  </div>
+  <canvas id="bc"></canvas>
+  <div class="log" id="blog"></div>
+  <div class="bt-ctl"><button data-sp="1" class="on">×1</button><button data-sp="2">×2</button><button data-sp="4">×4</button><button id="bskip">تخطي</button></div>
+</div>
+
+
+<div id="war">
+  <canvas id="wc"></canvas>
+  <div class="wtop">
+    <div class="wrow"><h3>معركة دهوك</h3><span id="wtime"></span><button class="x" id="wclose" aria-label="خروج">✕</button></div>
+    <div class="wrow" style="justify-content:space-between"><span id="wforce"></span></div>
+    <div id="wobj"></div>
+    <div id="wlog"></div>
+  </div>
+  <div class="wside"><button id="wzin">+</button><button id="wzout">−</button><button id="wfollow" class="on" title="تتبع المعركة">◎</button></div>
+  <div class="wbot">
+    <div class="word">
+      <button id="wo-attack" class="on" onclick="wOrder('attack')">هجوم<small>تقدم</small></button>
+      <button id="wo-hold" onclick="wOrder('hold')">تثبيت<small>ثبات ونار</small></button>
+      <button id="wo-retreat" onclick="wOrder('retreat')">انسحاب<small>للخلف</small></button>
+      <button id="wo-air" onclick="wOrder('air')">ضربة جوية<small></small></button>
+      <button id="wo-msl" onclick="wOrder('msl')">صواريخ<small></small></button>
+      <button id="wo-res" onclick="wOrder('res')">الاحتياط<small></small></button>
+    </div>
+    <div class="wspd"><button data-wsp="0">⏸</button><button data-wsp="1" class="on">×1</button><button data-wsp="2">×2</button><button data-wsp="4">×4</button><button data-wsp="8">×8</button><button id="wquick">حسم سريع</button></div>
+  </div>
+  <div id="wres"></div>
+</div>
+<div class="mock">نموذج للتصميم · الأرقام أمثلة</div>
+
+<script>
+/*__MAPDATA__*/
+// ------------------------------------------------------------------ أصحاب المناطق في هذا المثال
+const OWN = {IRQ:'mine', JOR:'ally', KWT:'ally', TUR:'foe'};
+const NEUTRAL = ['#353d36','#3a4239','#3f453b','#363e43','#41463f','#3a3f45','#3d4436','#383d33'];
+const nIdx = {}; let ni = 0;
+function colorOf(c){
+  const o = OWN[c];
+  if (o === 'mine') return '#b98d3f';
+  if (o === 'ally') return '#3f6d93';
+  if (o === 'foe') return '#8f3a31';
+  if (!(c in nIdx)) nIdx[c] = ni++ % NEUTRAL.length;
+  return NEUTRAL[nIdx[c]];
+}
+// مناطق محتلة ومتنازع عليها (مثال)
+const NAMES = {};
+const svgNS = 'http://www.w3.org/2000/svg';
+const gBg = document.getElementById('g-bg'), gP = document.getElementById('g-prov'), gF = document.getElementById('g-front'), gC = document.getElementById('g-cap'), gL = document.getElementById('g-lbl');
+for (const b of MAP.bg){ const p = document.createElementNS(svgNS,'path'); p.setAttribute('d', b.d); p.setAttribute('class','bgc'); gBg.appendChild(p); }
+const provEls = {};
+for (const pr of MAP.prov){
+  const p = document.createElementNS(svgNS,'path');
+  p.setAttribute('d', pr.d); p.setAttribute('class','prov'); p.setAttribute('fill', colorOf(pr.c)); p.dataset.id = pr.id;
+  gP.appendChild(p); provEls[pr.id] = p; NAMES[pr.id] = pr;
+}
+// الطبقة العليا بحجم ثابت على الشاشة: كل عنصر مثبت على نقطة من الخريطة ويتحرك معها دون أن يكبر
+const OV = [];
+function pin(group, x, y, html, minK = 0, maxK = 99){ const g = document.createElementNS(svgNS,'g'); g.innerHTML = html; group.appendChild(g); OV.push({g, x, y, minK, maxK}); return g; }
+// العواصم
+for (const c of MAP.caps){
+  pin(gC, c.x, c.y, `<g class="cap"><circle r="4"/><text class="lbl" y="-9" font-size="17">${c.n}</text></g>`, 1.1);
+}
+// أسماء الدول الكبيرة
+const CN = {IRQ:'العراق',SYR:'سوريا',SAU:'السعودية',IRN:'إيران',TUR:'تركيا',JOR:'الأردن',EGY:'مصر',YEM:'اليمن',OMN:'عُمان'};
+const acc = {};
+for (const pr of MAP.prov){ if (!CN[pr.c]) continue; const a = acc[pr.c] || (acc[pr.c] = {x:0,y:0,w:0}); const w = Math.max(1, pr.a); a.x += pr.x * w; a.y += pr.y * w; a.w += w; }
+for (const c in acc){ const a = acc[c]; pin(gL, a.x / a.w, a.y / a.w + 18, `<text class="clbl" font-size="${c === 'IRQ' ? 30 : 26}">${CN[c]}</text>`, 0, 2.6); }
+
+// الجبهة: مناطق عراقية متنازع عليها بشريط سيطرة، ورقائق فرق
+function findProv(c, part){ return MAP.prov.find(p => p.c === c && p.n && p.n.includes(part)); }
+const fronts = [];
+const duhok = findProv('IRQ','دهوك'), erbil = findProv('IRQ','أربيل'), ninawa = findProv('IRQ','نينوى');
+if (duhok) fronts.push([duhok, 41]); if (erbil) fronts.push([erbil, 78]); if (ninawa) fronts.push([ninawa, 92]);
+for (const [p, ctl] of fronts){
+  const el = provEls[p.id]; el.style.filter = 'brightness(1.15)';
+  const w = 56, x = -w / 2, y = -26;
+  pin(gF, p.x, p.y, `<rect x="${x-2}" y="${y-2}" width="${w+4}" height="11" rx="3" fill="#05090d"/><rect x="${x}" y="${y}" width="${w}" height="7" rx="2" fill="var(--foe)"/><rect x="${x}" y="${y}" width="${w * ctl / 100}" height="7" rx="2" fill="var(--mine)"/><text class="lbl" y="${y - 5}" font-size="15">${p.n.replace('محافظة ', '')} ${ctl}%</text>`);
+}
+const unitIcon = '<path d="M-9 3h18l-2 4h-14zM-6 3V0h10l2 3M-2 0v-2.5h5V0M3-1.3h7" fill="none" stroke="#1a1206" stroke-width="1.6" stroke-linecap="round"/>';
+function chip(x, y, n, side){
+  const col = side === 'mine' ? 'var(--mine)' : 'var(--foe)';
+  pin(gF, x, y, `<rect x="-24" y="-12" width="48" height="24" rx="7" fill="${col}" stroke="#05090d" stroke-width="2"/><g transform="translate(10,0)">${unitIcon}</g><text x="-9" y="6" font-size="15" font-weight="700" text-anchor="middle" fill="#1a1206" font-family="Reem Kufi">${n}</text>`);
+}
+if (duhok) { chip(duhok.x - 6, duhok.y + 14, 3, 'mine'); chip(duhok.x + 18, duhok.y - 30, 5, 'foe'); }
+if (ninawa) chip(ninawa.x - 10, ninawa.y + 16, 4, 'mine');
+const bag = findProv('IRQ','بغداد'); if (bag) chip(bag.x + 14, bag.y + 18, 2, 'mine');
+
+// ------------------------------------------------------------------ الكاميرا: سحب وتكبير بإصبعين
+const cam = document.getElementById('cam'), mapEl = document.getElementById('map'), svg = document.getElementById('svg');
+let view = {k: 1.6, x: 0, y: 0};
+function home(){
+  const r = svg.getBoundingClientRect(); const vb = svgPoint(r.left + r.width / 2, r.top + r.height * 0.46);
+  const t = bag || {x: 620, y: 560};
+  view.k = 1.6; view.x = vb.x - t.x * view.k; view.y = vb.y - t.y * view.k; apply();
+}
+function apply(){
+  cam.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+  for (const o of OV) { const vis = view.k >= o.minK && view.k <= o.maxK; o.g.style.display = vis ? '' : 'none'; if (vis) o.g.setAttribute('transform', `translate(${view.x + o.x * view.k},${view.y + o.y * view.k})`); }
+}
+function svgPoint(cx, cy){ const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+function zoomAt(cx, cy, f){
+  const p = svgPoint(cx, cy); const nk = Math.min(9, Math.max(0.8, view.k * f)); const r = nk / view.k;
+  view.x = p.x - (p.x - view.x) * r; view.y = p.y - (p.y - view.y) * r; view.k = nk; apply();
+}
+const pts = new Map(); let moved = 0, last = null, pinch = null;
+mapEl.addEventListener('pointerdown', e => { mapEl.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); moved = 0; last = e; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = {d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)}; } });
+mapEl.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
+  if (pts.size === 2 && pinch){ const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); zoomAt((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2, d / pinch.d); pinch.d = d; moved = 99; return; }
+  const p0 = svgPoint(last.clientX, last.clientY), p1 = svgPoint(e.clientX, e.clientY);
+  view.x += p1.x - p0.x; view.y += p1.y - p0.y; moved += Math.abs(e.clientX - last.clientX) + Math.abs(e.clientY - last.clientY); last = e; apply();
+});
+mapEl.addEventListener('pointerup', e => {
+  pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
+  if (moved < 10) { const el = document.elementFromPoint(e.clientX, e.clientY); if (el && el.classList && el.classList.contains('prov')) selectProv(el.dataset.id); }
+});
+mapEl.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = null; });
+mapEl.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15); }, {passive: false});
+document.getElementById('zin').onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.5); };
+document.getElementById('zout').onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.5); };
+document.getElementById('home').onclick = home;
+
+// ------------------------------------------------------------------ الصوت: تسجيلات حقيقية، بموضع يسار ويمين وبُعد
+const SNDLBL = {tank_cannon:'مدفع دبابة',artillery:'مدفعية',artillery2:'مدفعية بصدى',mlrs:'راجمة صواريخ',ballistic_launch:'إطلاق صاروخ باليستي',missile_pass:'صاروخ يمر',explosion_big:'انفجار كبير',explosion_big2:'انفجار عميق',explosion_med:'انفجار في المعركة',explosion_med2:'انفجار ميدان',explosion_far:'انفجار بعيد',explosion_far2:'انفجار بعيد 2',intercept:'اعتراض',jet_flyby:'مقاتلة F-15 تمر',sonic_boom:'اختراق حاجز الصوت',helicopter:'مروحية عسكرية',helicopter2:'مروحية تحلّق',drone:'مسيّرة',hmg:'رشاش 50',hmg2:'رشاش ثقيل',firefight:'تبادل إطلاق نار',firefight2:'معركة أسلحة خفيفة',rifle:'بندقية',ak47:'كلاشنكوف',rpg:'قاذف RPG',bomb_drop:'سقوط قنبلة',f16_bombs:'F-16 تلقي قنابل',tank_tracks:'دبابة تتحرك',diesel:'محرك ديزل',trucks:'شاحنات عسكرية',fire:'نار',fire2:'حريق كبير',siren:'صفارة إنذار',siren2:'صفارة يدوية',missile_alert:'إنذار صاروخي',front_ambience:'أجواء الجبهة',front_ambience2:'أجواء الجبهة 2',ui_click:'ضغطة زر',ui_alert:'تنبيه',next_month:'الشهر التالي',victory:'نصر',defeat:'هزيمة',war_horn:'بوق الحرب'};
+let actx = null; const BUF = {}; const LOOPS = {};
+async function audioInit(){
+  if (actx) return; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  if (actx.state === 'suspended') actx.resume();
+}
+document.addEventListener('pointerdown', () => { audioInit(); load('ui_click'); load('next_month'); }, {once: true});
+// x: موضع على الشاشة (للتوازن يسار/يمين)، dist: 0 قريب جداً إلى 1 بعيد
+const PENDING = {};
+function load(k){
+  if (BUF[k] || PENDING[k] || !actx || !SND[k]) return;
+  PENDING[k] = 1;
+  const bin = atob(SND[k].split(',')[1]), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  actx.decodeAudioData(arr.buffer).then(buf => { BUF[k] = buf; }).catch(() => {});
+}
+function play(k, opt = {}){
+  if (!actx) return null;
+  if (!BUF[k]) { load(k); return null; }
+  const src = actx.createBufferSource(); src.buffer = BUF[k]; src.loop = !!opt.loop;
+  src.playbackRate.value = opt.rate || (0.92 + Math.random() * 0.16);
+  const g = actx.createGain(); const dist = opt.dist || 0; g.gain.value = (opt.vol ?? 0.8) * (1 - dist * 0.75);
+  let node = src;
+  if (dist > 0.4) { const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000 - dist * 4000; node.connect(lp); node = lp; }
+  node.connect(g);
+  if (actx.createStereoPanner && opt.x !== undefined) { const p = actx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, (opt.x / innerWidth) * 2 - 1)) * 0.8; g.connect(p); p.connect(actx.destination); } else g.connect(actx.destination);
+  const delay = opt.delay || 0; src.start(actx.currentTime + delay);
+  return {src, g};
+}
+function sloop(k, vol){ if (LOOPS[k] || !actx) return; if (!BUF[k]) { load(k); setTimeout(() => sloop(k, vol), 400); return; } LOOPS[k] = play(k, {loop: true, vol, rate: 1}); }
+function stopLoops(){ for (const k in LOOPS) { try { LOOPS[k].g.gain.setTargetAtTime(0, actx.currentTime, .3); LOOPS[k].src.stop(actx.currentTime + 1.5); } catch (e) {} delete LOOPS[k]; } }
+document.addEventListener('click', e => { if (e.target.closest('button')) play('ui_click', {vol: .35}); });
+
+// ------------------------------------------------------------------ الألواح
+const sheet = document.getElementById('sheet'), scrim = document.getElementById('scrim');
+function openSheet(title, html){ sheetAt = performance.now(); document.getElementById('sh-title').textContent = title; document.getElementById('sh-body').innerHTML = html; sheet.open = true; sheet.classList.add('open'); scrim.classList.add('on'); document.getElementById('sh-body').scrollTop = 0; }
+function closeSheet(){ sheet.classList.remove('open'); scrim.classList.remove('on'); document.querySelectorAll('.tab').forEach(t => t.classList.remove('on')); if (selEl) { selEl.classList.remove('sel'); selEl = null; } }
+let sheetAt = 0;
+scrim.onclick = () => { if (performance.now() - sheetAt > 400) closeSheet(); }; document.getElementById('sh-x').onclick = closeSheet;
+const btn = (t, sub, cls = '', subcls = '', id = '') => `<div class="btn"><button class="${cls}" ${id ? `id="${id}"` : ''}>${t}</button><small class="${subcls}">${sub}</small></div>`;
+const meter = (v, col) => `<div class="meter"><i style="width:${v}%;background:${col}"></i></div>`;
+let selEl = null;
+function selectProv(id){
+  const p = NAMES[id]; if (!p) return;
+  if (selEl) selEl.classList.remove('sel'); selEl = provEls[id]; selEl.classList.add('sel'); gP.appendChild(selEl);
+  const own = OWN[p.c]; const isFront = fronts.find(f => f[0].id === id);
+  const ownerName = {IRQ:'العراق',TUR:'تركيا',JOR:'الأردن',KWT:'الكويت'}[p.c] || CN[p.c] || p.c;
+  let h = `<div class="chips"><span class="c">${ownerName}</span>${own === 'foe' ? '<span class="c b">في حرب معك</span>' : own === 'ally' ? '<span class="c" style="color:var(--ally)">حليف</span>' : ''}${isFront ? `<span class="c w">سيطرة ${isFront[1]}%</span>` : ''}</div>`;
+  h += `<div class="fc"><div><small>السكان</small><b>1.4 مليون</b></div><div><small>الناتج السنوي</small><b>6.2 مليار</b></div><div><small>الموارد</small><b>نفط · قمح</b></div><div><small>المنشآت</small><b>قاعدة · مصفاة</b></div></div>`;
+  if (own === 'foe') h += `<div class="act">${btn('أطلق عملية', '5 فرق متاحة · فرصة ~64%', 'dng', '', 'op')}${btn('عرض السلام', 'سترفض: تتقدم في الحرب', '', 'b')}</div>`;
+  else if (own === 'mine') h += `<div class="act">${isFront ? btn('عملية مضادة', 'فرصة ~58% · نقطتا قرار', 'pri', '', 'op') : btn('حرّك قوات', '2 فرقة هنا', 'pri')}${btn('ابنِ منشأة', 'من 0.6 مليار · 5 أشهر')}</div>`;
+  else h += `<div class="act">${btn('تحسين العلاقات', '0.2 مليار · العلاقة +8', 'pri')}${btn('اتفاقية تجارية', 'تحتاج علاقة 45 (الآن 31)', '', '')}</div>`;
+  openSheet(p.n || id, h);
+  const op = document.getElementById('op'); if (op) op.onclick = () => openOperation(p.n);
+}
+function openOperation(name){
+  openSheet('عملية على ' + name, `
+    <div class="sec">الحجم</div><div class="seg" id="sz"><button>محدودة<br><small>2 فرقة</small></button><button class="on">واسعة<br><small>4 فرق</small></button><button>شاملة<br><small>6 فرق</small></button></div>
+    <div class="sec">الدعم</div><div class="seg" id="sp"><button>بلا</button><button class="on">جوي</button><button>صاروخي</button></div>
+    <div class="answer"><span class="cap">التوقع قبل الإطلاق</span><span class="big">تسقط خلال ~19 يوماً بفرصة 64%</span>
+      <div class="chips"><span class="c w">خسائر ~14% من قوة الفرق</span><span class="c">الكلفة 0.9 مليار</span><span class="c">نقطتا قرار</span><span class="c">رؤيتك للعدو جيدة</span></div></div>
+    <div class="act">${btn('أطلق العملية', 'تبدأ مع الشهر القادم', 'dng', '', 'launch')}${btn('شاهد مثالاً', 'شاشة المعركة', '', '', 'demo')}</div>`);
+  document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+  document.getElementById('launch').onclick = () => { closeSheet(); battle(); };
+  document.getElementById('demo').onclick = () => { closeSheet(); battle(); };
+}
+const ICON = {
+  tank:'<path d="M3 15.5h18l-2.2 4H5.2zM6 15.5V12h10.5l1.8 3.5M9.5 12V9.5h5.5V12M15 10.7h7"/>',
+  inf:'<circle cx="11" cy="6" r="2.6"/><path d="M6 21v-4.5a5 5 0 0 1 10 0V21M15.5 12.5 21 4M7 9.5h8"/>',
+  jet:'<path d="M12 2l2 7 7 4v2l-7-2-1 5 3 2v2l-4-1-4 1v-2l3-2-1-5-7 2v-2l7-4z"/>',
+  ad:'<circle cx="12" cy="13" r="7"/><path d="M12 13l5-5M12 6v1"/>',
+  msl:'<path d="M14 3l7 7-9 9-4-1-1-4zM8 16l-4 4M6 13l-2 1M11 18l-1 2"/>',
+  drone:'<path d="M12 9v6M5 8h14M7 8a2 2 0 1 0 0 .1M17 8a2 2 0 1 0 0 .1M9 15h6l-1 3h-4z"/>'
+};
+const TABS = {
+  me: ['دولتي', () => `
+    <div class="answer"><span class="cap">الوضع بجملة</span><span class="big">مستقرة، لكن حرب الشمال تستنزف الخزينة والجيش</span>
+      <div class="chips"><span class="c">مؤشر القوة #34 عالمياً</span><span class="c g">الناتج +2.1% سنوياً</span><span class="c b">إرهاق الحرب يرتفع</span></div></div>
+    <div class="sec">المخاطر (تحذير قبل الخسارة)</div>
+    <div class="card">
+      ${[['انقلاب','رضا الجيش 41 · التحذير تحت 35',59,'var(--warn)'],['ثورة','الاستقرار 62 · التحذير تحت 30',38,'var(--good)'],['إفلاس','الدين 48% · التحذير فوق 150%',24,'var(--good)'],['احتلال العاصمة','العدو على بعد 4 مناطق',20,'var(--good)']].map(r => `<div class="row"><span style="width:6.5em">${r[0]}</span><div class="grow">${meter(r[2], r[3])}<small style="color:var(--muted);font-size:12px">${r[1]}</small></div></div>`).join('')}
+    </div>
+    <div class="sec">الفئات (من راضٍ لغاضب)</div>
+    <div class="card">${[['الجيش',41,'يريد ميزانية أكبر'],['رجال الأعمال',66,'راضون عن الاستثمار'],['الشارع',58,'قلقون من الأسعار'],['المؤسسة الدينية',71,'مستقرة']].map(f => `<div class="row"><span style="width:6.5em">${f[0]}</span><div class="grow">${meter(f[1], f[1] < 45 ? 'var(--warn)' : 'var(--good)')}<small style="color:var(--muted);font-size:12px">${f[1]} · ${f[2]}</small></div></div>`).join('')}</div>
+    <p class="tag">النصر: الأولى عالمياً و25% من ناتج العالم سنة كاملة · نهاية الحملة 2036</p>
+    <div class="sec">معرض الأصوات (تسجيلات حقيقية) · اضغط لتسمع</div>
+    <div class="chips">${Object.keys(SNDLBL).filter(k => SND[k]).map(k => `<button class="c" style="padding:8px 12px;font-size:13px;color:var(--text)" onclick="audioInit().then(()=>{load('${k}');const t=setInterval(()=>{if(BUF['${k}']){clearInterval(t);play('${k}',{vol:.9,rate:1});}},60);})">▶ ${SNDLBL[k]}</button>`).join('')}</div>`],
+  eco: ['الاقتصاد', () => `
+    <div class="answer"><span class="cap">ميزانية الشهر الماضي</span><span class="big">تربح 0.9 مليار شهرياً</span>
+      <div class="chips"><span class="c g">النمو +2.1%</span><span class="c">التضخم 4.2%</span><span class="c">الدين 48% من الناتج</span><span class="c">النفط 78 دولاراً</span></div></div>
+    <div class="card budget">${[['صادرات النفط',8.6,'var(--good)'],['الضرائب',4.5,'var(--good)'],['الرواتب والخدمات',-7.2,'var(--bad)'],['الجيش والحرب',-3.9,'var(--bad)'],['البحث والاستثمار',-1.1,'var(--bad)']].map(r => `<div class="r"><span>${r[0]}</span>${meter(Math.abs(r[1]) / 8.6 * 100, r[2])}<span class="v" style="color:${r[2]}">${r[1] > 0 ? '+' : '−'}${Math.abs(r[1])}</span></div>`).join('')}</div>
+    <div class="sec">الضرائب 22%</div>
+    <div class="seg"><button>18%</button><button>20%</button><button class="on">22%</button><button>25%</button><button>28%</button></div>
+    <p class="tag" style="text-align:right">رفعها إلى 25%: +0.6 مليار شهرياً، والاستقرار −4، والشارع −6 · نقطة قرار</p>
+    <div class="sec">الاستثمار الداخلي</div>
+    ${[['تطوير حقول النفط','+5 لمؤشر النفط، صادرات أكبر','4.0 مليار · 10 أشهر'],['مصنع حربي','+1 خط إنتاج للسلاح','1.5 مليار · 5 أشهر'],['بنية تحتية','+0.8% للناتج و+0.1% نمو دائم','2.7 مليار · سنة'],['جامعات','البحث أسرع 4% · المستوى 0 من 5','2.2 مليار · سنة']].map(r => `<div class="card"><div class="row"><b class="grow">${r[0]}</b><span class="c">${r[2]}</span></div><small style="color:var(--muted)">${r[1]}</small>${btn('ابدأ المشروع', 'نقطة قرار · يبدأ فوراً', '')}</div>`).join('')}`],
+  army: ['الجيش', () => `
+    <div class="answer"><span class="cap">القوات المسلحة</span><span class="big">الثالث في الإقليم، وأضعف من تركيا ×2.6</span>
+      <div class="chips"><span class="c">صيانة 0.6 مليار شهرياً</span><span class="c w">خطوط الإنتاج 3 من 4</span><span class="c">14 فرقة</span></div></div>
+    <div class="sec">خط الإنتاج</div>
+    <div class="card">${[['60 دبابة فئة T-90',72,'34 يوماً'],['400 مسيّرة انتحارية',38,'52 يوماً'],['4 بطاريات دفاع جوي',12,'4 أشهر']].map(r => `<div class="row"><span style="width:10em;font-size:14px">${r[0]}</span><div class="grow">${meter(r[1], 'var(--mine)')}</div><small style="color:var(--muted)">${r[2]}</small></div>`).join('')}</div>
+    <div class="sec">الأسلحة</div>
+    ${[['tank','الدبابات','420 دبابة','فئة T-90',3,'صنّع 50','2.5 مليار · 4 أشهر'],['jet','المقاتلات','36 طائرة','فئة F-16',3,'استورد 8','من الولايات المتحدة · 3.1 مليار'],['ad','الدفاع الجوي','11 بطارية','فئة بانتسير',2,'صنّع 2','1.8 مليار · 6 أشهر'],['msl','الصواريخ','210 صاروخ','قصيرة المدى · 300 كم',2,'صنّع 40','0.6 مليار · شهرين'],['drone','المسيّرات','650 مسيّرة','انتحارية بعيدة',3,'صنّع 200','0.4 مليار · شهر']].map(u => `
+      <div class="card"><div class="unit"><span class="ic"><svg viewBox="0 0 24 24">${ICON[u[0]]}</svg></span><div><b>${u[1]}</b> <span style="color:var(--muted)">· ${u[2]}</span><div class="row" style="gap:8px;margin-top:3px"><span class="gen">${[1,2,3,4,5].map(g => `<i class="${g <= u[4] ? 'on' : ''}"></i>`).join('')}</span><small style="color:var(--muted)">${u[3]}</small></div></div><span></span></div>
+      <div class="act">${btn(u[5], u[6], 'pri')}${btn('تفاصيل', 'المدى والخسائر')}</div></div>`).join('')}`],
+  tech: ['البحث', () => `
+    <div class="answer"><span class="cap">تبحث في كل الفروع معاً</span><span class="big">الأولوية: الدفاع الجوي · الجيل 3 بعد 7 أشهر</span>
+      <div class="chips"><span class="c">ميزانية البحث 1.2% من الناتج</span><span class="c">الأولوية تأخذ النصف</span></div></div>
+    ${[['الدفاع الجوي',2,'فئة S-300',7,true],['الصواريخ',2,'متوسطة المدى',15,false],['المقاتلات',3,'الجيل 4++',22,false],['البر',3,'فئة T-90M',18,false],['البحرية',1,'فرقاطات',20,false],['الفضاء',0,'أقمار استطلاع',30,false]].map(r => `
+      <div class="card" style="${r[4] ? 'border-color:rgba(210,162,76,.5)' : ''}"><div class="row"><b class="grow">${r[0]}</b><span class="gen">${[1,2,3,4,5].map(g => `<i class="${g <= r[1] ? 'on' : ''}"></i>`).join('')}</span></div>
+      <div class="row"><small class="grow" style="color:var(--muted)">التالي: ${r[2]}</small><small style="color:${r[4] ? 'var(--mine)' : 'var(--muted)'}">${r[4] ? 'أولوية · ' : ''}${r[3]} شهراً</small></div></div>`).join('')}`],
+  world: ['العالم', () => `
+    <div class="answer"><span class="cap">موقفك في العالم</span><span class="big">تركيا تحاربك، والخليج يميل إليك</span>
+      <div class="chips"><span class="c">حليفان</span><span class="c w">خوف إيران منك يرتفع (48)</span><span class="c">3 اتفاقيات تجارية</span></div></div>
+    ${[['تركيا',-82,61,'حرب','b'],['إيران',-12,48,'خوف متصاعد','w'],['السعودية',38,22,'تجارة',''],['الأردن',71,9,'حليف','g'],['الكويت',64,14,'حليف','g'],['سوريا',5,33,'محايدة','']].map(r => `
+      <div class="card"><div class="row"><b class="grow">${r[0]}</b><span class="c ${r[4]}">${r[3]}</span></div>
+      <div class="row"><small style="width:4.5em;color:var(--muted)">العلاقة</small><div class="grow">${meter((r[1] + 100) / 2, r[1] >= 0 ? 'var(--good)' : 'var(--bad)')}</div><small class="num" style="width:2.5em;text-align:left">${r[1]}</small></div>
+      <div class="row"><small style="width:4.5em;color:var(--muted)">الخوف منك</small><div class="grow">${meter(r[2], r[2] > 45 ? 'var(--warn)' : 'var(--faint)')}</div><small class="num" style="width:2.5em;text-align:left">${r[2]}</small></div></div>`).join('')}`],
+  news: ['الأخبار', () => ['تشرين الأول 2026: تركيا تستعيد السيطرة على أطراف دهوك بعد هجوم مضاد','السعودية ترفع إنتاج النفط، والسعر ينخفض إلى 78 دولاراً','رشقة من 12 صاروخاً على قاعدة الحرير الجوية: اعتُرض 9','الأردن يجدد التزامه بالتحالف','إيران تعلن مناورات قرب الحدود الشرقية'].map((t, i) => `<div class="card"><small style="color:var(--muted)">${i < 3 ? 'هذا الشهر' : 'الشهر الماضي'}</small><span>${t}</span></div>`).join('')]
+};
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { const k = b.dataset.tab; document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === k)); if (selEl) { selEl.classList.remove('sel'); selEl = null; } openSheet(TABS[k][0], TABS[k][1]()); });
+document.getElementById('advice').onclick = () => war();
+
+// ------------------------------------------------------------------ تقرير الشهر
+const report = document.getElementById('report');
+document.getElementById('next').onclick = () => {
+  play('next_month', {vol: .7, rate: 1});
+  document.getElementById('rbox').innerHTML = `<h3>تقرير تشرين الأول 2026</h3><small style="color:var(--muted)">ما تغيّر هذا الشهر ولماذا</small>
+    ${[['−4','الاستقرار 62','رفع الضرائب وإرهاق الحرب','var(--bad)'],['+0.9','الخزينة 18.4 مليار','صادرات النفط غطت كلفة الحرب','var(--good)'],['−18%','سيطرتك على دهوك','هجوم مضاد تركي بدعم جوي','var(--bad)'],['+6','خوف إيران منك','تقدّمك في الشمال','var(--warn)']].map(d => `<div class="delta"><b style="color:${d[3]}">${d[0]}</b><span>${d[1]}<small>${d[2]}</small></span></div>`).join('')}
+    <div class="sec">قضية عاجلة</div>
+    <div class="card"><b>الجيش يطلب زيادة الميزانية 10%</b><small style="color:var(--muted)">رضا الجيش 41 وينخفض. الرفض يقربك من التحذير.</small>
+      <div class="act">${btn('وافق', '−0.3 مليار شهرياً · الجيش +12', 'pri', '', 'ok1')}${btn('ارفض', 'الجيش −8 · بلا كلفة', '', '', 'ok2')}</div></div>`;
+  report.classList.add('on');
+  ['ok1','ok2'].forEach(id => document.getElementById(id).onclick = () => report.classList.remove('on'));
+};
+report.onclick = e => { if (e.target === report) report.classList.remove('on'); };
+
+// ------------------------------------------------------------------ شاشة المعركة (عرض لنتيجة محسوبة مسبقاً)
+const bEl = document.getElementById('battle'), bc = document.getElementById('bc'), bx = bc.getContext('2d'), blog = document.getElementById('blog');
+let speed = 1, bt = 0, raf = 0, lastT = 0, fx = [];
+const SCRIPT = [
+  [0.0, 0, 'حشد: دبابات القعقاع وT-72 وعربات BMP ومدافع الصمصامة جنوب دهوك', 50],
+  [2.0, 1, '4 مقاتلات F-16 تقلع، ومقاتلتان تركيتان من طراز قآن تعترضان', 54],
+  [3.2, 1, 'مروحيات مي-35 ترافق الرتل، ومسيّرة بيرقدار تركية تهاجمه', 53],
+  [6.0, 2, 'رشقة من 8 صواريخ على مواقع الدروع التركية: اعتُرض 3', 57],
+  [8.5, 3, 'الأرتال تتقدم نحو دهوك، والمدفعية تفتح النار', 56],
+  [12.0, 3, 'اشتباك الدبابات: خسائر من الطرفين', 60],
+  [15.0, 4, 'النتيجة: السيطرة على دهوك ارتفعت من 41% إلى 68%. السبب: تفوق جوي وتمهيد صاروخي', 64]
+];
+let step = 0, lastPh = -1;
+function battle(){ return war(); audioInit(); ['front_ambience','tank_tracks','jet_flyby','helicopter','mlrs','missile_pass','explosion_med','explosion_med2','explosion_big','intercept','tank_cannon','artillery','firefight','hmg2'].forEach(k => setTimeout(() => load(k), 10)); parts = []; bEl.classList.add('on'); bt = 0; step = 0; fx = []; units = []; booms = []; lastPh = -1; blog.innerHTML = ''; setPhase(-1); resize(); lastT = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(loop); }
+function resize(){ const r = bc.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); bc.width = r.width * d; bc.height = r.height * d; bx.setTransform(d, 0, 0, d, 0, 0); }
+addEventListener('resize', () => { if (bEl.classList.contains('on')) resize(); });
+function setPhase(i){ document.querySelectorAll('#phases .ph').forEach((p, k) => { p.className = 'ph' + (k === i ? ' on' : k < i ? ' done' : ''); }); }
+function say(t, bal){ const d = document.createElement('div'); d.textContent = t; blog.prepend(d); const m = document.querySelectorAll('#bal i'); m[0].style.width = bal + '%'; m[1].style.width = (100 - bal) + '%'; }
+document.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { speed = +b.dataset.sp; document.querySelectorAll('[data-sp]').forEach(x => x.classList.toggle('on', x === b)); });
+document.getElementById('bskip').onclick = () => { while (step < SCRIPT.length) { const s = SCRIPT[step++]; setPhase(s[1]); say(s[2], s[3]); } bt = 99; stopLoops(); setTimeout(() => { bEl.classList.remove('on'); cancelAnimationFrame(raf); }, 1600); };
+function loop(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000) * speed; lastT = now; bt += dt;
+  while (step < SCRIPT.length && bt >= SCRIPT[step][0]) { const s = SCRIPT[step++]; setPhase(s[1]); say(s[2], s[3]); if (s[1] !== lastPh) { lastPh = s[1]; spawn(s[1]); } }
+  draw(dt);
+  if (bt < 19) raf = requestAnimationFrame(loop); else { stopLoops(); setTimeout(() => bEl.classList.remove('on'), 400); }
+}
+// المسرح: خريطة المحافظات الحقيقية حول الهدف، ووحدات بصور حقيقية تتحرك وتقاتل
+const IMG = {}; for (const k in SPR) { const im = new Image(); im.src = SPR[k]; IMG[k] = im; }
+let paths2d = null, units = [], booms = [], parts = [];
+const VI = {}; for (const k in VFX) { const im = new Image(); im.src = VFX[k]; VI[k] = im; }
+const ADD = {fireball:1, sparks:1, muzzle:1, exhaust:1, intercept:1, tracers:1, ground_fire:1};
+// جزيء: صورة تكبر وتبهت وتدور وتتحرك. السلوك يكفي ليبدو كل انفجار مختلفاً
+function part(img, x, y, o){ parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 20, s1: 40, a0: 1, a1: 0, rot: Math.random() * 6.28, vr: (Math.random() - .5) * .6, t: 0, life: 1, delay: 0}, o)); }
+function drawParts(dt, layer){
+  for (const p of parts) {
+    if (p.layer !== layer) continue;
+    if (p.delay > 0) { p.delay -= dt; continue; }
+    p.t += dt; const k = p.t / p.life; if (k >= 1) continue;
+    const e = 1 - Math.pow(1 - k, 2);
+    p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    const sz = p.s0 + (p.s1 - p.s0) * e, al = p.a0 + (p.a1 - p.a0) * k;
+    const im = VI[p.img]; if (!im || !im.complete || al <= 0) continue;
+    bx.save(); bx.globalCompositeOperation = ADD[p.img] ? 'lighter' : 'source-over'; bx.globalAlpha = Math.max(0, Math.min(1, al));
+    bx.translate(p.x, p.y); bx.rotate(p.rot); bx.drawImage(im, -sz / 2, -sz / 2, sz, sz); bx.restore();
+  }
+  if (layer === 'top') parts = parts.filter(p => p.delay > 0 || p.t < p.life);
+}
+function stage(){ const W = bc.clientWidth, H = bc.clientHeight, t = duhok || {x: 600, y: 300}; const k = Math.min(W, H) / 95; return {W, H, k, ox: W / 2 - t.x * k, oy: H * .5 - t.y * k}; }
+function P(x, y){ const s = stage(); return [s.ox + x * s.k, s.oy + y * s.k]; }
+const SIZE = {qaqaa: 30, t72: 30, bmp1: 24, samsama: 32, leopard2a4: 31, altay: 32, acv15: 26, firtina: 31, f16: 40, mi35: 40, ch4: 34, kaan: 44, t129: 38, tb2: 32};
+function unit(k, side, mx, my, ang){ const p = P(mx, my); return {k, side, x: p[0], y: p[1], ang, tx: null, ty: null, v: 0, dead: false, fire: 0}; }
+function setupBattle(){
+  const t = duhok || {x: 600, y: 300};
+  units = []; booms = [];
+  // العراق: رتلان من الدبابات والعربات جنوب الهدف، ومدفعية خلفهما
+  for (let i = 0; i < 4; i++) units.push(unit(i < 2 ? 'qaqaa' : 't72', 'iq', t.x - 14 + i * 7, t.y + 26 + (i % 2) * 5, -Math.PI / 2));
+  for (let i = 0; i < 3; i++) units.push(unit('bmp1', 'iq', t.x - 10 + i * 8, t.y + 36, -Math.PI / 2));
+  for (let i = 0; i < 2; i++) units.push(unit('samsama', 'iq', t.x - 22 + i * 9, t.y + 46, -Math.PI / 2));
+  // تركيا: دفاع داخل الهدف، ومدفعية في العمق
+  units.push(unit('leopard2a4', 'tr', t.x - 6, t.y - 4, Math.PI / 2));
+  units.push(unit('altay', 'tr', t.x + 6, t.y - 7, Math.PI / 2));
+  units.push(unit('leopard2a4', 'tr', t.x + 14, t.y - 2, Math.PI / 2));
+  units.push(unit('acv15', 'tr', t.x + 2, t.y - 14, Math.PI / 2));
+  for (let i = 0; i < 2; i++) units.push(unit('firtina', 'tr', t.x + 8 + i * 9, t.y - 26, Math.PI / 2));
+}
+function drawSprite(u, alpha = 1){
+  const im = IMG[u.k]; if (!im || !im.complete) return;
+  const L = SIZE[u.k] * stage().k / 3.2, w = L * im.width / im.height;
+  const air = ['f16','mi35','ch4','kaan','t129','tb2'].includes(u.k), sh = air ? 14 : 3;
+  bx.save(); bx.translate(u.x + sh, u.y + sh * 1.4); bx.rotate(u.ang + Math.PI / 2); bx.filter = 'brightness(0)'; bx.globalAlpha = air ? .28 : .4; bx.drawImage(im, -w / 2, -L / 2, w, L); bx.restore();
+  bx.save(); bx.translate(u.x, u.y); bx.rotate(u.ang + Math.PI / 2); bx.globalAlpha = alpha; if (u.dead) bx.filter = 'brightness(.35) sepia(.6)'; bx.drawImage(im, -w / 2, -L / 2, w, L); bx.restore();
+  if (u.side && !air) { bx.fillStyle = u.side === 'iq' ? '#d2a24c' : '#b9493c'; bx.beginPath(); bx.arc(u.x - L * .45, u.y - L * .45, 3, 0, 7); bx.fill(); }
+}
+function boom(x, y, big = 1){
+  const r = 34 * big * stage().k / 3.2;
+  part('fireball', x, y, {s0: r * .4, s1: r * 1.6, life: .55, layer: 'top', vr: 0});
+  part('sparks', x, y, {s0: r * .6, s1: r * 2.1, life: .45, layer: 'top'});
+  part('shock', x, y, {s0: r * .5, s1: r * 2.4, a0: .7, life: .9, layer: 'mid', vr: 0});
+  for (let i = 0; i < 3 + big * 2; i++) part('smoke_dark', x + (Math.random() - .5) * r * .5, y + (Math.random() - .5) * r * .5, {s0: r * .4, s1: r * (1.2 + Math.random() * .6), a0: .8, life: 2.6 + Math.random() * 1.6, delay: .15 + i * .08, vx: 6 + Math.random() * 8, vy: -10 - Math.random() * 12, layer: 'mid'});
+  part('smoke_light', x, y, {s0: r * .7, s1: r * 1.8, a0: .4, life: 2.2, delay: .3, vx: 10, vy: -6, layer: 'mid'});
+}
+function muzzle(u){ const L = SIZE[u.k] * stage().k / 6.4; part('muzzle', u.x + Math.cos(u.ang) * L, u.y + Math.sin(u.ang) * L, {s0: L * 1.4, s1: L * 1.9, life: .16, layer: 'top', rot: u.ang + Math.PI / 2, vr: 0}); part('smoke_light', u.x + Math.cos(u.ang) * L * 1.3, u.y + Math.sin(u.ang) * L * 1.3, {s0: L, s1: L * 2.4, a0: .4, life: 1.4, vx: 8, vy: -8, layer: 'mid'}); }
+function spawn(ph){
+  const t = duhok || {x: 600, y: 300}, s = stage();
+  if (ph === 0) { setupBattle(); sloop('front_ambience', .35); sloop('tank_tracks', .25); }
+  if (ph === 1) {
+    // أربع مقاتلات عراقية من الجنوب، ومقاتلتان تركيتان تعترضان، ومروحيات ومسيّرة
+    for (let i = 0; i < 4; i++) { const u = unit('f16', 'iq', t.x - 40 + i * 6, t.y + 70 + i * 4, -Math.PI / 2.4); const p = P(t.x + 30 + i * 5, t.y - 60); u.tx = p[0]; u.ty = p[1]; u.v = 120; u.air = 1; u.leave = 1; units.push(u); }
+    for (let i = 0; i < 2; i++) { const u = unit('kaan', 'tr', t.x + 40 + i * 8, t.y - 70, Math.PI / 1.6); const p = P(t.x - 10 + i * 10, t.y + 40); u.tx = p[0]; u.ty = p[1]; u.v = 130; u.air = 1; u.leave = 1; units.push(u); }
+    for (let i = 0; i < 2; i++) { const u = unit('mi35', 'iq', t.x - 20 + i * 10, t.y + 60, -Math.PI / 2); const p = P(t.x - 12 + i * 10, t.y + 16); u.tx = p[0]; u.ty = p[1]; u.v = 35; u.air = 1; units.push(u); }
+    play('jet_flyby', {vol: .9, x: innerWidth * .3}); play('jet_flyby', {vol: .7, x: innerWidth * .7, delay: .6}); sloop('helicopter', .3);
+    { const u = unit('tb2', 'tr', t.x + 30, t.y - 40, Math.PI * .8); const p = P(t.x - 4, t.y + 28); u.tx = p[0]; u.ty = p[1]; u.v = 30; u.air = 1; units.push(u); }
+  }
+  if (ph === 2) {
+    play('mlrs', {vol: .8, x: P(t.x - 30, 0)[0]}); play('missile_pass', {vol: .5, delay: .5});
+    const base = P(t.x - 30, t.y + 70);
+    for (let i = 0; i < 8; i++) { const cut = i % 3 === 0 ? .62 : 1; fx.push({k: 'msl', t: -i * .22, d: 2.2, a: [base[0] + (i % 2) * 8, base[1]], b: P(t.x + (i % 4 - 1.5) * 6, t.y - 6 - (i % 3) * 7), cut}); }
+  }
+  if (ph === 3) {
+    // الهجوم البري: الأرتال تتقدم نحو الهدف
+    sloop('firefight', .35); sloop('hmg2', .2); if (LOOPS.helicopter) { LOOPS.helicopter.g.gain.setTargetAtTime(.12, actx.currentTime, .5); }
+    let i = 0;
+    for (const u of units) if (u.side === 'iq' && !u.air && u.k !== 'samsama') { const p = P(t.x - 10 + (i % 4) * 7, t.y + 4 + Math.floor(i / 4) * 8); u.tx = p[0]; u.ty = p[1]; u.v = 14; i++; }
+  }
+}
+function missileAt(e, kk){ return [e.a[0] + (e.b[0] - e.a[0]) * kk, e.a[1] + (e.b[1] - e.a[1]) * kk - Math.sin(kk * Math.PI) * 70]; }
+let fireT = 0;
+function draw(dt){
+  const s = stage(), W = s.W, H = s.H, t = duhok || {x: 600, y: 300};
+  bx.direction = 'rtl'; bx.fillStyle = '#0b1720'; bx.fillRect(0, 0, W, H);
+  bx.save(); bx.translate(s.ox, s.oy); bx.scale(s.k, s.k);
+  if (!paths2d) paths2d = MAP.prov.map(p => ({p: new Path2D(p.d), c: p.c, id: p.id}));
+  for (const q of paths2d) { bx.fillStyle = q.c === 'IRQ' ? '#5f5233' : q.c === 'TUR' ? '#4b3a2e' : '#2f352e'; bx.fill(q.p); }
+  bx.lineWidth = .25; bx.strokeStyle = 'rgba(6,16,26,.8)'; for (const q of paths2d) bx.stroke(q.p);
+  if (duhok) { const q = paths2d.find(x => x.id === duhok.id); bx.lineWidth = .7; bx.strokeStyle = 'rgba(217,154,62,.95)'; bx.setLineDash([2, 1.5]); bx.stroke(q.p); bx.setLineDash([]); }
+  bx.restore();
+  bx.font = '600 14px "IBM Plex Sans Arabic"'; bx.textAlign = 'center'; bx.lineWidth = 4; bx.strokeStyle = '#05090d'; bx.fillStyle = '#ece6d8';
+  const lab = (txt, p) => { bx.strokeText(txt, p[0], p[1]); bx.fillText(txt, p[0], p[1]); };
+  lab('الهدف: دهوك', P(t.x, t.y - 34)); lab('تركيا', P(t.x + 20, t.y - 44));
+  // الحركة
+  for (const u of units) {
+    if (u.tx !== null && !u.dead) { const dx = u.tx - u.x, dy = u.ty - u.y, d = Math.hypot(dx, dy); if (d > 1) { u.ang = Math.atan2(dy, dx); const st = Math.min(d, u.v * dt * (s.k / 3)); u.x += dx / d * st; u.y += dy / d * st; } else if (u.leave) { u.gone = true; } }
+  }
+  // تبادل النار في المرحلة البرية: المدفعية تطلق، والدبابات تصاب
+  fireT += dt;
+  if (step >= 4 && step < SCRIPT.length && fireT > .35) {
+    fireT = 0;
+    const shooters = units.filter(u => !u.dead && !u.air && u.k !== 'acv15'), pick = shooters[Math.floor(Math.random() * shooters.length)];
+    if (pick) { pick.fire = .15; muzzle(pick); play(pick.k === 'samsama' || pick.k === 'firtina' ? 'artillery' : 'tank_cannon', {vol: .55, x: pick.x, dist: pick.side === 'tr' ? .5 : .2}); const foes = units.filter(v => !v.dead && !v.air && v.side && v.side !== pick.side); const f = foes[Math.floor(Math.random() * foes.length)]; if (f) { boom(f.x + (Math.random() - .5) * 18, f.y + (Math.random() - .5) * 18, pick.k === 'samsama' || pick.k === 'firtina' ? 1.2 : .7); play('explosion_med', {vol: .45, x: f.x, dist: .35, delay: .25}); if (Math.random() < .12) { f.dead = true; boom(f.x, f.y, 1.6); play('explosion_big', {vol: .75, x: f.x, delay: .3}); } } }
+  }
+  for (const u of units) if (!u.gone && !u.air) drawSprite(u);
+  for (const u of units) if (u.fire > 0) u.fire -= dt;
+  // الطلقات المضيئة بين الخطين أثناء المعركة البرية
+  if (step >= 5 && step < SCRIPT.length && Math.random() < dt * 3) { const a = units.filter(u => !u.dead && !u.air && u.side === 'iq'), b = units.filter(u => !u.dead && !u.air && u.side === 'tr'); if (a.length && b.length) { const u = a[Math.floor(Math.random() * a.length)], v = b[Math.floor(Math.random() * b.length)], ang = Math.atan2(v.y - u.y, v.x - u.x); part('tracers', (u.x + v.x) / 2, (u.y + v.y) / 2, {s0: 40, s1: 46, life: .25, layer: 'top', rot: ang + Math.PI / 2, vr: 0, a0: .9}); } }
+  for (const u of units) if (u.dead) { u.smk = (u.smk || 0) - dt; if (u.smk <= 0) { u.smk = .45; part('smoke_oil', u.x, u.y, {s0: 14, s1: 70, a0: .7, life: 3.2, vx: 14, vy: -18, layer: 'mid'}); part('ground_fire', u.x + (Math.random() - .5) * 6, u.y + (Math.random() - .5) * 6, {s0: 16, s1: 24, a0: .8, life: .6, layer: 'top', vr: 0}); } }
+  drawParts(dt, 'mid');
+  for (const u of units) if (!u.gone && u.air) drawSprite(u);
+  drawParts(dt, 'top');
+  // الانفجارات بموجة ضغط ودخان
+
+  for (const e of fx) {
+    e.t += dt; const k = e.t / e.d; if (k < 0 || k > 1.6) continue;
+    const kk = Math.min(k, 1);
+    if (e.k === 'msl') {
+      const cut = e.cut;
+      if (k < cut) {
+        const p = missileAt(e, kk), q = missileAt(e, Math.max(0, kk - .02)), ang = Math.atan2(p[1] - q[1], p[0] - q[0]);
+        e.tr = (e.tr || 0) - dt; if (e.tr <= 0) { e.tr = .03; part('smoke_light', q[0], q[1], {s0: 6, s1: 30, a0: .55, life: 1.6, vx: 4, vy: -3, layer: 'mid'}); }
+        bx.save(); bx.translate(p[0], p[1]); bx.rotate(ang); bx.globalCompositeOperation = 'lighter'; if (VI.exhaust.complete) { bx.save(); bx.rotate(Math.PI / 2); bx.drawImage(VI.exhaust, -10, 6, 20, 30 + Math.random() * 8); bx.restore(); } bx.globalCompositeOperation = 'source-over'; bx.scale(1.5, 1.5); bx.fillStyle = '#e9e6dc'; bx.fillRect(-9, -2, 12, 4); bx.fillStyle = '#d2a24c'; bx.beginPath(); bx.moveTo(3, -2); bx.lineTo(7, 0); bx.lineTo(3, 2); bx.fill(); bx.restore();
+        if (cut < 1 && k > cut - .25) { const src = P(t.x + 10, t.y - 18), m = missileAt(e, cut), f = (k - (cut - .25)) / .25; bx.strokeStyle = 'rgba(190,220,255,.75)'; bx.lineWidth = 1.5; bx.beginPath(); bx.moveTo(src[0], src[1]); bx.lineTo(src[0] + (m[0] - src[0]) * f, src[1] + (m[1] - src[1]) * f); bx.stroke(); }
+      } else if (k < cut + .3) { if (!e.snd) { e.snd = 1; const m = missileAt(e, cut); play('intercept', {vol: .6, x: m[0], dist: .4}); part('intercept', m[0], m[1], {s0: 20, s1: 90, life: .7, layer: 'top'}); part('smoke_dark', m[0], m[1], {s0: 20, s1: 70, a0: .6, life: 2.4, vx: 10, vy: -4, layer: 'mid'}); } }
+      if (cut === 1 && k >= 1 && !e.hit) { e.hit = true; boom(e.b[0], e.b[1], 1.3); play(Math.random() < .5 ? 'explosion_med2' : 'explosion_big', {vol: .6, x: e.b[0], dist: .2}); const v = units.find(u => u.side === 'tr' && !u.dead && Math.hypot(u.x - e.b[0], u.y - e.b[1]) < 22); if (v && Math.random() < .5) v.dead = true; }
+    }
+  }
+}
+
+// ================================================================== معركة دهوك: محاكاة قتال على أرض حقيقية
+// الإحداثيات بكسلات صورة الأرض (كل بكسل نحو 30 متراً). الزمن ثوانٍ من زمن المعركة (300 ثانية = 5 دقائق بسرعة ×1).
+const W_IMG = new Image(); W_IMG.src = FIELD_IMG;
+const WS = {}; for (const k in BSPR) { const im = new Image(); im.src = BSPR[k]; WS[k] = im; }
+const KM = 33;
+function hAt(x, y){ const i = Math.max(0, Math.min(FIELD.hh - 1, Math.floor(y / 8))), j = Math.max(0, Math.min(FIELD.hw - 1, Math.floor(x / 8))); return FIELD.H[i * FIELD.hw + j]; }
+// المدن بمواقعها الحقيقية
+const TOWNS = [
+  {id: 'duhok', n: 'دهوك', x: 1165, y: 667, r: 75, obj: true, houses: 9, mosque: 2},
+  {id: 'simele', n: 'سميل', x: 731, y: 700, r: 55, obj: true, houses: 5, mosque: 1},
+  {id: 'alqosh', n: 'ألقوش', x: 1445, y: 1147, r: 55, obj: true, houses: 4, mosque: 1},
+  {id: 'baadra', n: 'باعذرا', x: 1762, y: 1256, r: 40, houses: 3},
+  {id: 'telkaif', n: 'تلكيف', x: 1509, y: 2029, r: 55, houses: 5, mosque: 1},
+];
+// أنواع الوحدات: أرقام مبسطة من أداء حقيقي (المدى بالبكسل، والسرعة بكسل/ثانية)
+const UT = {
+  tank:   {hp: 100, arm: 2, rng: 2.6 * KM, rof: 3.2, ds: 22, dh: 46, acc: .55, spd: 8, sz: 26, cost: 3, snd: 'tank_cannon', fx: 'shell'},
+  ifv:    {hp: 70,  arm: 1, rng: 1.6 * KM, rof: 1.5, ds: 16, dh: 14, acc: .5,  spd: 8.5, sz: 22, cost: 2, snd: 'hmg', fx: 'tracer'},
+  squad:  {hp: 60,  arm: 0, rng: 0.9 * KM, rof: 1.1, ds: 9,  dh: 2,  acc: .45, spd: 5, sz: 30, cost: 1, snd: 'ak47', fx: 'tracer'},
+  atgm:   {hp: 40,  arm: 0, rng: 3.5 * KM, rof: 6.5, ds: 4,  dh: 72, acc: .62, spd: 4.4, sz: 20, cost: 1.5, snd: 'rpg', fx: 'atgm', heavyOnly: true},
+  mg:     {hp: 40,  arm: 0, rng: 1.2 * KM, rof: .55, ds: 6,  dh: 1,  acc: .4,  spd: 4.4, sz: 22, cost: 1, snd: 'hmg2', fx: 'tracer', softOnly: true},
+  mortar: {hp: 40,  arm: 0, rng: 5 * KM,   rof: 4.5, ds: 14, dh: 8,  acc: .35, spd: 2.4, sz: 20, cost: 1, snd: 'artillery', fx: 'indirect', ind: true, area: 18},
+  sniper: {hp: 30,  arm: 0, rng: 1.5 * KM, rof: 4.5, ds: 32, dh: 0,  acc: .7,  spd: 4.4, sz: 18, cost: 1, snd: 'rifle', fx: 'none', softOnly: true},
+  arty:   {hp: 60,  arm: 1, rng: 25 * KM,  rof: 7.5, ds: 24, dh: 16, acc: .3,  spd: 2.2, sz: 30, cost: 2, snd: 'artillery', fx: 'indirect', ind: true, area: 24},
+  ad:     {hp: 60,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: 2.2, sz: 28, cost: 2, airRng: 22 * KM},
+  drone:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: 26, sz: 32, cost: 0, air: true},
+  heli:   {hp: 70,  arm: 1, rng: 3 * KM,   rof: 1.6, ds: 14, dh: 30, acc: .5,  spd: 9,   sz: 42, cost: 3, snd: 'hmg', fx: 'rocket', air: true},
+};
+const SPRITE = {
+  iq: {tank: ['qaqaa', 't72'], ifv: ['bmp1'], squad: ['squad_iq'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['samsama'], ad: ['pantsir'], heli: ['mi35']},
+  tr: {tank: ['leopard2a4', 'altay'], ifv: ['acv15'], squad: ['squad_tr'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['firtina'], ad: ['ad_truck'], heli: ['t129']}
+};
+const NAME = {tank: 'دبابة', ifv: 'مدرعة', squad: 'فصيل مشاة', atgm: 'فريق مضاد دروع', mg: 'فريق رشاش', mortar: 'هاون', sniper: 'قناصة', arty: 'مدفعية', ad: 'دفاع جوي', heli: 'مروحية'};
+const SIDE_NAME = {iq: 'العراق', tr: 'تركيا'};
+
+let W = null;   // حالة المعركة
+let wraf = 0, wlast = 0, wspeed = 1;
+function wrand(){ W.seed = (W.seed * 1664525 + 1013904223) >>> 0; return W.seed / 4294967296; }
+
+function mkUnit(side, t, x, y, o = {}){
+  const d = UT[t], spr = SPRITE[side][t];
+  const u = Object.assign({id: W.nid++, side, t, x, y, hp: d.hp, mor: 100, cd: wrand() * d.rof, ang: side === 'iq' ? -Math.PI / 2 : Math.PI / 2, path: [], pi: 0, retreat: false, dead: false, home: {x, y}, lastHit: -99, trk: {x, y}, spr: spr[W.nid % spr.length]}, o);
+  W.units.push(u); return u;
+}
+function setupWar(){
+  W = {t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], log: [], order: 'attack', end: null,
+    stats: {iq: {lost: {}, fired: 0}, tr: {lost: {}, fired: 0}, msl: 0, mslInt: 0, trMsl: 0, trInt: 0, jetsLost: 0},
+    uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 55, droneT: 70, follow: true,
+    cam: {x: 1250, y: 1380, k: 1.7}};
+  // المباني في المدن بمواقع ثابتة
+  for (const tw of TOWNS) {
+    for (let i = 0; i < tw.houses; i++) { const a = i * 2.4 + tw.x * .01, rr = tw.r * (.25 + (i % 3) * .25); W.props.push({k: i % 4 === 3 ? 'ruins' : 'houses', x: tw.x + Math.cos(a) * rr, y: tw.y + Math.sin(a) * rr, s: 56, rot: (i % 4) * Math.PI / 2}); }
+    for (let i = 0; i < (tw.mosque || 0); i++) W.props.push({k: 'mosque', x: tw.x + 14 - i * 30, y: tw.y - 10 + i * 22, s: 34, rot: 0});
+  }
+  // خط الدفاع التركي الأول على السلسلة الجنوبية، والثاني عند مدخل دهوك
+  const line1 = [[1060, 1088], [1150, 1080], [1240, 1092], [1330, 1084], [1420, 1098]];
+  const line2 = [[1080, 820], [1170, 812], [1260, 826]];
+  for (const [x, y] of line1.concat(line2)) { W.props.push({k: 'trench', x, y: y + 10, s: 60, rot: 0, dug: true}); W.props.push({k: 'sandbags', x: x + 26, y: y - 6, s: 22, rot: 0}); }
+  W.props.push({k: 'checkpoint', x: 1175, y: 900, s: 30, rot: 0});
+  W.props.push({k: 'depot', x: 1260, y: 1640, s: 40, rot: 0}); W.props.push({k: 'hospital', x: 1180, y: 1660, s: 34, rot: 0});
+  W.props.push({k: 'depot', x: 1210, y: 560, s: 36, rot: 0});
+  W.dug = line1.concat(line2).map(([x, y]) => ({x, y}));
+  // تركيا: دفاع متدرج
+  line1.forEach(([x, y], i) => { mkUnit('tr', 'squad', x, y, {dug: true}); if (i % 2 === 0) mkUnit('tr', 'atgm', x + 18, y + 4, {dug: true}); });
+  mkUnit('tr', 'mg', 1195, 1086, {dug: true}); mkUnit('tr', 'mg', 1375, 1090, {dug: true}); mkUnit('tr', 'sniper', 1290, 1070, {dug: true});
+  mkUnit('tr', 'tank', 1120, 1040); mkUnit('tr', 'tank', 1300, 1035); mkUnit('tr', 'ifv', 1210, 1030);
+  mkUnit('tr', 'squad', 1430, 1140); mkUnit('tr', 'squad', 1460, 1160); mkUnit('tr', 'ifv', 1440, 1120); mkUnit('tr', 'tank', 1480, 1110);
+  line2.forEach(([x, y]) => { mkUnit('tr', 'squad', x, y, {dug: true}); mkUnit('tr', 'atgm', x + 20, y, {dug: true}); });
+  mkUnit('tr', 'tank', 1140, 760); mkUnit('tr', 'tank', 1210, 755); mkUnit('tr', 'ifv', 1180, 700);
+  mkUnit('tr', 'squad', 1150, 660); mkUnit('tr', 'squad', 1190, 690); mkUnit('tr', 'mg', 1170, 640); mkUnit('tr', 'mortar', 1200, 610);
+  mkUnit('tr', 'squad', 731, 700); mkUnit('tr', 'atgm', 750, 715); mkUnit('tr', 'tank', 760, 680);
+  mkUnit('tr', 'arty', 1130, 520); mkUnit('tr', 'arty', 1220, 515); mkUnit('tr', 'ad', 1260, 600); mkUnit('tr', 'heli', 1230, 560);
+  // العراق: ثلاث مجموعات على خط البداية جنوب السلسلة
+  const east = [[1445, 1147], [1300, 840], [1170, 680]], center = [[1220, 1085], [1180, 830], [1165, 670]], west = [[960, 1000], [760, 720]];
+  const grp = (pts, list, x0, y0) => list.forEach(([t, dx, dy]) => mkUnit('iq', t, x0 + dx, y0 + dy, {path: pts.map(([x, y]) => ({x: x + dx * .4, y: y + dy * .2}))}));
+  grp(center, [['tank', -40, 0], ['tank', 0, -8], ['tank', 40, 0], ['ifv', -20, 30], ['ifv', 20, 30], ['squad', -45, 50], ['squad', 0, 55], ['squad', 45, 50], ['atgm', 0, 80], ['mg', -30, 85], ['sniper', 30, 85]], 1220, 1460);
+  grp(east, [['tank', -30, 0], ['tank', 10, -6], ['tank', 50, 4], ['ifv', 0, 30], ['squad', -25, 50], ['squad', 25, 50], ['atgm', 0, 75]], 1500, 1480);
+  grp(west, [['tank', -20, 0], ['tank', 20, 0], ['ifv', 0, 28], ['squad', -20, 50], ['squad', 20, 50]], 980, 1440);
+  mkUnit('iq', 'mortar', 1240, 1560); mkUnit('iq', 'mortar', 1470, 1570);
+  mkUnit('iq', 'arty', 1180, 1700); mkUnit('iq', 'arty', 1260, 1710); mkUnit('iq', 'arty', 1340, 1700);
+  mkUnit('iq', 'ad', 1300, 1620);
+  mkUnit('iq', 'heli', 1200, 1600, {path: center.map(([x, y]) => ({x, y: y + 90}))}); mkUnit('iq', 'heli', 1460, 1620, {path: east.map(([x, y]) => ({x, y: y + 90}))});
+  for (const u of W.units) { u.start = {x: u.x, y: u.y}; }
+  W.init = {iq: strength('iq'), tr: strength('tr')};
+  wlog('صدر أمر الهجوم: ثلاث مجموعات عراقية تتقدم نحو ألقوش ودهوك وسميل.', 'iq');
+}
+function strength(side){ let s = 0; for (const u of W.units) if (u.side === side && !u.dead) s += UT[u.t].cost * u.hp / UT[u.t].hp; return s; }
+function wlog(t, side){ W.log.unshift({t, side, at: W.t}); if (W.log.length > 30) W.log.pop(); const el = document.getElementById('wlog'); if (el) el.innerHTML = W.log.slice(0, 3).map((l, i) => `<div style="opacity:${1 - i * .28};color:${l.side === 'iq' ? 'var(--mine)' : l.side === 'tr' ? '#e07b6e' : 'var(--text)'}">${l.t}</div>`).join(''); }
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function inTown(u){ for (const t of TOWNS) if (Math.hypot(u.x - t.x, u.y - t.y) < t.r) return t; return null; }
+function cover(u){ let c = 1; if (u.dug && !u.moving) c *= .5; if (inTown(u)) c *= .6; return c; }
+
+// ------------------------------------------------------------------ الجزيئات بإحداثيات العالم
+function wp(img, x, y, o){ if (W.parts.length > 420) return; W.parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 10, s1: 20, a0: 1, a1: 0, rot: wrand() * 6.28, vr: (wrand() - .5) * .5, t: 0, life: 1, delay: 0, layer: 'top'}, o)); }
+function wboom(x, y, big = 1, snd = true){
+  const r = 16 * big;
+  wp('fireball', x, y, {s0: r * .5, s1: r * 1.7, life: .55, vr: 0});
+  wp('sparks', x, y, {s0: r * .6, s1: r * 2, life: .45});
+  wp('shock', x, y, {s0: r * .5, s1: r * 2.4, a0: .6, life: .9, layer: 'mid', vr: 0});
+  for (let i = 0; i < 2 + big; i++) wp('smoke_dark', x + (wrand() - .5) * r * .5, y + (wrand() - .5) * r * .5, {s0: r * .4, s1: r * (1.3 + wrand() * .6), a0: .75, life: 2.4 + wrand() * 1.5, delay: .12 + i * .08, vx: 2 + wrand() * 3, vy: -3 - wrand() * 4, layer: 'mid'});
+  if (W.decals.length > 260) W.decals.shift();
+  W.decals.push({k: big > 1.2 ? 'crater_big' : 'crater_small', x, y, s: r * (big > 1.2 ? .95 : .7), rot: wrand() * 6.28, a: .6});
+  if (snd) wsound(big > 1.3 ? 'explosion_big' : big > .8 ? 'explosion_med' : 'explosion_med2', x, y, .6 + big * .15);
+}
+// ------------------------------------------------------------------ الصوت بموضعه: يسار ويمين حسب الشاشة، ويخفت ويُكتم بالبعد
+let sndBudget = 0;
+function wsound(k, x, y, vol = .7){
+  if (sndBudget > 9) return; sndBudget++;
+  const c = W.cam, sx = (x - c.x) * c.k + innerWidth / 2, d = Math.hypot(x - c.x, y - c.y) * c.k / innerWidth;
+  if (d > 2.2) return;
+  play(k, {vol: vol * Math.max(.15, 1 - d * .4), x: Math.max(0, Math.min(innerWidth, sx)), dist: Math.min(1, d * .6)});
+}
+
+// ------------------------------------------------------------------ المحاكاة
+function enemiesOf(u){ return W.units.filter(v => v.side !== u.side && !v.dead && !v.air && !(UT[v.t].air)); }
+function pickTarget(u, d){
+  let best = null, bs = -1;
+  for (const v of W.units) {
+    if (v.side === u.side || v.dead || UT[v.t].air) continue;
+    const r = dist(u, v); if (r > d.rng * (1 + Math.max(0, hAt(u.x, u.y) - hAt(v.x, v.y)) / 600)) continue;
+    const hv = UT[v.t].arm > 0;
+    if (d.heavyOnly && !hv) continue; if (d.softOnly && hv) continue;
+    let sc = 1 / (r + 20); if (d.dh > d.ds && hv) sc *= 3; if (d.ds >= d.dh && !hv) sc *= 2; if (v.t === 'atgm' || v.t === 'arty') sc *= 1.5;
+    if (sc > bs) { bs = sc; best = v; }
+  }
+  return best;
+}
+// المدفعية تحتاج من يرى الهدف: عدو قريب من أي وحدة صديقة
+function spotted(side, v){ for (const u of W.units) if (u.side === side && !u.dead && dist(u, v) < 4 * KM) return true; return false; }
+function fire(u, v){
+  const d = UT[u.t]; W.stats[u.side].fired++;
+  u.ang = Math.atan2(v.y - u.y, v.x - u.x);
+  const r = dist(u, v), hv = UT[v.t].arm > 0;
+  let p = d.acc * (1 - r / (d.rng * 1.6)) * cover(v);
+  if (hAt(v.x, v.y) - hAt(u.x, u.y) > 60) p *= .8;
+  if (v.moving) p *= .85;
+  const hit = wrand() < p;
+  const dmg = (UT[v.t].arm === 2 ? d.dh : UT[v.t].arm === 1 ? (d.ds + d.dh) / 2 : d.ds) * (.7 + wrand() * .6);
+  if (d.ind) {
+    const tx = v.x + (wrand() - .5) * 26, ty = v.y + (wrand() - .5) * 26;
+    W.proj.push({k: 'shell', x0: u.x, y0: u.y, x1: tx, y1: ty, t: 0, dur: 2.6 + r / 300, side: u.side, dmg, area: d.area, soft: d.ds, hard: d.dh});
+    if (u.t === 'arty') { wp('muzzle', u.x + Math.cos(u.ang) * 14, u.y + Math.sin(u.ang) * 14, {s0: 14, s1: 20, life: .18, rot: u.ang + Math.PI / 2, vr: 0}); wp('smoke_light', u.x, u.y, {s0: 10, s1: 40, a0: .5, life: 2, vx: 3, vy: -3, layer: 'mid'}); }
+  } else {
+    const fx = d.fx;
+    W.proj.push({k: fx, x0: u.x, y0: u.y, x1: v.x + (hit ? 0 : (wrand() - .5) * 30), y1: v.y + (hit ? 0 : (wrand() - .5) * 30), t: 0, dur: fx === 'atgm' ? 1.4 : fx === 'rocket' ? .8 : .25, target: v, hit, dmg, side: u.side});
+    if (fx === 'shell') { wp('muzzle', u.x + Math.cos(u.ang) * d.sz * .55, u.y + Math.sin(u.ang) * d.sz * .55, {s0: 10, s1: 15, life: .16, rot: u.ang + Math.PI / 2, vr: 0}); wp('smoke_light', u.x + Math.cos(u.ang) * d.sz * .7, u.y + Math.sin(u.ang) * d.sz * .7, {s0: 6, s1: 22, a0: .45, life: 1.4, vx: 2, vy: -2, layer: 'mid'}); }
+    if (fx === 'tracer') wp('rifle_flash', u.x + Math.cos(u.ang) * d.sz * .4, u.y + Math.sin(u.ang) * d.sz * .4, {s0: 5, s1: 7, life: .1, vr: 0});
+  }
+  if (d.snd && wrand() < (d.rof < 1 ? .25 : .7)) wsound(d.snd, u.x, u.y, .45);
+}
+function damage(v, dmg, by){
+  if (v.dead) return;
+  v.hp -= dmg; v.mor -= 10 + dmg * .25; v.lastHit = W.t;
+  if (v.hp <= 0) kill(v, by);
+}
+function kill(v, by){
+  v.dead = true; v.hp = 0;
+  const L = W.stats[v.side].lost; L[v.t] = (L[v.t] || 0) + 1;
+  for (const u of W.units) if (u.side === v.side && !u.dead && dist(u, v) < 70) u.mor -= 8;
+  if (UT[v.t].arm > 0 && !UT[v.t].air) {
+    wboom(v.x, v.y, 1.6);
+    W.decals.push({k: v.t === 'tank' ? 'wreck_tank' : v.t === 'arty' || v.t === 'ad' ? 'wreck_truck' : 'wreck_apc', x: v.x, y: v.y, s: UT[v.t].sz * 1.05, rot: v.ang + Math.PI / 2, a: 1, burn: 40});
+    wlog(`${by === 'iq' ? 'دُمّرت' : 'خسرنا'} ${NAME[v.t]} ${v.side === 'tr' ? 'تركية' : 'عراقية'}${inTown(v) ? ' في ' + inTown(v).n : ''}`, by);
+  } else if (UT[v.t].air) {
+    v.falling = 1.6; wsound('explosion_big', v.x, v.y, .8); wlog(`أُسقطت ${NAME[v.t]} ${v.side === 'tr' ? 'تركية' : 'عراقية'}`, by);
+  } else if (wrand() < .4) wlog(`${NAME[v.t]} ${v.side === 'tr' ? 'تركي' : 'عراقي'} خارج القتال`, by);
+}
+
+function stepWar(dt){
+  W.t += dt; sndBudget = Math.max(0, sndBudget - dt * 14);
+  W.cool.air = Math.max(0, W.cool.air - dt); W.cool.msl = Math.max(0, W.cool.msl - dt);
+  // الوحدات
+  for (const u of W.units) {
+    if (u.dead || u.jetPath || u.t === 'drone') continue;
+    const d = UT[u.t];
+    if (W.t - u.lastHit > 4) u.mor = Math.min(100, u.mor + dt * 3);
+    if (!u.retreat && u.mor < 22) { u.retreat = true; if (wrand() < .5) wlog(`${NAME[u.t]} ${u.side === 'tr' ? 'تركي' : 'عراقي'} ينسحب بعد خسائر`, u.side === 'tr' ? 'iq' : 'tr'); }
+    if (u.retreat && u.mor > 60) u.retreat = false;
+    // اختيار الهدف وإطلاق النار
+    u.cd -= dt;
+    let tgt = null;
+    if (d.rng > 0) { tgt = pickTarget(u, d); if (tgt && d.ind && !spotted(u.side, tgt)) tgt = null; }
+    if (tgt && u.cd <= 0) { fire(u, tgt); u.cd = d.rof * (.8 + wrand() * .4) * (u.retreat ? 1.6 : 1); }
+    // الحركة
+    let goal = null, sp = d.spd;
+    const order = u.side === 'iq' ? W.order : (W.trCollapse ? 'retreat' : 'hold');
+    if (u.retreat || order === 'retreat') goal = u.side === 'iq' ? u.start : {x: u.x, y: 280};
+    else if (u.side === 'iq' && order === 'attack' && u.path.length) {
+      while (u.pi < u.path.length - 1 && dist(u, u.path[u.pi]) < 26) u.pi++;
+      goal = u.path[u.pi];
+      if (tgt && !d.air) sp *= u.t === 'tank' || u.t === 'ifv' ? .7 : .4;
+    } else if (u.side === 'tr' && !u.dug && (u.t === 'tank' || u.t === 'ifv')) {
+      // هجوم مضاد محلي: الدروع التركية تتقدم نحو عدو قريب إذا كان الميزان المحلي لصالحها
+      const e = enemiesOf(u).filter(v => dist(u, v) < 6 * KM);
+      const f = W.units.filter(v => v.side === 'tr' && !v.dead && dist(u, v) < 6 * KM);
+      if (e.length && f.length > e.length * 1.3 && !tgt) { const n = e.sort((a, b) => dist(u, a) - dist(u, b))[0]; goal = {x: n.x, y: n.y}; sp *= .7; if (!u.ca) { u.ca = 1; wlog('هجوم مضاد تركي بالدروع', 'tr'); } }
+    }
+    if (d.air && u.side === 'iq' && order === 'attack') {
+      // المروحيات تتبع مقدمة القوات من الخلف
+      const lead = W.units.filter(v => v.side === 'iq' && !v.dead && !UT[v.t].air && (v.t === 'tank' || v.t === 'ifv'));
+      if (lead.length) { const ly = Math.min(...lead.map(v => v.y)); goal = {x: lead.reduce((s, v) => s + v.x, 0) / lead.length, y: ly + 90}; }
+    }
+    u.moving = false;
+    if (goal && (u.side === 'tr' || order !== 'hold' || u.retreat)) {
+      const dx = goal.x - u.x, dy = goal.y - u.y, r = Math.hypot(dx, dy);
+      if (r > 4) {
+        let f = 1;
+        if (!d.air) { const h0 = hAt(u.x, u.y), h1 = hAt(u.x + dx / r * 8, u.y + dy / r * 8); if (h0 > 900) f *= u.t === 'squad' || u.t === 'atgm' ? .7 : .45; if (h1 > h0 + 8) f *= .7; }
+        if (u.retreat) f *= 1.2;
+        const st = Math.min(r, sp * f * dt);
+        u.x += dx / r * st; u.y += dy / r * st; u.moving = true;
+        if (!tgt) u.ang += Math.atan2(Math.sin(Math.atan2(dy, dx) - u.ang), Math.cos(Math.atan2(dy, dx) - u.ang)) * Math.min(1, dt * 3);
+        if ((u.t === 'tank' || u.t === 'ifv' || u.t === 'arty') && dist(u, u.trk) > 12) { if (W.decals.length > 260) W.decals.shift(); W.decals.push({k: 'tracks', x: (u.x + u.trk.x) / 2, y: (u.y + u.trk.y) / 2, s: 16, rot: Math.atan2(u.y - u.trk.y, u.x - u.trk.x) + Math.PI / 2, a: .35}); u.trk = {x: u.x, y: u.y}; }
+      }
+    }
+    if (u.dug && u.moving && dist(u, u.home) > 30) u.dug = false;
+  }
+  // المقذوفات
+  for (const p of W.proj) {
+    p.t += dt; if (p.t < p.dur || p.done) continue; p.done = true;
+    if (p.k === 'shell') {
+      wboom(p.x1, p.y1, p.area > 20 ? 1.1 : .8);
+      for (const v of W.units) if (!v.dead && v.side !== p.side && !UT[v.t].air) { const r = Math.hypot(v.x - p.x1, v.y - p.y1); if (r < p.area) damage(v, (UT[v.t].arm ? p.hard : p.soft) * (1 - r / p.area) * cover(v) * 1.4, p.side); }
+    } else if (p.k === 'msl' || p.k === 'bomb') {
+      if (p.intercepted) continue;
+      wboom(p.x1, p.y1, p.k === 'bomb' ? 1.7 : 2);
+      for (const v of W.units) if (!v.dead && v.side !== p.side && !UT[v.t].air) { const r = Math.hypot(v.x - p.x1, v.y - p.y1); if (r < 34) damage(v, (UT[v.t].arm ? 55 : 60) * (1 - r / 40) * cover(v), p.side); }
+    } else if (p.k === 'int') {
+      const m = p.vs; if (!m || m.done) continue;
+      if (p.ok) { m.intercepted = true; m.done = true; if (m.jet) { kill(m.jet, p.side); } wp('intercept', p.x1, p.y1, {s0: 12, s1: 46, life: .7}); wp('smoke_dark', p.x1, p.y1, {s0: 10, s1: 34, a0: .55, life: 2.2, vx: 3, vy: -2, layer: 'mid'}); wsound('intercept', p.x1, p.y1, .6); }
+      else wp('intercept', p.x1, p.y1, {s0: 8, s1: 24, life: .5});
+    } else if (p.target) {
+      if (p.hit) { damage(p.target, p.dmg, p.side); if (p.k === 'shell' || p.k === 'atgm' || p.k === 'rocket') { wp('sparks', p.x1, p.y1, {s0: 8, s1: 18, life: .35}); if (p.k !== 'shell' || wrand() < .5) wboom(p.x1, p.y1, .55, wrand() < .5); } }
+      else if (p.k !== 'tracer') wboom(p.x1, p.y1, .45, false);
+    }
+  }
+  W.proj = W.proj.filter(p => !p.done);
+  // الطائرات (ضربة جوية): تدخل من الجنوب وتخرج من الشمال
+  for (const j of W.units) if (j.jetPath && !j.dead) {
+    j.jt += dt; const k = j.jt / j.jdur;
+    j.x = j.jx0 + (j.jx1 - j.jx0) * k; j.y = j.jy0 + (j.jy1 - j.jy0) * k; j.ang = Math.atan2(j.jy1 - j.jy0, j.jx1 - j.jx0);
+    if (!j.dropped && Math.hypot(j.x - j.tx, j.y - j.ty) < 40) { j.dropped = true; for (let b = 0; b < 3; b++) W.proj.push({k: 'bomb', x0: j.x, y0: j.y, x1: j.tx + (wrand() - .5) * 40, y1: j.ty + (wrand() - .5) * 40, t: 0, dur: .9 + b * .25, side: 'iq'}); }
+    if (k >= 1) { j.dead = true; j.gone = true; }
+  }
+  for (const u of W.units) if (u.falling > 0) { u.falling -= dt; u.y += dt * 20; u.ang += dt * 4; wp('smoke_dark', u.x, u.y, {s0: 6, s1: 26, a0: .6, life: 1.6, layer: 'mid'}); if (u.falling <= 0) { wboom(u.x, u.y, 1.5); u.gone = true; } }
+  // الدفاع الجوي: يطلق صواريخ اعتراض على الصواريخ والطائرات المعادية في مداه
+  for (const a of W.units) {
+    if (a.dead || a.t !== 'ad') continue;
+    a.cd -= dt; if (a.cd > 0) continue;
+    const threats = W.proj.filter(p => (p.k === 'msl') && p.side !== a.side && !p.intercepted && !p.engaged && p.t > .25 * p.dur && Math.hypot(p.x1 - a.x, p.y1 - a.y) < UT.ad.airRng);
+    const jets = W.units.filter(j => !j.dead && j.side !== a.side && (j.jetPath || j.t === 'drone') && !j.engaged && dist(j, a) < UT.ad.airRng);
+    const m = threats[0] || null, jet = !m ? jets[0] : null;
+    if (m) { m.engaged = true; const k = Math.min(.95, m.t / m.dur + .35), x = m.x0 + (m.x1 - m.x0) * k, y = m.y0 + (m.y1 - m.y0) * k; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: x, y1: y, t: 0, dur: Math.max(.3, (k - m.t / m.dur) * m.dur), side: a.side, vs: m, ok: wrand() < (a.side === 'tr' ? .5 : .45)}); W.stats[a.side === 'tr' ? 'mslIntTry' : 'trIntTry'] = 1; wsound('missile_pass', a.x, a.y, .35); a.cd = 1.1; }
+    else if (jet) { jet.engaged = true; const ok = wrand() < (jet.t === 'drone' ? .55 : .28); const lead = {x: jet.x + Math.cos(jet.ang) * 60, y: jet.y + Math.sin(jet.ang) * 60}; const fake = {done: false, jet: ok ? jet : null}; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: lead.x, y1: lead.y, t: 0, dur: 1.2, side: a.side, vs: fake, ok}); if (ok && jet.jetPath) W.stats.jetsLost++; a.cd = 2.2; }
+  }
+  // صواريخ تركية دورية، ومسيّرة بيرقدار
+  W.trMslT -= dt;
+  if (W.trMslT <= 0 && !W.trCollapse) { W.trMslT = 60; const tg = densest('iq'); if (tg) { salvo('tr', {x: 1180, y: 380}, tg, 5); wlog('تركيا تطلق رشقة من 5 صواريخ على قواتنا', 'tr'); W.stats.trMsl += 5; } }
+  W.droneT -= dt;
+  if (W.droneT <= 0 && !W.trCollapse) { W.droneT = 75; const tgs = W.units.filter(v => v.side === 'iq' && !v.dead && v.t === 'tank'); if (tgs.length) { const tg = tgs[Math.floor(wrand() * tgs.length)]; const d = mkUnit('tr', 'heli', 1200, 300, {t: 'drone', spr: 'tb2', drone: tg, hp: 30}); d.t = 'drone'; wlog('مسيّرة بيرقدار تركية تتجه نحو دروعنا', 'tr'); wsound('drone', tg.x, tg.y, .4); } }
+  for (const d of W.units) if (d.t === 'drone' && !d.dead) {
+    const tg = d.drone; if (!tg || tg.dead) { d.dead = true; d.gone = true; continue; }
+    const dx = tg.x - d.x, dy = tg.y - d.y, r = Math.hypot(dx, dy); d.ang = Math.atan2(dy, dx);
+    if (r > 90) { d.x += dx / r * 26 * dt; d.y += dy / r * 26 * dt; }
+    else if (!d.fired) { d.fired = true; W.proj.push({k: 'atgm', x0: d.x, y0: d.y, x1: tg.x, y1: tg.y, t: 0, dur: 1.2, target: tg, hit: wrand() < .7, dmg: 70, side: 'tr'}); setTimeout(() => { if (W && !d.dead) { d.dead = true; d.gone = true; } }, 2500); }
+  }
+  // السيطرة على المدن
+  for (const tw of TOWNS) if (tw.obj) {
+    let a = 0, b = 0;
+    for (const u of W.units) if (!u.dead && !UT[u.t].air && u.t !== 'drone' && !u.retreat && Math.hypot(u.x - tw.x, u.y - tw.y) < tw.r) { if (u.side === 'iq') a += UT[u.t].cost; else b += UT[u.t].cost; }
+    const before = W.ctl[tw.id];
+    if (a > 0 && b === 0) W.ctl[tw.id] = Math.min(100, W.ctl[tw.id] + dt * 6 * Math.min(2, a / 3));
+    else if (b > 0 && a === 0) W.ctl[tw.id] = Math.max(0, W.ctl[tw.id] - dt * 4);
+    if (before < 100 && W.ctl[tw.id] >= 100) { wlog(`قواتنا تسيطر على ${tw.n}`, 'iq'); wsound('war_horn', tw.x, tw.y, .5); }
+    if (before === 0 && W.ctl[tw.id] > 0) wlog(`قواتنا تدخل ${tw.n}`, 'iq');
+  }
+  // انهيار الدفاع التركي
+  const sTr = strength('tr') / W.init.tr, sIq = strength('iq') / W.init.iq;
+  if (!W.trCollapse && sTr < .4) { W.trCollapse = true; wlog('انهيار الدفاع التركي: القوات تنسحب شمالاً', 'iq'); }
+  // انتهاء المعركة
+  if (!W.end) {
+    if (W.ctl.duhok >= 100) endWar('win');
+    else if (sIq < .25) endWar('lose');
+    else if (W.t >= 300) endWar('time');
+  }
+  // الجزيئات والحطام المحترق
+  for (const dc of W.decals) if (dc.burn > 0) { dc.burn -= dt; dc.bt = (dc.bt || 0) - dt; if (dc.bt <= 0) { dc.bt = .5; wp('smoke_oil', dc.x, dc.y, {s0: 8, s1: 46, a0: .6, life: 3.4, vx: 5, vy: -7, layer: 'mid'}); wp('vehicle_fire', dc.x + (wrand() - .5) * 5, dc.y + (wrand() - .5) * 5, {s0: 10, s1: 15, a0: .85, life: .6, vr: 0}); } }
+}
+function densest(side){
+  let best = null, bn = 0;
+  for (const u of W.units) { if (u.side !== side || u.dead || UT[u.t].air) continue; let n = 0; for (const v of W.units) if (v.side === side && !v.dead && dist(u, v) < 60) n += UT[v.t].cost; if (n > bn) { bn = n; best = u; } }
+  return best ? {x: best.x, y: best.y} : null;
+}
+function salvo(side, from, tg, n){
+  wsound(side === 'iq' ? 'mlrs' : 'ballistic_launch', from.x, from.y, .7);
+  for (let i = 0; i < n; i++) W.proj.push({k: 'msl', x0: from.x + (i % 3 - 1) * 8, y0: from.y, x1: tg.x + (wrand() - .5) * 50, y1: tg.y + (wrand() - .5) * 50, t: -i * .25, dur: 4.2, side});
+}
+// ------------------------------------------------------------------ أوامر اللاعب
+function wOrder(k){
+  if (!W || W.end) return;
+  if (k === 'attack' || k === 'hold' || k === 'retreat') { W.order = k; wlog({attack: 'أمر: هجوم شامل', hold: 'أمر: تثبيت المواقع والرد بالنار', retreat: 'أمر: انسحاب منظم إلى خط البداية'}[k], 'iq'); }
+  if (k === 'msl' && W.uses.msl > 0 && W.cool.msl <= 0) { const tg = densest('tr'); if (tg) { W.uses.msl--; W.cool.msl = 25; salvo('iq', {x: 1300, y: 1960}, tg, 8); W.stats.msl += 8; wlog('رشقة من 8 صواريخ على أكبر تجمع للعدو', 'iq'); } }
+  if (k === 'air' && W.uses.air > 0 && W.cool.air <= 0) {
+    const tg = densest('tr'); if (tg) { W.uses.air--; W.cool.air = 40; wlog('ضربة جوية: 4 مقاتلات F-16 تتجه إلى الهدف', 'iq'); wsound('jet_flyby', tg.x, tg.y, .8);
+      for (let i = 0; i < 4; i++) { const x0 = tg.x - 90 + i * 60, j = mkUnit('iq', 'heli', x0, 2200 + i * 40, {jetPath: true, jt: 0, jdur: 9, jx0: x0, jy0: 2200 + i * 40, jx1: tg.x - 90 + i * 60 + 40, jy1: -150, tx: tg.x + (i - 1.5) * 20, ty: tg.y, spr: 'f16', hp: 40}); j.t = 'heli'; } }
+  }
+  if (k === 'res' && W.uses.res > 0) { W.uses.res--; const c = [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -30], ['tank', 10], ['tank', 50], ['ifv', -10], ['squad', -30], ['squad', 30]]) { const u = mkUnit('iq', t, 1240 + dx, 1600 + (t === 'squad' ? 40 : 0), {path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
+  syncWarUI();
+}
+function syncWarUI(){
+  const set = (id, txt, dis) => { const b = document.getElementById(id); if (b) { b.querySelector('small').textContent = txt; b.disabled = dis; } };
+  set('wo-air', W.uses.air ? (W.cool.air > 0 ? `بعد ${Math.ceil(W.cool.air)} ث` : `باقي ${W.uses.air}`) : 'نفدت', !W.uses.air || W.cool.air > 0);
+  set('wo-msl', W.uses.msl ? (W.cool.msl > 0 ? `بعد ${Math.ceil(W.cool.msl)} ث` : `باقي ${W.uses.msl}`) : 'نفدت', !W.uses.msl || W.cool.msl > 0);
+  set('wo-res', W.uses.res ? '6 وحدات' : 'استُخدم', !W.uses.res);
+  for (const k of ['attack', 'hold', 'retreat']) { const b = document.getElementById('wo-' + k); if (b) b.classList.toggle('on', W.order === k); }
+  const m = Math.floor(W.t / 60), s = Math.floor(W.t % 60);
+  document.getElementById('wtime').textContent = `${m}:${String(s).padStart(2, '0')} / 5:00`;
+  const cnt = side => W.units.filter(u => u.side === side && !u.dead && (u.t === 'tank')).length;
+  document.getElementById('wforce').innerHTML = `<span style="color:var(--mine)">دبابات ${cnt('iq')}</span> · <span style="color:#e07b6e">${cnt('tr')} دبابات</span>`;
+  document.getElementById('wobj').innerHTML = TOWNS.filter(t => t.obj).map(t => `<div class="wob"><span>${t.n} ${Math.round(W.ctl[t.id])}%</span><div class="meter"><i style="width:${W.ctl[t.id]}%;background:var(--mine)"></i></div></div>`).join('');
+}
+function endWar(kind){
+  W.end = kind; stopLoops(); play(kind === 'win' ? 'victory' : 'defeat', {vol: .7, rate: 1});
+  const L = s => Object.entries(W.stats[s].lost).map(([t, n]) => `${n} ${NAME[t]}`).join('، ') || 'لا شيء';
+  const title = {win: 'نصر: دهوك تحت سيطرتك', lose: 'فشل الهجوم: قواتنا انهارت', time: 'انتهى الوقت دون حسم'}[kind];
+  const got = TOWNS.filter(t => t.obj && W.ctl[t.id] >= 100).map(t => t.n);
+  document.getElementById('wres').innerHTML = `<div class="mbox"><h3>${title}</h3>
+    <div class="delta"><b style="color:var(--mine)">${got.length}</b><span>مدن سيطرنا عليها<small>${got.join('، ') || 'لا شيء'}</small></span></div>
+    <div class="delta"><b style="color:var(--bad)">−</b><span>خسائرنا<small>${L('iq')}</small></span></div>
+    <div class="delta"><b style="color:var(--good)">+</b><span>خسائر العدو<small>${L('tr')}</small></span></div>
+    <div class="delta"><b>${W.stats.msl}</b><span>صواريخ أطلقناها<small>والعدو أطلق ${W.stats.trMsl}، وأسقطنا ${W.stats.jetsLost ? W.stats.jetsLost + ' مقاتلة لنا أُسقطت' : 'لم نخسر مقاتلات'}</small></span></div>
+    <p class="tag" style="text-align:right">في اللعبة الحقيقية: المدن المأخوذة تنتقل إليك على الخريطة، والخسائر تُخصم من جيشك، والصواريخ من مخزونك.</p>
+    <div class="act"><div class="btn"><button class="pri" onclick="startWar()">أعد المعركة</button><small>نفس الظروف</small></div><div class="btn"><button onclick="closeWar()">رجوع للخريطة</button><small></small></div></div></div>`;
+  document.getElementById('wres').classList.add('on');
+}
+
+// ------------------------------------------------------------------ الرسم
+const wc = () => document.getElementById('wc');
+let wctx = null;
+function wResize(){ const c = wc(), r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); c.width = r.width * d; c.height = r.height * d; wctx = c.getContext('2d'); wctx.setTransform(d, 0, 0, d, 0, 0); }
+const ADDW = {fireball: 1, sparks: 1, muzzle: 1, exhaust: 1, intercept: 1, tracers: 1, ground_fire: 1, rifle_flash: 1, vehicle_fire: 1, flare: 1};
+function img(k){ return WS[k] || VI[k]; }
+const SHD = {};
+function shadowOf(k){ if (SHD[k]) return SHD[k]; const im = img(k); if (!im || !im.complete || !im.width) return null; const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const x = cv.getContext('2d'); x.drawImage(im, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#000'; x.fillRect(0, 0, cv.width, cv.height); SHD[k] = cv; return cv; }
+function shade(c, k, x, y, s, rot, a){ const sh = shadowOf(k); if (!sh) return; const w = s * sh.width / Math.max(sh.width, sh.height), h = s * sh.height / Math.max(sh.width, sh.height); c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a; c.drawImage(sh, -w / 2, -h / 2, w, h); c.restore(); }
+function drawWar(dt){
+  const c = wctx, Wd = wc().clientWidth, Hd = wc().clientHeight, cam = W.cam;
+  // متابعة المعركة: الكاميرا تتجه نحو مقدمة القوات العراقية
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && !u.dead && !UT[u.t].air && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 60, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  c.fillStyle = '#1a1712'; c.fillRect(0, 0, Wd, Hd);
+  c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
+  if (W_IMG.complete) c.drawImage(W_IMG, 0, 0, FIELD.w, FIELD.h);
+  const vis = (x, y, m = 80) => Math.abs(x - cam.x) * cam.k < Wd / 2 + m * cam.k && Math.abs(y - cam.y) * cam.k < Hd / 2 + m * cam.k;
+  const spr = (k, x, y, s, rot, a = 1, comp) => { const im = img(k); if (!im || !im.complete || !im.width) return; const w = s * im.width / Math.max(im.width, im.height), h = s * im.height / Math.max(im.width, im.height); c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a; if (comp) c.globalCompositeOperation = comp; c.drawImage(im, -w / 2, -h / 2, w, h); c.restore(); };
+  // ظلال المباني ثم المباني
+  for (const p of W.props) if (vis(p.x, p.y)) { shade(c, p.k, p.x + 3, p.y + 4, p.s, p.rot, .3); spr(p.k, p.x, p.y, p.s, p.rot); }
+  for (const d of W.decals) if (vis(d.x, d.y)) spr(d.k, d.x, d.y, d.s, d.rot, d.a);
+  // الوحدات الأرضية
+  for (const u of W.units) {
+    if (u.dead || u.gone || UT[u.t].air || u.t === 'drone' || u.jetPath || !vis(u.x, u.y)) continue;
+    const d = UT[u.t], s = d.sz;
+    shade(c, u.spr, u.x + 2.5, u.y + 3.5, s, u.ang + Math.PI / 2, .35);
+    spr(u.spr, u.x, u.y, s, u.ang + Math.PI / 2, u.retreat ? .8 : 1);
+    // علامة الطرف وشريط الصحة
+    c.fillStyle = u.side === 'iq' ? '#d2a24c' : '#c0473b'; c.beginPath(); c.arc(u.x - s * .45, u.y - s * .45, 2.6, 0, 7); c.fill();
+    if (cam.k > .8 && u.hp < d.hp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(u.x - 9, u.y + s * .55, 18, 3); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(u.x - 9, u.y + s * .55, 18 * u.hp / d.hp, 3); }
+  }
+  drawWParts(dt, 'mid');
+  // المقذوفات
+  for (const p of W.proj) {
+    if (p.t < 0) continue; const k = Math.min(1, p.t / p.dur);
+    const x = p.x0 + (p.x1 - p.x0) * k, y = p.y0 + (p.y1 - p.y0) * k;
+    if (p.k === 'tracer') { const x2 = p.x0 + (p.x1 - p.x0) * Math.max(0, k - .25), y2 = p.y0 + (p.y1 - p.y0) * Math.max(0, k - .25); c.strokeStyle = p.side === 'iq' ? 'rgba(255,210,120,.95)' : 'rgba(255,150,110,.95)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x2, y2); c.lineTo(x, y); c.stroke(); }
+    else if (p.k === 'shell') { if (p.dur < 1) { c.strokeStyle = 'rgba(255,240,200,.9)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(x - (p.x1 - p.x0) * .06, y - (p.y1 - p.y0) * .06); c.lineTo(x, y); c.stroke(); } else { const hy = y - Math.sin(k * Math.PI) * 60; c.fillStyle = 'rgba(255,230,180,.9)'; c.beginPath(); c.arc(x, hy, 1.4, 0, 7); c.fill(); } }
+    else if (p.k === 'atgm' || p.k === 'rocket') { const ang = Math.atan2(p.y1 - p.y0, p.x1 - p.x0); if (wrand() < .5) wp('smoke_light', x, y, {s0: 3, s1: 12, a0: .45, life: 1.2, layer: 'mid'}); c.fillStyle = '#fff2c0'; c.beginPath(); c.arc(x, y, 1.8, 0, 7); c.fill(); spr('exhaust', x - Math.cos(ang) * 4, y - Math.sin(ang) * 4, 8, ang - Math.PI / 2, .9, 'lighter'); }
+    else if (p.k === 'msl' || p.k === 'int' || p.k === 'bomb') {
+      if (p.k === 'msl' && p.intercepted) continue;
+      const arc = p.k === 'msl' ? Math.sin(k * Math.PI) * 140 : 0, hy = y - arc;
+      const kp = Math.max(0, k - .02), px0 = p.x0 + (p.x1 - p.x0) * kp, py0 = p.y0 + (p.y1 - p.y0) * kp - (p.k === 'msl' ? Math.sin(kp * Math.PI) * 140 : 0);
+      const ang = Math.atan2(hy - py0, x - px0);
+      if (p.k !== 'bomb' && wrand() < .8) wp('smoke_light', x, hy, {s0: 4, s1: 18, a0: p.k === 'int' ? .4 : .55, life: 1.6, vx: 2, vy: -1, layer: 'mid'});
+      spr('exhaust', x - Math.cos(ang) * 5, hy - Math.sin(ang) * 5, p.k === 'int' ? 8 : 12, ang - Math.PI / 2, .95, 'lighter');
+      c.save(); c.translate(x, hy); c.rotate(ang); c.fillStyle = p.k === 'int' ? '#dfeaff' : '#e9e6dc'; c.fillRect(-5, -1.3, 8, 2.6); c.restore();
+    }
+  }
+  // الطائرات والمروحيات والمسيّرات (ظل على الأرض بعيد عنها)
+  for (const u of W.units) {
+    if ((u.dead && !(u.falling > 0)) || u.gone || !(UT[u.t].air || u.t === 'drone' || u.jetPath)) continue;
+    const s = u.jetPath ? 48 : u.t === 'drone' ? 32 : 42, h = u.jetPath ? 40 : 22;
+    shade(c, u.spr, u.x + h * .6, u.y + h, s, u.ang + Math.PI / 2, .25);
+    spr(u.spr, u.x, u.y, s, u.ang + Math.PI / 2);
+    if (u.t === 'heli' && !u.jetPath) { c.strokeStyle = 'rgba(30,30,30,.35)'; c.lineWidth = 1; c.beginPath(); c.arc(u.x, u.y, s * .5, 0, 7); c.stroke(); }
+  }
+  drawWParts(dt, 'top');
+  c.restore();
+  // أسماء المدن وأشرطة السيطرة بحجم ثابت على الشاشة
+  c.font = '700 13px "IBM Plex Sans Arabic", sans-serif'; c.textAlign = 'center'; c.direction = 'rtl';
+  for (const tw of TOWNS) {
+    const sx = (tw.x - cam.x) * cam.k + Wd / 2, sy = (tw.y - cam.y) * cam.k + Hd / 2; if (sx < -60 || sx > Wd + 60 || sy < -40 || sy > Hd + 40) continue;
+    const y = sy - tw.r * cam.k - 8;
+    c.lineWidth = 4; c.strokeStyle = 'rgba(5,9,13,.85)'; c.fillStyle = '#f3ede0'; c.strokeText(tw.n, sx, y); c.fillText(tw.n, sx, y);
+    if (tw.obj) { const v = W.ctl[tw.id] / 100; c.fillStyle = 'rgba(5,9,13,.85)'; c.fillRect(sx - 26, y + 5, 52, 7); c.fillStyle = '#c0473b'; c.fillRect(sx - 25, y + 6, 50, 5); c.fillStyle = '#d2a24c'; c.fillRect(sx - 25, y + 6, 50 * v, 5); c.setLineDash([4, 4]); c.strokeStyle = 'rgba(243,237,224,.35)'; c.lineWidth = 1; c.beginPath(); c.arc(sx, sy, tw.r * cam.k, 0, 7); c.stroke(); c.setLineDash([]); }
+  }
+}
+function drawWParts(dt, layer){
+  const c = wctx;
+  for (const p of W.parts) {
+    if (p.layer !== layer) continue;
+    if (p.delay > 0) { p.delay -= dt; continue; }
+    p.t += dt; const k = p.t / p.life; if (k >= 1) continue;
+    const e = 1 - Math.pow(1 - k, 2); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    const sz = p.s0 + (p.s1 - p.s0) * e, al = p.a0 + (p.a1 - p.a0) * k; const im = img(p.img); if (!im || !im.complete || al <= 0) continue;
+    c.save(); c.globalCompositeOperation = ADDW[p.img] ? 'lighter' : 'source-over'; c.globalAlpha = Math.max(0, Math.min(1, al)); c.translate(p.x, p.y); c.rotate(p.rot); c.drawImage(im, -sz / 2, -sz / 2, sz, sz); c.restore();
+  }
+  if (layer === 'top') W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
+}
+
+// ------------------------------------------------------------------ الحلقة والتحكم
+function warLoop(now){
+  const cv = wc(); if (cv && (Math.abs(cv.width - cv.clientWidth * Math.min(devicePixelRatio || 1, 2)) > 2 || Math.abs(cv.height - cv.clientHeight * Math.min(devicePixelRatio || 1, 2)) > 2)) wResize();
+  const real = Math.min(.05, (now - wlast) / 1000); wlast = now;
+  const dt = real * wspeed;
+  if (W && !W.end && wspeed > 0) { let left = dt; while (left > 0) { const s = Math.min(.05, left); stepWar(s); left -= s; } }
+  if (W) { drawWar(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); } }
+  wraf = requestAnimationFrame(warLoop);
+}
+function startWar(){
+  document.getElementById('wres').classList.remove('on');
+  stopLoops(); setupWar(); wspeed = 1; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '1'));
+  audioInit(); ['front_ambience','tank_tracks','tank_cannon','hmg','hmg2','ak47','rpg','rifle','artillery','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','ballistic_launch','jet_flyby','drone','helicopter','war_horn','victory','defeat'].forEach(k => setTimeout(() => load(k), 5));
+  setTimeout(() => { sloop('front_ambience', .3); sloop('tank_tracks', .18); sloop('helicopter', .12); }, 600);
+  wResize(); syncWarUI();
+}
+function war(){ document.getElementById('war').classList.add('on'); startWar(); cancelAnimationFrame(wraf); wlast = performance.now(); wraf = requestAnimationFrame(warLoop); }
+function closeWar(){ document.getElementById('war').classList.remove('on'); document.getElementById('wres').classList.remove('on'); cancelAnimationFrame(wraf); stopLoops(); W = null; }
+addEventListener('resize', () => { if (W) wResize(); });
+// لمس: سحب وتكبير بإصبعين، والسحب يوقف المتابعة التلقائية
+(function(){
+  const el = () => wc(); const pts = new Map(); let pinch = 0, last = null;
+  document.addEventListener('DOMContentLoaded', () => {});
+  const attach = () => {
+    const c = el();
+    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = e; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } });
+    c.addEventListener('pointermove', e => { if (!W || !pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
+      if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); W.cam.k = Math.max(.3, Math.min(4, W.cam.k * d / pinch)); pinch = d; W.follow = false; return; }
+      W.cam.x -= (e.clientX - last.clientX) / W.cam.k; W.cam.y -= (e.clientY - last.clientY) / W.cam.k; last = e; if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) { W.follow = false; document.getElementById('wfollow').classList.remove('on'); } });
+    c.addEventListener('pointerup', e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; });
+    c.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = 0; });
+    c.addEventListener('wheel', e => { e.preventDefault(); if (W) { W.cam.k = Math.max(.3, Math.min(4, W.cam.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); } }, {passive: false});
+  };
+  attach();
+})();
+document.querySelectorAll('[data-wsp]').forEach(b => b.onclick = () => { wspeed = +b.dataset.wsp; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x === b)); });
+document.getElementById('wfollow').onclick = () => { if (W) { W.follow = !W.follow; document.getElementById('wfollow').classList.toggle('on', W.follow); } };
+document.getElementById('wzin').onclick = () => { if (W) W.cam.k = Math.min(4, W.cam.k * 1.4); };
+document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(.3, W.cam.k / 1.4); };
+document.getElementById('wclose').onclick = closeWar;
+document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 6000) { stepWar(.05); n++; } };
+
+home();
+addEventListener('resize', home, {once: true});
+</script>
