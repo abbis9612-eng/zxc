@@ -112,3 +112,23 @@
 | `68.mp3` | 2 ث | SoundBible #1467 انفجار قنبلة (Attribution 3.0) |
 | `69.mp3` | 3 ث | SoundBible #2075 إطلاق آر بي جي ثم الانفجار (Attribution 3.0) |
 | `70.mp3` | 5 ث | Mixkit #2756 دبابة تمر (Mixkit Sound Effects Free License) |
+
+## تسجيلات من الأرض — مجلد `real/`
+
+هذي مو مؤثرات استوديو. مايكروفون على الأرض في أماكن حقيقية، والناس نشرتها للاستخدام. قصّيت الرشقات العالية ووحّدت العلو. ملفات يوتيوب ما انسخت لأن حقوقها لغيرنا.
+
+| الملف | شنو هو | المصدر والترخيص |
+|---|---|---|
+| `real/kalashnikov_bursts.mp3` | رشقات سلاح آلي في العراء، هولندا | Internet Archive `aporee_66300_76660` (Public Domain) |
+| `real/rifle_shots.mp3` | طلقات بندقية في نادي رماية، أمريكا | Internet Archive `aporee_64309_74203` (Public Domain) |
+| `real/combat_bursts.mp3` | رشقات قتال قريبة، كيباتي، الكونغو | Internet Archive `aporee_5394_6849` (CC BY-SA 3.0) |
+| `real/battle_field.mp3` | عشرون ثانية من معركة حقيقية، كيباتي | نفس تسجيل الكونغو (CC BY-SA 3.0) |
+| `real/heavy_mg.mp3` | رشاش ثقيل | Internet Archive `aporee_6669_8227`، neoscenes (CC BY-SA 3.0) |
+| `real/rockets_incoming.mp3` | إنذار وصواريخ قادمة وانفجار، حيفا | Internet Archive `aporee_65617_75781` (Public Domain) |
+| `real/rocket_impact.mp3` | ضربة الصاروخ نفسها | نفس تسجيل حيفا (Public Domain) |
+| `real/warzone.mp3` | منطقة حرب: إنذارات وانفجارات، إسرائيل | Internet Archive `aporee_71375_83269` (Public Domain) |
+| `real/strike_impact.mp3` | ضربة قوية من نفس المنطقة | نفس التسجيل (Public Domain) |
+| `real/tank_cannon.mp3` | مدفع دبابة مسجّل | SoundBible #1326 (Attribution 3.0) |
+| `real/tank_pass.mp3` | دبابة تمر | SoundBible #1325 (Attribution 3.0) |
+
+الأرقام 41 و43 و45 و63 و64 و69 انبدّلت بمقاطع من هذي التسجيلات نفسها، حتى صوت اللعبة يصير من الأرض مو من مكتبة مؤثرات.

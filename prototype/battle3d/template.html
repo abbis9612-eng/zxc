@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>معركة دهوك ثلاثية الأبعاد</title>
+<style>
+:root{--bg:#0b0f12;--panel:rgba(10,16,21,.86);--edge:rgba(214,190,140,.28);--text:#f1ebdd;--muted:#a99f8c;--mine:#e2b04f;--foe:#e0705f;--good:#6fbf86}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f12}}
+:root[data-theme="dark"]{--bg:#0b0f12}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;display:flex;flex-direction:column;gap:4px;background:linear-gradient(180deg,rgba(6,9,12,.85),rgba(6,9,12,0));pointer-events:none}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.top h1{font-size:16px;font-weight:700}
+.chip{font-size:12px;color:var(--muted);direction:ltr;unicode-bidi:isolate}
+#fps{font-weight:700;color:var(--good)}
+#log{font-size:12.5px;line-height:1.5;min-height:56px}
+#log div:nth-child(2){opacity:.7}#log div:nth-child(3){opacity:.45}
+.bot{position:fixed;left:0;right:0;bottom:0;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;flex-direction:column;gap:6px;background:linear-gradient(0deg,rgba(6,9,12,.92),rgba(6,9,12,0))}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--edge);border-radius:11px;min-height:48px;font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+button small{font-size:10.5px;color:var(--muted);font-weight:400}
+button.on{border-color:var(--mine);color:var(--mine)}
+button:disabled{opacity:.4}
+#hint{position:fixed;left:50%;top:38%;transform:translateX(-50%);background:rgba(120,30,20,.92);border:1px solid var(--foe);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;pointer-events:none;white-space:nowrap}
+#hint[hidden]{display:none}
+#sel{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 128px);background:var(--panel);border:1px solid var(--mine);border-radius:12px;padding:8px 10px;font-size:12.5px;display:flex;gap:8px;align-items:center}
+#sel[hidden]{display:none}#sel b{color:var(--mine)}#sel span{flex:1}
+#sel button{min-height:36px;padding:0 12px}
+#load{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);font-size:14px;color:var(--muted);z-index:9}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top">
+  <div class="row"><h1>معركة دهوك · تجربة ثلاثية الأبعاد</h1><span class="chip"><span id="fps">--</span> fps</span></div>
+  <div class="row"><span class="chip" id="time">0:00</span><span class="chip" id="force"></span></div>
+  <div id="log"></div>
+</div>
+<div id="hint" hidden></div>
+<div id="sel" hidden><span id="selt"></span><button id="selx">✕</button></div>
+<div class="bot">
+  <div class="grid">
+    <button id="b-attack" class="on">هجوم<small>تمهيد</small></button>
+    <button id="b-hold">تثبيت<small>ثبات ونار</small></button>
+    <button id="b-mlrs">راجمات<small>اختر الهدف</small></button>
+    <button id="b-air">ضربة جوية<small>اختر الهدف</small></button>
+  </div>
+  <div class="grid">
+    <button id="b-speed">السرعة<small>×3</small></button>
+    <button id="b-cam" class="on">الكاميرا<small>تتبع</small></button>
+    <button id="b-view">زاوية<small>منخفضة</small></button>
+    <button id="b-reset">إعادة<small>من البداية</small></button>
+  </div>
+</div>
+<div id="load">تحميل الأرض…</div>
+<script>/*ASSETS*/</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+// ================================================================== الأرض الحقيقية
+// المنطقة 10.4×10.4 كم جنوب دهوك: السلسلة الجنوبية ووادي النهر وألقوش. الإحداثيات بالأمتار: x شرقاً، z جنوباً.
+const SIZE = D3.meta.size, N = D3.meta.n, EX = 1.35, H0 = D3.meta.hmin;   // EX: تضخيم الارتفاع قليلاً حتى تبين التلال
+const HB = Uint8Array.from(atob(D3.h), c => c.charCodeAt(0)), HV = new DataView(HB.buffer), HT = new Float32Array(N * N);
+for (let i = 0; i < N * N; i++) HT[i] = HV.getUint16(i * 2, true) / 4;
+function hTrue(x, z){   // الارتفاع الحقيقي فوق البحر
+  const gx = Math.max(0, Math.min(N - 1.001, x / SIZE * (N - 1))), gz = Math.max(0, Math.min(N - 1.001, z / SIZE * (N - 1)));
+  const i = gx | 0, j = gz | 0, fx = gx - i, fz = gz - j, a = HT[j * N + i], b = HT[j * N + i + 1], c = HT[(j + 1) * N + i], d = HT[(j + 1) * N + i + 1];
+  return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
+}
+const hY = (x, z) => (hTrue(x, z) - H0) * EX;
+// خط النظر بالأرض الحقيقية: التل يحجب
+const LOSC = new Map();
+function los(a, b){
+  const key = a.id < b.id ? a.id * 4096 + b.id : b.id * 4096 + a.id, c = LOSC.get(key), now = W ? W.t : 0;
+  if (c && now - c.t < 1) return c.v;
+  const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(2, Math.ceil(d / 40)), ha = hTrue(a.x, a.z) + 3 + (a.alt || 0) / EX, hb = hTrue(b.x, b.z) + 2.5 + (b.alt || 0) / EX;
+  let v = true;
+  for (let i = 1; i < n; i++) { const k = i / n; if (hTrue(a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k) > ha + (hb - ha) * k + 2) { v = false; break; } }
+  LOSC.set(key, {v, t: now}); return v;
+}
+
+// ================================================================== المشهد
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
+// إذا فقد المتصفح سياق الرسم (ذاكرة الهاتف)، نعرض رسالة ويعود الرسم تلقائياً
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); console.warn('CONTEXT LOST'); const l = document.createElement('div'); l.id = 'lost'; l.textContent = 'إعادة تحميل الرسم…'; l.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#ccc;font-size:14px'; document.body.appendChild(l); });
+canvas.addEventListener('webglcontextrestored', () => { console.warn('CONTEXT RESTORED'); const l = document.getElementById('lost'); if (l) l.remove(); });
+let PR = Math.min(devicePixelRatio || 1, 1.75); renderer.setPixelRatio(PR);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+const SKY = new THREE.Color(0xc4cdd2); scene.background = SKY; scene.fog = new THREE.Fog(0xc9c6b8, 5000, 21000);
+const camera = new THREE.PerspectiveCamera(50, 1, 2, 60000);
+scene.add(new THREE.HemisphereLight(0xe4ecff, 0x6b5636, 1.1));
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = sc.bottom = -900; sc.right = sc.top = 900; sc.near = 10; sc.far = 6000; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 1.5;
+scene.add(sun, sun.target);
+const SUN_DIR = new THREE.Vector3(.55, .78, .32).normalize();   // الشمس من الجنوب الشرقي بعد الظهر
+// الأرض: مجسم من الارتفاعات الحقيقية، عليه صورة القمر، وتفاصيل تظهر عند الاقتراب
+const loader = new THREE.TextureLoader();
+const satTex = loader.load(D3.sat); satTex.colorSpace = THREE.SRGBColorSpace; satTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const detTex = loader.load(D3.detail); detTex.wrapS = detTex.wrapT = THREE.RepeatWrapping; detTex.anisotropy = 4;
+const tg = new THREE.PlaneGeometry(SIZE, SIZE, N - 1, N - 1); tg.rotateX(-Math.PI / 2); tg.translate(SIZE / 2, 0, SIZE / 2);
+{ const p = tg.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, hY(p.getX(i), p.getZ(i))); tg.computeVertexNormals(); }
+const tmat = new THREE.MeshStandardMaterial({map: satTex, roughness: 1, metalness: 0});
+tmat.onBeforeCompile = sh => {
+  sh.uniforms.detailMap = {value: detTex};
+  sh.fragmentShader = 'uniform sampler2D detailMap;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    vec4 dt = texture2D(detailMap, vMapUv * 300.0);
+    vec4 dt2 = texture2D(detailMap, vMapUv * 41.0 + 0.37);
+    float fd = 1.0 - smoothstep(150.0, 1600.0, length(vViewPosition));
+    diffuseColor.rgb *= (1.0 + (dt.rgb * 2.0 - 1.0) * dt.a * 1.3 * fd) * (1.0 + (dt2.rgb * 2.0 - 1.0) * dt2.a * 0.35);`);
+};
+const terrain = new THREE.Mesh(tg, tmat); terrain.receiveShadow = true; scene.add(terrain);
+// أشجار وصخور وشجيرات حقيقية الحجم في أماكنها من صورة القمر: 7400 قطعة بثلاثة استدعاءات رسم فقط
+{
+  const F = new Float32Array(Uint8Array.from(atob(D3.flora), c => c.charCodeAt(0)).buffer), n = F.length / 3;
+  const kinds = [
+    {geo: new THREE.IcosahedronGeometry(1, 1), mat: new THREE.MeshStandardMaterial({color: 0x4d5a2c, roughness: 1, flatShading: true}), s: [3.2, 5.5], sy: .85, lift: .7},
+    {geo: new THREE.DodecahedronGeometry(1, 0), mat: new THREE.MeshStandardMaterial({color: 0x8d7b62, roughness: 1, flatShading: true}), s: [1.2, 3.4], sy: .55, lift: .15},
+    {geo: new THREE.IcosahedronGeometry(1, 0), mat: new THREE.MeshStandardMaterial({color: 0x7a7445, roughness: 1, flatShading: true}), s: [.8, 1.6], sy: .6, lift: .3}];
+  const cnt = [0, 0, 0]; for (let i = 0; i < n; i++) cnt[F[i * 3 + 2]]++;
+  const IM = kinds.map((k, i) => { const m = new THREE.InstancedMesh(k.geo, k.mat, cnt[i]); m.castShadow = i !== 2; m.receiveShadow = true; m.count = 0; scene.add(m); return m; });
+  const o = new THREE.Object3D();
+  for (let i = 0; i < n; i++) {
+    const x = F[i * 3], z = F[i * 3 + 1], t = F[i * 3 + 2], k = kinds[t], sc = (k.s[0] + Math.random() * (k.s[1] - k.s[0])) * 1.4;
+    o.position.set(x, hY(x, z) + sc * k.lift * k.sy, z); o.rotation.set(Math.random() * .4, Math.random() * 6.28, Math.random() * .4); o.scale.set(sc, sc * k.sy * (.8 + Math.random() * .4), sc); o.updateMatrix();
+    const m = IM[t]; m.setMatrixAt(m.count++, o.matrix);
+  }
+  for (const m of IM) m.instanceMatrix.needsUpdate = true;
+}
+// أرض بعيدة تحت حواف المنطقة حتى لا يبان فراغ
+const far = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({color: 0xa88560}));
+far.position.set(SIZE / 2, -3, SIZE / 2); scene.add(far);
+
+// ================================================================== المجسمات
+const S_UNIT = 2.2;   // الوحدات مكبّرة 2.2 مرة حتى تُرى من بعيد، والمسافات حقيقية
+const MAT = {};
+const mat = (k, c, o = {}) => MAT[k] || (MAT[k] = new THREE.MeshStandardMaterial(Object.assign({color: c, roughness: .85, metalness: .15}, o)));
+const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const g = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); g.position.set(x, y, z); g.castShadow = true; return g; };
+const cyl = (r1, r2, h, m, seg = 10) => { const g = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), m); g.castShadow = true; return g; };
+const COL = {iq: {body: 0xb59a68, dark: 0x6f5e3e}, tr: {body: 0x55613f, dark: 0x343b28}};
+function mkTank(side, kind){
+  const c = COL[side], m = mat(side + 'b', c.body), md = mat(side + 'd', c.dark), tr = mat('track', 0x2a2723, {roughness: 1});
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  body.add(box(3.5, 1.1, 6.8, m, 0, 1.15, 0));                      // الهيكل
+  const gl = box(3.5, .5, 1.6, m, 0, 1.25, -3.6); gl.rotation.x = .45; body.add(gl);   // الدرع الأمامي المائل
+  body.add(box(.75, 1.05, 7.2, tr, 1.55, .6, 0), box(.75, 1.05, 7.2, tr, -1.55, .6, 0));
+  body.add(box(.9, .12, 6.6, md, 1.55, 1.15, 0), box(.9, .12, 6.6, md, -1.55, 1.15, 0));
+  const tur = new THREE.Group(); tur.position.set(0, 1.75, .3); body.add(tur);
+  if (kind === 'round') { const t = new THREE.Mesh(new THREE.SphereGeometry(1.7, 14, 8), m); t.scale.set(1, .42, 1.12); t.castShadow = true; tur.add(t); }
+  else { tur.add(box(3.1, .85, 3.4, m, 0, .1, .2)); const f = box(3.1, .7, .9, m, 0, .05, -1.7); f.rotation.x = -.35; tur.add(f); tur.add(box(1.1, .35, 1.0, md, .6, .65, .6)); }
+  const gun = new THREE.Group(); gun.position.set(0, .25, -1.2); tur.add(gun);
+  const barrel = cyl(.09, .12, 5.6, md, 8); barrel.rotation.x = Math.PI / 2; barrel.position.z = -2.8; gun.add(barrel);
+  const tip = new THREE.Object3D(); tip.position.z = -5.7; gun.add(tip);
+  g.scale.setScalar(S_UNIT);
+  return {g, body, tur, gun, tip, len: 7 * S_UNIT};
+}
+function mkIfv(side){
+  const c = COL[side], m = mat(side + 'b', c.body), md = mat(side + 'd', c.dark), tr = mat('track', 0x2a2723);
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  body.add(box(3.1, 1.3, 6.4, m, 0, 1.2, 0)); const f = box(3.1, .8, 1.4, m, 0, 1.0, -3.4); f.rotation.x = .6; body.add(f);
+  body.add(box(.6, .9, 6.6, tr, 1.4, .5, 0), box(.6, .9, 6.6, tr, -1.4, .5, 0));
+  const tur = new THREE.Group(); tur.position.set(0, 2.0, -.6); body.add(tur); tur.add(box(1.5, .55, 1.6, m));
+  const gun = new THREE.Group(); gun.position.set(0, .1, -.6); tur.add(gun); const b = cyl(.06, .07, 2.6, md, 6); b.rotation.x = Math.PI / 2; b.position.z = -1.3; gun.add(b);
+  const tip = new THREE.Object3D(); tip.position.z = -2.6; gun.add(tip);
+  g.scale.setScalar(S_UNIT); return {g, body, tur, gun, tip, len: 6.4 * S_UNIT};
+}
+function mkTruck(side){   // راجمة صواريخ على شاحنة
+  const c = COL[side], m = mat(side + 'b', c.body), md = mat(side + 'd', c.dark), tr = mat('track', 0x2a2723);
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  body.add(box(2.6, 1.9, 2.4, m, 0, 1.9, -3.4), box(2.6, .5, 7.6, md, 0, 1.0, 0));
+  for (const z of [-3.2, -.6, 1.4, 3.0]) body.add(box(2.9, 1.1, .9, tr, 0, .55, z));
+  const tur = new THREE.Group(); tur.position.set(0, 1.6, 1.4); body.add(tur);
+  const gun = new THREE.Group(); tur.add(gun); const pod = box(2.2, 1.0, 3.6, m, 0, .6, 0); gun.add(pod);
+  for (let i = 0; i < 8; i++) { const t = cyl(.12, .12, 3.7, md, 6); t.rotation.x = Math.PI / 2; t.position.set(-.85 + (i % 4) * .57, .35 + (i >> 2) * .5, 0); gun.add(t); }
+  const tip = new THREE.Object3D(); tip.position.set(0, .6, -1.9); gun.add(tip);
+  g.scale.setScalar(S_UNIT); return {g, body, tur, gun, tip, len: 8 * S_UNIT};
+}
+function mkHeli(side){
+  const c = COL[side], m = mat(side + 'b', c.body), md = mat(side + 'd', c.dark), gl = mat('glass', 0x30404a, {roughness: .2, metalness: .6});
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const f = cyl(.9, 1.2, 8, m, 10); f.rotation.x = Math.PI / 2; body.add(f);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), gl); nose.scale.set(.85, .8, 1.4); nose.position.z = -4.2; body.add(nose);
+  const tail = cyl(.25, .5, 8, m, 6); tail.rotation.x = Math.PI / 2; tail.position.set(0, .4, 7.5); body.add(tail);
+  body.add(box(5.8, .2, 1.2, md, 0, -.2, -.5), box(.2, 2.2, 1.2, m, 0, 1.4, 11.2));
+  for (const x of [-2.6, 2.6]) { const p = cyl(.3, .3, 1.6, md, 6); p.rotation.x = Math.PI / 2; p.position.set(x, -.6, -.5); body.add(p); }
+  const rot = new THREE.Group(); rot.position.y = 1.6; body.add(rot);
+  const bm = mat('blade', 0x1c1c1c);
+  for (let i = 0; i < 5; i++) { const b = box(.4, .06, 8.6, bm); b.position.z = 4.3; const h = new THREE.Group(); h.rotation.y = i * Math.PI * 2 / 5; h.add(b); rot.add(h); }
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(8.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({color: 0x111111, transparent: true, opacity: .12, depthWrite: false})); rot.add(disc);
+  const tip = new THREE.Object3D(); tip.position.set(2.6, -.6, -1.5); body.add(tip);
+  g.scale.setScalar(S_UNIT * .9); return {g, body, rot, tip, len: 14};
+}
+function mkJet(){
+  const m = mat('jet', 0x9aa3ab, {metalness: .35, roughness: .55}), md = mat('jetd', 0x5d656c);
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const f = cyl(.6, .8, 13, m, 10); f.rotation.x = Math.PI / 2; body.add(f);
+  const n = new THREE.Mesh(new THREE.ConeGeometry(.6, 3.5, 10), m); n.rotation.x = -Math.PI / 2; n.position.z = -8.2; body.add(n);
+  const wing = new THREE.Shape(); wing.moveTo(0, -2); wing.lineTo(5, 2.5); wing.lineTo(5, 3.6); wing.lineTo(0, 3.4); wing.lineTo(-5, 3.6); wing.lineTo(-5, 2.5); wing.lineTo(0, -2);
+  const w = new THREE.Mesh(new THREE.ShapeGeometry(wing), m); w.rotation.x = -Math.PI / 2; w.position.y = -.1; w.material.side = THREE.DoubleSide; body.add(w);
+  const fin = box(.15, 3, 2.6, md, 0, 1.6, 5.2); body.add(fin);
+  for (const x of [-2.4, 2.4]) { const p = cyl(.18, .18, 2.6, md, 6); p.rotation.x = Math.PI / 2; p.position.set(x, -.5, 1); body.add(p); }
+  g.scale.setScalar(4); return {g, body};
+}
+// المشاة: كل الجنود في مجسم واحد مكرر (أخف على الهاتف)
+const SOLDIERS = {};
+for (const side of ['iq', 'tr']) {
+  const geo = new THREE.CapsuleGeometry(.32, 1.1, 2, 6); geo.translate(0, .85, 0);
+  const im = new THREE.InstancedMesh(geo, mat(side + 's', side === 'iq' ? 0xa08a5c : 0x4c5a3a), 220); im.count = 0; im.castShadow = true; scene.add(im); SOLDIERS[side] = im;
+}
+function mkMissile(c = 0xd8d2c0){ const g = new THREE.Group(); const b = cyl(.18, .18, 2.2, mat('msl' + c, c, {roughness: .5}), 6); b.rotation.x = Math.PI / 2; g.add(b); g.scale.setScalar(3); return g; }
+
+// ================================================================== الجزيئات: دخان وغبار ونار وشرر
+const TEX = {}; for (const k in D3.fx) { const t = loader.load(D3.fx[k]); t.colorSpace = THREE.SRGBColorSpace; TEX[k] = t; }
+const PVS = `attribute float size; attribute float alpha; attribute float rot; attribute vec3 tint; varying float vA; varying float vR; varying vec3 vT;
+  void main(){ vA = alpha; vR = rot; vT = tint; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(size * 700.0 / -mv.z, 900.0); gl_Position = projectionMatrix * mv;
+  #include <fog_vertex>
+  }`.replace('#include <fog_vertex>', 'vFogDepth = -mv.z;');
+function system(tex, additive, max = 1500){
+  const geo = new THREE.BufferGeometry(), A = {position: 3, size: 1, alpha: 1, rot: 1, tint: 3};
+  for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(new Float32Array(max * A[k]), A[k]).setUsage(THREE.DynamicDrawUsage));
+  const m = new THREE.ShaderMaterial({uniforms: {map: {value: tex}, fogColor: {value: scene.fog.color}, fogNear: {value: scene.fog.near}, fogFar: {value: scene.fog.far}}, vertexShader: 'varying float vFogDepth;\n' + PVS,
+    fragmentShader: `uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; varying float vA; varying float vR; varying vec3 vT; varying float vFogDepth;
+      void main(){ vec2 p = gl_PointCoord - .5; float c = cos(vR), s = sin(vR); p = vec2(c * p.x - s * p.y, s * p.x + c * p.y) + .5; vec4 t = texture2D(map, p);
+      ${additive ? 'gl_FragColor = vec4(t.rgb * vT * vA, 1.0);' : 'float f = smoothstep(fogNear, fogFar, vFogDepth); gl_FragColor = vec4(mix(t.rgb * vT, fogColor, f), t.a * vA);'} }`,
+    transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending});
+  const pts = new THREE.Points(geo, m); pts.frustumCulled = false; pts.renderOrder = additive ? 3 : 2; scene.add(pts);
+  return {geo, list: [], max, pts};
+}
+const PS = {smoke: system(TEX.smoke_light, false), dark: system(TEX.smoke_dark, false), dust: system(TEX.launch_dust, false), fire: system(TEX.fireball, true, 600), spark: system(TEX.sparks, true, 400), flash: system(TEX.muzzle, true, 300)};
+function emit(sys, x, y, z, o){ const s = PS[sys]; if (s.list.length >= s.max) return; s.list.push(Object.assign({x, y, z, vx: 0, vy: 0, vz: 0, s0: 4, s1: 10, a0: 1, a1: 0, life: 1, t: 0, delay: 0, rot: Math.random() * 6.28, vr: (Math.random() - .5) * .6, drag: .6, g: 0, r: 1, gr: 1, b: 1}, o)); }
+function stepParticles(dt){
+  for (const k in PS) {
+    const s = PS[k], P = s.geo.attributes.position.array, Z = s.geo.attributes.size.array, A = s.geo.attributes.alpha.array, R = s.geo.attributes.rot.array, T = s.geo.attributes.tint.array;
+    let n = 0;
+    for (const p of s.list) {
+      if (p.delay > 0) { p.delay -= dt; continue; }
+      p.t += dt; if (p.t >= p.life) { p.dead = true; continue; }
+      const dr = Math.exp(-p.drag * dt); p.vx *= dr; p.vz *= dr; p.vy = p.vy * dr - p.g * dt;
+      p.x += p.vx * dt + WIND.x * dt * (k === 'smoke' || k === 'dark' || k === 'dust' ? 1 : 0); p.y += p.vy * dt; p.z += p.vz * dt + WIND.z * dt * (k === 'smoke' || k === 'dark' || k === 'dust' ? 1 : 0); p.rot += p.vr * dt;
+      const e = p.t / p.life, ee = 1 - (1 - e) * (1 - e);
+      P[n * 3] = p.x; P[n * 3 + 1] = p.y; P[n * 3 + 2] = p.z; Z[n] = p.s0 + (p.s1 - p.s0) * ee; A[n] = (p.a0 + (p.a1 - p.a0) * e) * Math.min(1, p.t * 8); R[n] = p.rot; T[n * 3] = p.r; T[n * 3 + 1] = p.gr; T[n * 3 + 2] = p.b; n++;
+    }
+    s.list = s.list.filter(p => !p.dead);
+    s.geo.setDrawRange(0, n); for (const a of ['position', 'size', 'alpha', 'rot', 'tint']) s.geo.attributes[a].needsUpdate = true;
+  }
+}
+const WIND = {x: 3, z: -1.2};
+// خطوط الرصاص المضيء
+const TRMAX = 900, trGeo = new THREE.BufferGeometry(); trGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRMAX * 6), 3).setUsage(THREE.DynamicDrawUsage)); trGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRMAX * 6), 3).setUsage(THREE.DynamicDrawUsage));
+const tracers = new THREE.LineSegments(trGeo, new THREE.LineBasicMaterial({vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false})); tracers.frustumCulled = false; scene.add(tracers);
+// ومضات ضوء حقيقية تضيء الأرض حول الانفجارات
+const LIGHTS = [0, 1].map(() => { const l = new THREE.PointLight(0xffa860, 0, 900, 1.6); scene.add(l); return {l, t: 0}; }); let lightI = 0;
+function flashLight(x, y, z, power){ const L = LIGHTS[lightI++ % LIGHTS.length]; L.l.position.set(x, y + 25, z); L.l.intensity = power; L.t = .35; L.p = power; }
+
+// ================================================================== الأصوات: موقعها حقيقي، وتصل متأخرة حسب المسافة (343 م/ث)
+let actx = null; const BUF = {}, LOOPS = {};
+function audioInit(){ if (actx) return; try { actx = new AudioContext(); } catch (e) { return; } for (const k in D3.snd) { const b = Uint8Array.from(atob(D3.snd[k].split(',')[1]), c => c.charCodeAt(0)); actx.decodeAudioData(b.buffer).then(x => BUF[k] = x).catch(() => {}); } }
+const FARS = {tank_shot: 'tank_far', tank_real: 'tank_far', ak: 'ak_far', pkm: 'mg_far', dshk: 'mg_far', m2: 'mg_far', cannon30: 'mg_far', boom_close: 'boom_echo', explosion_big: 'boom_echo'};
+let sndN = 0;
+const V3 = new THREE.Vector3();
+function snd(k, x, y, z, vol = .8, extraDelay = 0){
+  if (!actx || sndN > 14) return;
+  const d = camera.position.distanceTo(V3.set(x, y, z));
+  if (d > 9000) return;
+  if (d > 1400 && FARS[k]) { k = FARS[k]; vol *= 1.6; }
+  const b = BUF[k]; if (!b) return;
+  const src = actx.createBufferSource(); src.buffer = b; src.playbackRate.value = .94 + Math.random() * .12;
+  const g = actx.createGain(); g.gain.value = vol * Math.min(1, 380 / (d + 120));
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(900, 17000 - d * 4);
+  const pan = actx.createStereoPanner(); V3.set(x, y, z).project(camera); pan.pan.value = Math.max(-1, Math.min(1, V3.x)) * .8;
+  src.connect(lp).connect(g).connect(pan).connect(actx.destination);
+  src.start(actx.currentTime + Math.min(8, d / 343) / Math.max(1, SPEED * .5) + extraDelay); sndN++; src.onended = () => sndN--;
+}
+function loop(k, vol){ if (!actx || LOOPS[k] || !BUF[k]) return; const s = actx.createBufferSource(); s.buffer = BUF[k]; s.loop = true; const g = actx.createGain(); g.gain.value = vol; s.connect(g).connect(actx.destination); s.start(); LOOPS[k] = g; }
+function loopVol(k, v){ const g = LOOPS[k]; if (g) g.gain.setTargetAtTime(v, actx.currentTime, .3); }
+
+// ================================================================== الوحدات والمحاكاة
+const UT = {
+  tank:  {hp: 100, arm: 2, rng: 2600, rof: 7,   acc: .6,  spd: 13,  hold: 1900, minD: 1400, ds: 22, dh: 50, fx: 'shell', snd: 'tank_shot', turn: .5},
+  ifv:   {hp: 70,  arm: 1, rng: 2000, rof: 2.6, acc: .5,  spd: 14,  hold: 1500, minD: 1000, ds: 16, dh: 14, fx: 'burst', snd: 'cannon30', turn: .7},
+  squad: {hp: 60,  arm: 0, rng: 700,  rof: 1.3, acc: .35, spd: 5,   hold: 550,  minD: 300,  ds: 9,  dh: 2,  fx: 'rifle', inf: 1},
+  atgm:  {hp: 40,  arm: 0, rng: 4000, rof: 16,  acc: .7,  spd: 2,   hold: 3800, minD: 2000, ds: 4,  dh: 75, fx: 'atgm', heavy: 1, inf: 1},
+  mg:    {hp: 40,  arm: 0, rng: 1300, rof: .9,  acc: .4,  spd: 2,   hold: 1200, minD: 800,  ds: 7,  dh: 1,  fx: 'mg', soft: 1, inf: 1},
+  mlrs:  {hp: 50,  arm: 1, rng: 0,    rof: 99,  acc: 0,   spd: 9,   hold: 0,    minD: 3000, ds: 0,  dh: 0,  turn: .5},
+  heli:  {hp: 70,  arm: 1, rng: 4500, rof: 13,  acc: .65, spd: 28,  hold: 3800, minD: 2500, ds: 14, dh: 70, fx: 'hatgm', air: 1},
+};
+const NAME = {tank: 'دبابة', ifv: 'مدرعة', squad: 'فصيل مشاة', atgm: 'فريق مضاد دروع', mg: 'فريق رشاش', mlrs: 'راجمة', heli: 'مروحية'};
+let W;
+let SPEED = 3;
+const SND_INF = {iq: {squad: 'ak', mg: 'pkm'}, tr: {squad: 'ak', mg: 'm2'}};
+function unit(side, t, x, z, o = {}){
+  const d = UT[t], u = Object.assign({id: W.nid++, side, t, x, z, yaw: side === 'iq' ? 0 : Math.PI, ta: side === 'iq' ? 0 : Math.PI, v: 0, hp: d.hp, mor: 100, sup: 0, cd: Math.random() * d.rof, dead: false, start: {x, z}, recoil: 0, lastHit: -9, lastShot: -9, path: []}, o);
+  u.yaw = u.ta = o.yaw ?? u.yaw;
+  if (t === 'tank') u.m = mkTank(side, side === 'iq' ? 'round' : 'box');
+  else if (t === 'ifv') u.m = mkIfv(side);
+  else if (t === 'mlrs') u.m = mkTruck(side);
+  else if (t === 'heli') { u.m = mkHeli(side); u.alt = 45; }
+  if (u.m) scene.add(u.m.g);
+  if (d.inf) u.men = Array.from({length: t === 'squad' ? 8 : 3}, (_, i) => ({ox: (i % 4 - 1.5) * 9 + (Math.random() - .5) * 3, oz: Math.floor(i / 4) * 9 + Math.abs(i % 4 - 1.5) * 4, prone: 0}));
+  W.units.push(u); return u;
+}
+const STATIC = [];
+function clearScene(){ for (const u of W ? W.units : []) if (u.m) scene.remove(u.m.g); for (const o of STATIC) scene.remove(o); STATIC.length = 0; for (const k in PS) PS[k].list = []; }
+function setup(){
+  clearScene();
+  LOSC.clear(); W = {t: 0, nid: 1, units: [], proj: [], tr: [], wrecks: [], fly: [], log: [], order: 'attack', phase: 'prep', aim: null, sel: null, jets: [], trArtyT: 40, mlrsUsed: 0, airUsed: 0, end: null};
+  // الخط التركي على السفح الجنوبي للسلسلة: خنادق حقيقية بمواضعها
+  const line = [[919, 3675], [3675, 4042], [6431, 3797], [9187, 4226]];
+  for (const [x, z] of line) {
+    // خندق متعرج: حفرة داكنة وأمامها ساتر ترابي بلون الأرض
+    for (let i = 0; i < 7; i++) {
+      const sx = x - 90 + i * 30, sz = z + 14 + (i % 2 ? 6 : -6), yaw = (i % 2 ? .35 : -.35);
+      const tr = new THREE.Mesh(new THREE.BoxGeometry(32, 2.6, 4), mat('trench', 0x2e2518, {roughness: 1})); tr.position.set(sx, hY(sx, sz) - .7, sz); tr.rotation.y = yaw; tr.receiveShadow = true; scene.add(tr); STATIC.push(tr);
+      const bm = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 3.2, 32, 6, 1, false, 0, Math.PI), mat('berm', 0xa88a60, {roughness: 1, flatShading: true})); bm.rotation.set(0, yaw, Math.PI / 2); bm.position.set(sx, hY(sx, sz - 5) - .2, sz - 5); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm); STATIC.push(bm);
+    }
+    unit('tr', 'squad', x - 40, z + 10, {dug: true}); unit('tr', 'squad', x + 40, z + 10, {dug: true});
+  }
+  unit('tr', 'atgm', 3700, 4010, {dug: true}); unit('tr', 'atgm', 6450, 3770, {dug: true}); unit('tr', 'mg', 2200, 3900, {dug: true}); unit('tr', 'mg', 5000, 3950, {dug: true});
+  // الدروع التركية خلف السلسلة: لا تُرى حتى يصعد المهاجم
+  unit('tr', 'tank', 5512, 2600); unit('tr', 'tank', 4200, 2700); unit('tr', 'tank', 7300, 2800); unit('tr', 'ifv', 6000, 2500); unit('tr', 'tank', 9300, 5200, {yaw: Math.PI * .8}); unit('tr', 'ifv', 9650, 5450);
+  // العراق: ثلاث مجموعات على بعد 6 كم جنوب الخط
+  const grp = (cx, cz, list) => list.forEach(([t, dx, dz]) => unit('iq', t, cx + dx, cz + dz));
+  grp(3600, 8300, [['tank', -160, 0], ['tank', 0, -30], ['tank', 160, 0], ['ifv', -90, 140], ['ifv', 90, 140], ['squad', -150, 260], ['squad', 0, 280], ['squad', 150, 260]]);
+  grp(6600, 8400, [['tank', -140, 0], ['tank', 20, -20], ['tank', 170, 10], ['ifv', 0, 140], ['squad', -120, 260], ['squad', 120, 260]]);
+  unit('iq', 'mlrs', 4400, 9500); unit('iq', 'mlrs', 5900, 9550);
+  unit('iq', 'heli', 4600, 9100); unit('iq', 'heli', 6100, 9150);
+  W.init = {iq: strength('iq'), tr: strength('tr')};
+  log('المرحلة الأولى: تمهيد ناري. الراجمات تضرب الخط التركي، والدروع تنتظر على بعد 4.5 كم.', 'iq');
+  setTimeout(() => { if (W.t < 8) mlrsFire(3700, 4000); }, 2500);
+  cam.tx = 3600; cam.tz = 8000; cam.dist = 1100; cam.yaw = .25; cam.pitch = .38;
+}
+const strength = side => W.units.filter(u => u.side === side && !u.dead).reduce((s, u) => s + u.hp / UT[u.t].hp, 0);
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+function log(t, side){ W.log.unshift({t, side}); if (W.log.length > 3) W.log.pop(); document.getElementById('log').innerHTML = W.log.map(l => `<div style="color:${l.side === 'iq' ? 'var(--mine)' : l.side === 'tr' ? 'var(--foe)' : 'var(--text)'}">${l.t}</div>`).join(''); }
+const ground = u => !u.dead && !UT[u.t].air;
+function nearestEnemy(u){ let b = null, bd = 1e9; for (const v of W.units) if (v.side !== u.side && ground(v)) { const r = dist(u, v); if (r < bd) { bd = r; b = v; } } return b ? {v: b, d: bd} : null; }
+function seen(side, v){ for (const u of W.units) if (u.side === side && !u.dead && dist(u, v) < 5000 && (UT[u.t].air || los(u, v))) return true; return false; }
+function pick(u, d){
+  if (u.focus) { const f = W.units.find(v => v.id === u.focus && !v.dead); if (f && dist(u, f) < d.rng && los(u, f)) return f; if (!f) u.focus = null; }
+  let best = null, bs = -1;
+  for (const v of W.units) {
+    if (v.side === u.side || !ground(v)) continue;
+    const r = dist(u, v); if (r > d.rng) continue;
+    const hv = UT[v.t].arm > 0; if (d.heavy && !hv) continue; if (d.soft && hv) continue;
+    if (!los(u, v)) continue;
+    let s = 1 / (r + 50); if (d.dh > d.ds && hv) s *= 3; if (d.ds >= d.dh && !hv) s *= 2; if (s > bs) { bs = s; best = v; }
+  }
+  return best;
+}
+// موضع القطعة على الأرض مع ميلها حسب المنحدر
+const Q = new THREE.Quaternion(), E = new THREE.Euler();
+function place(u){
+  if (!u.m) return;
+  const L = u.m.len * .45, cy = Math.cos(u.yaw), sy = Math.sin(u.yaw);
+  if (UT[u.t].air) { u.m.g.position.set(u.x, hY(u.x, u.z) + u.alt, u.z); u.m.g.rotation.set(u.v > 3 ? .12 : 0, u.yaw, 0, 'YXZ'); return; }
+  const fx = u.x - sy * L, fz = u.z - cy * L, bx = u.x + sy * L, bz = u.z + cy * L, lx = u.x - cy * 4, lz = u.z + sy * 4, rx = u.x + cy * 4, rz = u.z - sy * 4;
+  const pitch = Math.atan2(hY(fx, fz) - hY(bx, bz), 2 * L), roll = Math.atan2(hY(lx, lz) - hY(rx, rz), 8);
+  u.m.g.position.set(u.x, (hY(fx, fz) + hY(bx, bz)) / 2 + (u.dug ? -1.5 : 0), u.z);
+  u.m.g.rotation.set(pitch, u.yaw, -roll, 'YXZ');
+  if (u.m.tur && u.t !== 'mlrs') u.m.tur.rotation.y = u.ta - u.yaw;
+  if (u.m.gun && u.t !== 'mlrs') u.m.gun.position.z = (u.t === 'tank' ? -1.2 : -.6) + u.recoil * .6;
+}
+// ----- الرمي
+const TMP = new THREE.Vector3();
+function muzzle(u){ if (u.m && u.m.tip) { u.m.g.updateMatrixWorld(true); return u.m.tip.getWorldPosition(new THREE.Vector3()); } return new THREE.Vector3(u.x, hY(u.x, u.z) + 2, u.z); }
+function fire(u, v){
+  const d = UT[u.t]; u.lastShot = W.t;
+  const r = dist(u, v), hv = UT[v.t].arm > 0;
+  let p = d.acc * (1 - r / (d.rng * 1.5)) * (v.dug ? .55 : 1) * (1 - u.sup / 150) * (u.v > 1 ? .6 : 1) * (v.v > 2 ? .85 : 1) * (UT[v.t].inf && v.sup > 55 ? .6 : 1);
+  const hit = Math.random() < p, dmg = (UT[v.t].arm === 2 ? d.dh : UT[v.t].arm === 1 ? (d.ds + d.dh) / 2 : d.ds) * (.7 + Math.random() * .6);
+  const m = muzzle(u), ty = hY(v.x, v.z) + (UT[v.t].inf ? 1 : 2.5) * S_UNIT, miss = hit ? 0 : 1;
+  const aim = new THREE.Vector3(v.x + miss * (Math.random() - .5) * 60, ty, v.z + miss * (Math.random() - .5) * 60);
+  if (!hit) aim.y = hY(aim.x, aim.z);
+  if (d.fx === 'shell') {
+    // طلقة الدبابة: وميض وغبار يحيط بالدبابة، والبرج يرتد، والقذيفة تطير 1600 م/ث
+    W.proj.push({k: 'shell', p: m.clone(), to: aim, spd: 1600, v, hit, dmg, side: u.side});
+    const dir = aim.clone().sub(m).normalize();
+    for (let i = 0; i < 3; i++) emit('flash', m.x + dir.x * i * 3, m.y + dir.y * i * 3, m.z + dir.z * i * 3, {s0: 9 - i * 2, s1: 14, life: .09, a0: 1, r: 1, gr: .9, b: .7});
+    const gy = hY(u.x, u.z);
+    for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28; emit('dust', m.x, gy + 2, m.z, {vx: Math.cos(a) * 26 + dir.x * 30, vz: Math.sin(a) * 26 + dir.z * 30, vy: 2 + Math.random() * 3, s0: 5, s1: 26, a0: .55, life: 2.6, drag: 1.4}); }
+    emit('smoke', m.x + dir.x * 8, m.y, m.z + dir.z * 8, {vx: dir.x * 12, vz: dir.z * 12, vy: 2, s0: 6, s1: 22, a0: .45, life: 2.2, r: .9, gr: .88, b: .84});
+    u.recoil = 1; flashLight(m.x, m.y, m.z, 40); snd(Math.random() < .5 ? 'tank_shot' : 'tank_real', m.x, m.y, m.z, .9);
+  } else if (d.fx === 'burst' || d.fx === 'rifle' || d.fx === 'mg') {
+    const n = d.fx === 'mg' ? 6 : d.fx === 'burst' ? 4 : 3, spd = d.fx === 'burst' ? 1100 : 850;
+    // المشاة يطلقون آر بي جي على المدرعات القريبة
+    if (d.fx === 'rifle' && hv && r < 450 && Math.random() < .3) { W.proj.push({k: 'rpg', p: m.clone(), to: aim, spd: 150, v, hit, dmg: 50, side: u.side, mesh: addMissile(0x6d6a50)}); emit('dust', m.x, m.y, m.z, {s0: 3, s1: 14, a0: .6, life: 1.6}); snd('rpg', m.x, m.y, m.z, .7); return; }
+    for (let i = 0; i < n; i++) {
+      const sp = u.men ? u.men[(Math.random() * u.men.length) | 0] : null, o = sp ? soldierPos(u, sp) : m;
+      W.proj.push({k: 'bullet', p: o.clone ? o.clone() : o, to: new THREE.Vector3(aim.x + (Math.random() - .5) * 12, aim.y, aim.z + (Math.random() - .5) * 12), spd, v: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, delay: i * .08, cal: d.fx === 'burst' ? 2 : 1});
+    }
+    emit('flash', m.x, m.y, m.z, {s0: d.fx === 'burst' ? 4 : 2.5, s1: 3, life: .07});
+    snd(u.t === 'ifv' ? (u.side === 'iq' ? 'cannon30' : 'm2') : SND_INF[u.side][u.t] || 'ak', m.x, m.y, m.z, .6);
+    if (Math.random() < .25 && camera.position.distanceTo(TMP.set(v.x, hY(v.x, v.z), v.z)) < 900) snd('cracks', v.x, hY(v.x, v.z), v.z, .5);
+  } else if (d.fx === 'atgm' || d.fx === 'hatgm') {
+    // صاروخ موجه 250 م/ث: عصفة خلفية، دخان، تمايل
+    const mesh = addMissile(0x7d7a5a);
+    W.proj.push({k: 'atgm', p: m.clone(), to: aim, spd: 240, v, hit, dmg, side: u.side, mesh, wob: Math.random() * 6});
+    if (!UT[u.t].air) { const b = new THREE.Vector3(m.x - Math.sin(u.ta) * -8, m.y, m.z - Math.cos(u.ta) * -8); for (let i = 0; i < 6; i++) emit('dust', b.x, b.y, b.z, {vx: Math.sin(u.ta) * (14 + i * 3), vz: Math.cos(u.ta) * (14 + i * 3), vy: 2, s0: 4, s1: 18, a0: .6, life: 2.2}); }
+    emit('flash', m.x, m.y, m.z, {s0: 5, s1: 6, life: .12}); snd('atgm', m.x, m.y, m.z, .8);
+  }
+}
+const MISSILES = [];
+function addMissile(c){ const g = mkMissile(c); g.visible = false; scene.add(g); return g; }
+function soldierPos(u, s){ const cy = Math.cos(u.yaw), sy = Math.sin(u.yaw), x = u.x + s.ox * cy + s.oz * sy, z = u.z - s.ox * sy + s.oz * cy; return new THREE.Vector3(x, hY(x, z) + 1.2, z); }
+function damage(v, dmg, by){
+  if (v.dead) return;
+  v.hp -= dmg; v.mor -= 10 + dmg * .25; v.lastHit = W.t; v.sup = Math.min(100, v.sup + 30);
+  if (v.hp <= 0) return kill(v, by);
+  if ((v.t === 'tank' || v.t === 'ifv') && v.hp < UT[v.t].hp * .6 && !v.smoked) {
+    // قنابل الدخان: ستار أبيض كثيف أمام الدبابة
+    v.smoked = true; const y = hY(v.x, v.z);
+    for (let i = 0; i < 8; i++) { const a = v.ta + (i - 3.5) * .3; emit('smoke', v.x - Math.sin(a) * 30, y + 6, v.z - Math.cos(a) * 30, {vy: 1, s0: 10, s1: 70, a0: .9, a1: 0, life: 24, drag: .8}); }
+    W.smokes = (W.smokes || []).concat([{x: v.x - Math.sin(v.ta) * 30, z: v.z - Math.cos(v.ta) * 30, r: 70, until: W.t + 24}]);
+    snd('smoke_pop', v.x, y, v.z, .5);
+  }
+}
+function explode(x, y, z, big = 1, sound = true){
+  for (let i = 0; i < 4; i++) emit('fire', x + (Math.random() - .5) * 6 * big, y + 4 * big, z + (Math.random() - .5) * 6 * big, {vy: 8 + Math.random() * 10, vx: (Math.random() - .5) * 10, vz: (Math.random() - .5) * 10, s0: 10 * big, s1: 34 * big, life: .55 + Math.random() * .3, drag: 2});
+  for (let i = 0; i < 6; i++) emit('spark', x, y + 2, z, {vx: (Math.random() - .5) * 120 * big, vz: (Math.random() - .5) * 120 * big, vy: 40 + Math.random() * 60, g: 60, s0: 4 * big, s1: 2, life: .9, drag: .4});
+  for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, s = 20 + Math.random() * 30; emit('dust', x, y + 2, z, {vx: Math.cos(a) * s * big, vz: Math.sin(a) * s * big, vy: 4 + Math.random() * 18, g: 4, s0: 8 * big, s1: 46 * big, a0: .7, life: 4 + Math.random() * 2, drag: 1.2, delay: Math.random() * .1}); }
+  for (let i = 0; i < 5; i++) emit('dark', x + (Math.random() - .5) * 10, y + 6, z + (Math.random() - .5) * 10, {vy: 10 + Math.random() * 12, s0: 12 * big, s1: 60 * big, a0: .75, life: 6 + Math.random() * 3, drag: .5, delay: .1 + i * .06});
+  flashLight(x, y, z, 220 * big);
+  if (sound) snd(big > 1.4 ? 'boom_echo' : 'boom_close', x, y, z, .9);
+  for (const v of W.units) if (ground(v)) { const r = Math.hypot(v.x - x, v.z - z); if (r < 120 * big) v.sup = Math.min(100, v.sup + 40 * (1 - r / (120 * big))); }
+}
+function kill(v, by){
+  v.dead = true; v.hp = 0;
+  const y = hY(v.x, v.z);
+  if (v.m && UT[v.t].air) { explode(v.x, y + v.alt, v.z, 1.2); scene.remove(v.m.g); log(`أُسقطت ${NAME[v.t]} ${v.side === 'iq' ? 'عراقية' : 'تركية'}`, by); return; }
+  if (v.m) {
+    explode(v.x, y, v.z, 1.3);
+    // المركبة تسودّ وتحترق، ونصف الدبابات يطير برجها بانفجار الذخيرة
+    v.m.g.traverse(o => { if (o.isMesh) o.material = mat('burnt', 0x1d1b19, {roughness: 1}); });
+    if (v.t === 'tank' && Math.random() < .5) { const tur = v.m.tur; const wp = tur.getWorldPosition(new THREE.Vector3()); v.m.body.remove(tur); v.m.tur = null; v.m.gun = null; tur.scale.setScalar(S_UNIT); tur.position.copy(wp); scene.add(tur); W.fly.push({o: tur, vx: (Math.random() - .5) * 16, vy: 34, vz: (Math.random() - .5) * 16, vr: (Math.random() - .5) * 6}); snd('cookoff', v.x, y, v.z, .8, .3); }
+    W.wrecks.push({x: v.x, y: y + 4, z: v.z, burn: 60, t: 0});
+  }
+  if (Math.random() < .6 || v.m) log(`${by === 'iq' ? 'دُمّر' : 'خسرنا'} ${NAME[v.t]} ${v.side === 'iq' ? 'عراقي' : 'تركي'}`, by);
+}
+// ----- الراجمات: تتجه وترفع منصتها ثم تطلق بالتتابع، الصاروخ يصعد بقوس حقيقي
+function mlrsFire(tx, tz){
+  const L = W.units.filter(u => u.t === 'mlrs' && u.side === 'iq' && !u.dead && !u.job);
+  if (!L.length) return false;
+  for (const m of L) m.job = {st: 'aim', t: 0, tx, tz, n: 0};
+  log(`الراجمات تتجه نحو الهدف وترفع منصاتها: ${L.length * 12} صاروخاً`, 'iq'); snd('radio', camera.position.x, camera.position.y, camera.position.z, .4); return true;
+}
+function stepMlrs(m, dt){
+  const j = m.job; if (!j) return; j.t += dt;
+  const want = Math.atan2(-(j.tx - m.x), -(j.tz - m.z));
+  if (j.st === 'aim') { m.yaw += Math.max(-.5 * dt, Math.min(.5 * dt, ang(m.yaw, want))); m.m.gun.rotation.x = Math.min(.75, j.t * .35); if (j.t > 2.6 && Math.abs(ang(m.yaw, want)) < .03) { j.st = 'fire'; j.t = 0; snd('mlrs', m.x, hY(m.x, m.z), m.z, .9); } }
+  else if (j.st === 'fire') {
+    while (j.n < 12 && j.t >= j.n * .45) {
+      const o = muzzle(m), tx = j.tx + (Math.random() - .5) * 260, tz = j.tz + (Math.random() - .5) * 260, ty = hY(tx, tz), r = Math.hypot(tx - o.x, tz - o.z);
+      W.proj.push({k: 'rkt', from: o.clone(), to: new THREE.Vector3(tx, ty, tz), t: 0, dur: 4 + r / 700, peak: r * .2, side: 'iq', mesh: addMissile(0x6c7052)});
+      emit('fire', o.x, o.y, o.z, {s0: 8, s1: 16, life: .3});
+      for (let i = 0; i < 4; i++) emit('dust', o.x + (Math.random() - .5) * 20, hY(o.x, o.z) + 3, o.z + (Math.random() - .5) * 20, {vx: (Math.random() - .5) * 30, vz: (Math.random() - .5) * 30, vy: 3, s0: 12, s1: 70, a0: .7, life: 7, drag: .9});
+      emit('smoke', o.x, o.y + 4, o.z, {vy: 6, s0: 10, s1: 50, a0: .65, life: 6});
+      if (j.n % 2 === 0) snd('rocket_one', o.x, o.y, o.z, .7);
+      flashLight(o.x, o.y, o.z, 60); j.n++;
+    }
+    if (j.n >= 12) { j.st = 'scoot'; j.t = 0; }
+  } else if (j.st === 'scoot') { m.m.gun.rotation.x = Math.max(0, .75 - j.t * .35); m.manual = {x: m.x + (m.id % 2 ? 260 : -260), z: m.z + 120}; if (j.t > 12) { m.job = null; m.manual = null; } }
+}
+const ang = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+// ----- الضربة الجوية: مقاتلتان على ارتفاع 2.5 كم، تطلقان من 10 كم ثم تنعطفان
+function airStrike(tx, tz){
+  for (let i = 0; i < 2; i++) { const m = mkJet(); scene.add(m.g); W.jets.push({m, x: tx - 300 + i * 600, z: tz + 26000 + i * 400, y: 2500, yaw: 0, roll: 0, s: i ? 1 : -1, tx, tz, st: 'in', fired: false, trailT: 0}); }
+  log('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع 2.5 كم، وتطلقان صواريخهما من 10 كم', 'iq');
+  snd('jet_high', tx, 2000, tz + 9000, .6);
+}
+function stepJets(dt){
+  for (const j of W.jets) {
+    const sp = 260;
+    if (j.st === 'in') { const r = Math.hypot(j.tx - j.x, j.tz - j.z); if (r < 10000 && !j.fired) { j.fired = true; j.st = 'out';
+        for (let i = 0; i < 2; i++) { const g = addMissile(0xe8e8e2); W.proj.push({k: 'agm', p: new THREE.Vector3(j.x + (i ? 6 : -6), hY(j.x, j.z) + j.y - 3, j.z), vel: new THREE.Vector3(0, -2, -sp), to: new THREE.Vector3(j.tx + (Math.random() - .5) * 40, hY(j.tx, j.tz), j.tz + (Math.random() - .5) * 40), t: -i * .5, drop: .9, side: 'iq', mesh: g}); }
+        snd('jet_flyby', j.x, hY(j.x, j.z) + j.y, j.z, 1); log('المقاتلات أطلقت صواريخها وتنعطف عائدة', 'iq'); } }
+    else if (!j.turned) { j.yaw += .25 * dt * j.s; j.roll += (j.s * .9 - j.roll) * Math.min(1, dt * 2); if (Math.abs(j.yaw) >= Math.PI) { j.yaw = Math.PI * j.s; j.turned = true; } }
+    else j.roll *= 1 - Math.min(1, dt * 2);
+    j.x += -Math.sin(j.yaw) * sp * dt; j.z += -Math.cos(j.yaw) * sp * dt;
+    const y = hY(Math.max(0, Math.min(SIZE, j.x)), Math.max(0, Math.min(SIZE, j.z))) + j.y;
+    j.m.g.position.set(j.x, y, j.z); j.m.g.rotation.set(0, j.yaw, j.roll, 'YXZ');
+    j.trailT -= dt; if (j.trailT <= 0) { j.trailT = .05; emit('smoke', j.x + Math.sin(j.yaw) * 30, y, j.z + Math.cos(j.yaw) * 30, {s0: 6, s1: 30, a0: .35, life: 5, r: 1, gr: 1, b: 1, drag: .2}); }
+    if (j.turned && j.z > j.tz + 30000) { scene.remove(j.m.g); j.gone = true; }
+  }
+  W.jets = W.jets.filter(j => !j.gone);
+}
+// ----- المقذوفات
+function stepProj(dt){
+  for (const p of W.proj) {
+    if (p.delay > 0) { p.delay -= dt; continue; }
+    if (p.k === 'rkt') {
+      p.t += dt; if (p.t < 0) { p.mesh.visible = false; continue; } p.mesh.visible = true;
+      const k = Math.min(1, p.t / p.dur), x = p.from.x + (p.to.x - p.from.x) * k, z = p.from.z + (p.to.z - p.from.z) * k, y = p.from.y + (p.to.y - p.from.y) * k + p.peak * 4 * k * (1 - k);
+      const k2 = Math.min(1, k + .01), x2 = p.from.x + (p.to.x - p.from.x) * k2, z2 = p.from.z + (p.to.z - p.from.z) * k2, y2 = p.from.y + (p.to.y - p.from.y) * k2 + p.peak * 4 * k2 * (1 - k2);
+      p.mesh.position.set(x, y, z); p.mesh.lookAt(x2, y2, z2);
+      if (k < .3) { emit('smoke', x, y, z, {s0: 5, s1: 22, a0: .6, life: 5, drag: .5, r: .95, gr: .93, b: .9}); emit('fire', x, y, z, {s0: 7, s1: 3, life: .08}); }
+      if (k > .82 && !p.wh) { p.wh = 1; snd('incoming', p.to.x, p.to.y, p.to.z, .45); }
+      if (k >= 1) { p.done = true; scene.remove(p.mesh); explode(p.to.x, p.to.y, p.to.z, 1.2, Math.random() < .5); areaDmg(p.to, 90, 45, 30, p.side); }
+      continue;
+    }
+    if (p.k === 'agm') {
+      p.t += dt; if (p.t < 0) { p.mesh.visible = false; continue; } p.mesh.visible = true;
+      if (p.t < p.drop) { p.vel.y -= 9.8 * dt; p.p.addScaledVector(p.vel, dt); }
+      else { if (!p.lit) { p.lit = true; snd('jet_release', p.p.x, p.p.y, p.p.z, .8); }
+        const dir = p.to.clone().sub(p.p), r = dir.length(); dir.normalize(); const v = Math.min(420, p.vel.length() + 120 * dt); p.vel.copy(dir.multiplyScalar(v)); p.p.addScaledVector(p.vel, dt);
+        emit('smoke', p.p.x, p.p.y, p.p.z, {s0: 6, s1: 30, a0: .55, life: 6, drag: .3}); emit('fire', p.p.x, p.p.y, p.p.z, {s0: 9, s1: 4, life: .07});
+        if (r < v * dt * 1.5) { p.done = true; scene.remove(p.mesh); explode(p.to.x, p.to.y, p.to.z, 2, true); snd('strike', p.to.x, p.to.y, p.to.z, .7, .2); areaDmg(p.to, 160, 80, 110, p.side); } }
+      p.mesh.position.copy(p.p); p.mesh.lookAt(p.p.clone().add(p.vel)); continue;
+    }
+    const dir = p.to.clone().sub(p.p), r = dir.length(), step = p.spd * dt;
+    if (p.k === 'atgm' || p.k === 'rpg') {
+      if (p.v && !p.v.dead && p.hit) p.to.set(p.v.x, hY(p.v.x, p.v.z) + 2.5 * S_UNIT, p.v.z);
+      p.wob += dt * 9; const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(Math.sin(p.wob) * .8);
+      p.mesh.visible = true; p.mesh.position.copy(p.p).add(side); p.mesh.lookAt(p.to);
+      emit('smoke', p.p.x, p.p.y, p.p.z, {s0: 2.5, s1: 12, a0: .55, life: 3.5, drag: .4, r: .95, gr: .95, b: .95}); emit('fire', p.p.x, p.p.y, p.p.z, {s0: 4, s1: 2, life: .06});
+    }
+    if (r <= step) {
+      p.done = true;
+      if (p.mesh) { scene.remove(p.mesh); }
+      const v = p.v;
+      if (v && p.hit && !v.dead) {
+        if (UT[v.t].arm) { for (let i = 0; i < 3; i++) emit('spark', p.to.x, p.to.y, p.to.z, {vx: (Math.random() - .5) * 60, vy: 20 + Math.random() * 30, vz: (Math.random() - .5) * 60, g: 50, s0: 5, s1: 2, life: .5}); if (p.k !== 'bullet') snd('armor_hit', p.to.x, p.to.y, p.to.z, .7); }
+        damage(v, p.dmg, p.side);
+        if (p.k === 'atgm' || p.k === 'rpg') explode(p.to.x, p.to.y, p.to.z, .6, true);
+      } else {
+        if (v) v.sup = Math.min(100, v.sup + (p.k === 'bullet' ? 8 : 18));
+        const gy = hY(p.to.x, p.to.z);
+        if (p.k === 'bullet') { if (Math.random() < .5) emit('dust', p.to.x, gy + 1, p.to.z, {vy: 6 + Math.random() * 6, s0: 2, s1: 7, a0: .7, life: 1, g: 6}); }
+        else if (p.k === 'shell') { for (let i = 0; i < 5; i++) emit('dust', p.to.x, gy + 2, p.to.z, {vx: (Math.random() - .5) * 14, vz: (Math.random() - .5) * 14, vy: 14 + Math.random() * 18, g: 9, s0: 4, s1: 18, a0: .8, life: 2.4}); }
+        else explode(p.to.x, gy, p.to.z, .5, true);
+      }
+      continue;
+    }
+    dir.normalize(); p.p.addScaledVector(dir, step);
+  }
+  W.proj = W.proj.filter(p => !p.done);
+}
+function areaDmg(at, R, soft, hard, side){ for (const v of W.units) if (ground(v) && v.side !== side) { const r = Math.hypot(v.x - at.x, v.z - at.z); if (r < R) damage(v, (UT[v.t].arm ? hard : soft) * (1 - r / R) * (v.dug ? .6 : 1), side); } }
+// ----- الحركة والقرار
+function step(dt){
+  W.t += dt;
+  if (W.phase === 'prep' && (W.t > 20 || W.order !== 'attack')) { W.phase = 'go'; if (W.order === 'attack') { log('المرحلة الثانية: الدروع تتقدم بالتناوب وتقف على مسافة الرمي، والمشاة خلفها', 'iq'); snd('radio', camera.position.x, camera.position.y, camera.position.z, .4); } }
+  W.smokes = (W.smokes || []).filter(s => s.until > W.t);
+  for (const u of W.units) {
+    if (u.dead) continue;
+    const d = UT[u.t];
+    u.sup = Math.max(0, u.sup - dt * (W.t - u.lastHit > 2 ? 12 : 3)); u.recoil = Math.max(0, u.recoil - dt * 3);
+    if (W.t - u.lastHit > 4) u.mor = Math.min(100, u.mor + dt * 3);
+    if (!u.retreat && u.mor < 22) { u.retreat = true; log(`${NAME[u.t]} ${u.side === 'iq' ? 'عراقي' : 'تركي'} ينسحب بعد خسائر`, u.side === 'iq' ? 'tr' : 'iq'); }
+    if (u.retreat && u.mor > 60) u.retreat = false;
+    if (u.t === 'mlrs') { stepMlrs(u, dt); }
+    u.cd -= dt;
+    let tgt = d.rng ? pick(u, d) : null;
+    const aimA = tgt ? Math.atan2(-(tgt.x - u.x), -(tgt.z - u.z)) : u.yaw;
+    if (u.t !== 'mlrs') u.ta += Math.max(-1.1 * dt, Math.min(1.1 * dt, ang(u.ta, aimA)));
+    if (d.inf || d.air) { u.ta = aimA; if (tgt && u.v < .5) u.yaw += ang(u.yaw, aimA) * Math.min(1, dt * 2); }
+    const aligned = Math.abs(ang(u.ta, aimA)) < .06;
+    let halt = false;
+    if (tgt && aligned && u.cd <= 0) { if (u.t === 'tank' && u.v > 1.5) halt = true; else { fire(u, tgt); u.cd = d.rof * (.8 + Math.random() * .4) * (u.retreat ? 1.5 : 1); } }
+    else if (tgt && u.t === 'tank' && u.cd < 1.2) halt = true;
+    // القرار: نقف على مسافة الرمي، ونتقدم فقط إذا انكسر العدو أو ثُبّت تحت نارنا، بالتناوب
+    let goal = null, sp = d.spd;
+    const ne = nearestEnemy(u), broken = ne && (ne.v.retreat || ne.v.mor < 30), pinned = ne && ne.v.sup > 55, bound = (Math.floor(W.t / 10) + u.id) % 2 === 0;
+    let may = !(u.side === 'iq' && W.phase === 'prep');
+    if (ne && !d.air && may) { if (ne.d < d.hold && !broken && !(pinned && bound)) may = false; if (ne.d < d.hold * 1.25 && !broken && !bound) may = false; }
+    if (u.manual) goal = u.manual;
+    else if (u.retreat) goal = u.start;
+    else if (u.side === 'iq' && W.order === 'attack' && may && !d.air && u.t !== 'mlrs') { const tz = Math.max(3300, u.start.z - 7000); goal = {x: u.start.x + (ne ? (ne.v.x - u.x) * .15 : 0), z: tz}; if (tgt) sp *= .6; }
+    else if (u.side === 'tr' && (u.t === 'tank' || u.t === 'ifv') && !u.dug) {
+      // الدروع التركية تصعد خلف القمة لتضرب من مواقع مرتفعة إذا اقترب العدو
+      if (ne && ne.d < 4500 && !u.crest) { u.crest = {x: u.x + (ne.v.x - u.x) * .25, z: Math.min(u.z + 900, 3500)}; log('الدروع التركية تصعد إلى قمة السلسلة', 'tr'); }
+      goal = u.crest || null;
+    }
+    if (d.air && u.side === 'iq' && !u.manual && W.phase === 'go') { const lead = W.units.filter(v => v.side === 'iq' && ground(v) && v.t === 'tank'); if (lead.length) goal = {x: lead.reduce((s, v) => s + v.x, 0) / lead.length + (u.id % 2 ? 300 : -300), z: Math.max(...lead.map(v => v.z)) + 600}; }
+    // لا التحام: لا نقترب من عدو صامد أقرب من الحد الأدنى
+    if (goal && !u.retreat && ne && !broken && ne.d < d.minD) { const gx = goal.x - u.x, gz = goal.z - u.z, ex = ne.v.x - u.x, ez = ne.v.z - u.z; if (gx * ex + gz * ez > 0) goal = null; }
+    if (halt || (W.order === 'hold' && !u.manual && !u.retreat && u.side === 'iq')) goal = null;
+    if (u.dug) goal = null;
+    drive(u, d, goal, sp, dt);
+  }
+  // تباعد
+  const G = W.units.filter(u => !u.dead && !UT[u.t].air);
+  for (let i = 0; i < G.length; i++) for (let j = i + 1; j < G.length; j++) { const a = G[i], b = G[j], dx = b.x - a.x, dz = b.z - a.z, r = Math.hypot(dx, dz) || .1, m = a.side === b.side ? 60 : 120; if (r < m) { const p = (m - r) / 2; if (!a.dug) { a.x -= dx / r * p; a.z -= dz / r * p; } if (!b.dug) { b.x += dx / r * p; b.z += dz / r * p; } } }
+  stepProj(dt); stepJets(dt);
+  // البرج الطائر والحطام المحترق
+  for (const f of W.fly) { f.vy -= 20 * dt; f.o.position.x += f.vx * dt; f.o.position.y += f.vy * dt; f.o.position.z += f.vz * dt; f.o.rotation.x += f.vr * dt; f.o.rotation.z += f.vr * .6 * dt; const gy = hY(f.o.position.x, f.o.position.z); if (f.o.position.y < gy + 1) { f.o.position.y = gy + 1; f.done = true; for (let i = 0; i < 5; i++) emit('dust', f.o.position.x, gy + 2, f.o.position.z, {vx: (Math.random() - .5) * 20, vz: (Math.random() - .5) * 20, vy: 6, s0: 5, s1: 20, a0: .6, life: 2.5}); } }
+  W.fly = W.fly.filter(f => !f.done);
+  for (const w of W.wrecks) if (w.burn > 0) { w.burn -= dt; w.t -= dt; if (w.t <= 0) { w.t = .25; emit('dark', w.x + (Math.random() - .5) * 4, w.y + 4, w.z + (Math.random() - .5) * 4, {vy: 9, s0: 6, s1: 48, a0: .7, life: 9, drag: .3}); if (w.burn > 25) emit('fire', w.x, w.y + 2, w.z, {vy: 6, s0: 7, s1: 12, life: .6}); } }
+  // مدفعية تركية من خارج الخريطة على قواتنا المكشوفة
+  W.trArtyT -= dt;
+  if (W.trArtyT <= 0) { W.trArtyT = 26; const vis = W.units.filter(v => v.side === 'iq' && ground(v) && seen('tr', v)); if (vis.length) { const v = vis[(Math.random() * vis.length) | 0]; for (let i = 0; i < 3; i++) { const tx = v.x + (Math.random() - .5) * 160, tz = v.z + (Math.random() - .5) * 160; W.proj.push({k: 'rkt', from: new THREE.Vector3(tx + 2000, 3000, tz - 14000), to: new THREE.Vector3(tx, hY(tx, tz), tz), t: -i * .9, dur: 7, peak: 400, side: 'tr', mesh: addMissile(0x333333)}); } log('المدفعية التركية تقصف قواتنا المكشوفة', 'tr'); } }
+  const sT = strength('tr') / W.init.tr, sI = strength('iq') / W.init.iq;
+  if (!W.end && sT < .35) { W.end = 'win'; log('انهار الخط التركي: قواتنا تسيطر على السلسلة', 'iq'); }
+  if (!W.end && sI < .3) { W.end = 'lose'; log('فشل الهجوم: قواتنا انهارت', 'tr'); }
+}
+function drive(u, d, goal, sp, dt){
+  if (d.air) { const tx = goal ? goal.x : u.x, tz = goal ? goal.z : u.z, r = Math.hypot(tx - u.x, tz - u.z); if (r > 20) { u.yaw += ang(u.yaw, Math.atan2(-(tx - u.x), -(tz - u.z))) * Math.min(1, dt * 1.5); u.v = Math.min(sp, u.v + 8 * dt); u.x += -Math.sin(u.yaw) * u.v * dt; u.z += -Math.cos(u.yaw) * u.v * dt; } else u.v = Math.max(0, u.v - 8 * dt); u.m.rot.rotation.y += dt * 28; return; }
+  if (!goal) { u.v = Math.max(0, u.v - 5 * dt); }
+  else {
+    const dx = goal.x - u.x, dz = goal.z - u.z, r = Math.hypot(dx, dz);
+    if (r < 8) u.v = Math.max(0, u.v - 5 * dt);
+    else {
+      const want = Math.atan2(-dx, -dz), df = ang(u.yaw, want);
+      // المنحدر يبطئ الحركة صعوداً
+      const ahead = hTrue(u.x - Math.sin(u.yaw) * 30, u.z - Math.cos(u.yaw) * 30) - hTrue(u.x, u.z), slope = Math.max(0, ahead / 30);
+      let target = sp * Math.max(.2, Math.cos(Math.min(Math.abs(df), 1.4))) * Math.max(.35, 1 - slope * 3) * (u.retreat ? 1.2 : 1) * (d.inf && u.sup > 55 ? .25 : 1);
+      if (d.inf) { u.yaw += df * Math.min(1, dt * 3); u.v = target; }
+      else { u.yaw += Math.max(-d.turn * dt, Math.min(d.turn * dt, df)); u.v += Math.max(-5 * dt, Math.min(2.5 * dt, target - u.v)); }
+    }
+  }
+  if (u.v > .05) { u.x += -Math.sin(u.yaw) * u.v * dt; u.z += -Math.cos(u.yaw) * u.v * dt; u.x = Math.max(50, Math.min(SIZE - 50, u.x)); u.z = Math.max(50, Math.min(SIZE - 50, u.z)); }
+  // غبار خلف المركبات المتحركة
+  if (u.m && u.v > 3) { u.dt = (u.dt || 0) - dt; if (u.dt <= 0) { u.dt = .18; const bx = u.x + Math.sin(u.yaw) * u.m.len * .5, bz = u.z + Math.cos(u.yaw) * u.m.len * .5; emit('dust', bx, hY(bx, bz) + 2, bz, {vx: (Math.random() - .5) * 4, vy: 2 + Math.random() * 2, vz: (Math.random() - .5) * 4, s0: 6, s1: 30, a0: .38, life: 4, drag: .8}); } }
+}
+
+// ================================================================== الكاميرا واللمس
+const cam = {tx: 5100, tz: 8700, dist: 2600, yaw: 0, pitch: .5, follow: true};
+function updateCamera(dt){
+  if (cam.follow && W) {
+    const L = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv'));
+    if (L.length) {
+      const f = L.reduce((a, u) => u.z < a.z ? u : a), ne = nearestEnemy(f), gx = ne && ne.d < 3500 ? f.x + (ne.v.x - f.x) * .4 : f.x, gz = ne && ne.d < 3500 ? f.z + (ne.v.z - f.z) * .4 : f.z - 80;
+      const want = ne ? Math.max(650, Math.min(2200, ne.d * .9)) : 1100;
+      cam.tx += (gx - cam.tx) * Math.min(1, dt * .5); cam.tz += (gz - cam.tz) * Math.min(1, dt * .5); cam.dist += (want - cam.dist) * Math.min(1, dt * .3);
+    }
+  }
+  cam.tx = Math.max(0, Math.min(SIZE, cam.tx)); cam.tz = Math.max(0, Math.min(SIZE, cam.tz));
+  const ty = hY(cam.tx, cam.tz), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  camera.position.set(cam.tx + Math.sin(cam.yaw) * cp * cam.dist, ty + sp * cam.dist, cam.tz + Math.cos(cam.yaw) * cp * cam.dist);
+  const g = hY(Math.max(0, Math.min(SIZE, camera.position.x)), Math.max(0, Math.min(SIZE, camera.position.z))) + 25; if (camera.position.y < g) camera.position.y = g;
+  camera.lookAt(cam.tx, ty, cam.tz);
+  // ظلال الشمس تتبع مكان النظر
+  sun.position.set(cam.tx + SUN_DIR.x * 3000, ty + SUN_DIR.y * 3000, cam.tz + SUN_DIR.z * 3000); sun.target.position.set(cam.tx, ty, cam.tz);
+  const s = Math.min(1500, Math.max(400, cam.dist * .55)); sc.left = sc.bottom = -s; sc.right = sc.top = s; sc.updateProjectionMatrix();
+}
+const ptr = new Map(); let down = null, moved = 0, prev = null;
+canvas.addEventListener('pointerdown', e => { audioInit(); canvas.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); if (ptr.size === 1) { down = {x: e.clientX, y: e.clientY, t: performance.now()}; moved = 0; } prev = snap(); });
+function snap(){ const p = [...ptr.values()]; if (p.length === 1) return {n: 1, x: p[0].x, y: p[0].y}; if (p.length >= 2) return {n: 2, x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x)}; return null; }
+canvas.addEventListener('pointermove', e => {
+  if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); const s = snap(); if (!s || !prev || s.n !== prev.n) { prev = s; return; }
+  if (s.n === 1) { const dx = s.x - prev.x, dy = s.y - prev.y; moved += Math.abs(dx) + Math.abs(dy); if (moved < 10) return; const k = cam.dist / innerHeight * 1.4; cam.tx -= (Math.cos(cam.yaw) * dx + Math.sin(cam.yaw) * dy) * k; cam.tz -= (-Math.sin(cam.yaw) * dx + Math.cos(cam.yaw) * dy) * k; cam.follow = false; uiCam(); }
+  else { moved = 99; cam.dist = Math.max(120, Math.min(14000, cam.dist * prev.d / s.d)); cam.yaw -= ang(prev.a, s.a); cam.pitch = Math.max(.12, Math.min(1.45, cam.pitch + (s.y - prev.y) * .004)); }
+  prev = s;
+});
+const endPtr = e => { ptr.delete(e.pointerId); if (down && moved < 10 && ptr.size === 0 && performance.now() - down.t < 600) tap(e.clientX, e.clientY); if (!ptr.size) down = null; prev = snap(); };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); prev = snap(); });
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.max(120, Math.min(14000, cam.dist * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, {passive: false});
+const ray = new THREE.Raycaster();
+function groundAt(sx, sy){ ray.setFromCamera({x: sx / innerWidth * 2 - 1, y: -(sy / innerHeight) * 2 + 1}, camera); const h = ray.intersectObject(terrain)[0]; return h ? h.point : null; }
+function tap(sx, sy){
+  const g = groundAt(sx, sy);
+  if (W.aim) { if (g) { if (W.aim === 'mlrs') { if (mlrsFire(g.x, g.z)) W.mlrsUsed++; } else { airStrike(g.x, g.z); W.airUsed++; } } W.aim = null; hint(''); ui(); return; }
+  // أقرب وحدة على الشاشة
+  let best = null, bd = 34;
+  for (const u of W.units) { if (u.dead) continue; V3.set(u.x, hY(u.x, u.z) + (u.alt || 3), u.z).project(camera); const x = (V3.x + 1) / 2 * innerWidth, y = (1 - V3.y) / 2 * innerHeight, r = Math.hypot(x - sx, y - sy); if (V3.z < 1 && r < bd) { bd = r; best = u; } }
+  if (best && best.side === 'iq') { W.sel = best; selUI(); return; }
+  if (!W.sel || W.sel.dead) return;
+  if (best && best.side === 'tr') { W.sel.focus = best.id; W.sel.manual = null; log(`أمر: ${NAME[W.sel.t]} تهاجم ${NAME[best.t]} للعدو`, 'iq'); }
+  else if (g) { W.sel.manual = {x: g.x, z: g.z}; W.sel.focus = null; log(`أمر: ${NAME[W.sel.t]} تتحرك إلى النقطة المحددة`, 'iq'); }
+  snd('radio', camera.position.x, camera.position.y, camera.position.z, .3);
+}
+function hint(t){ const h = document.getElementById('hint'); h.textContent = t; h.hidden = !t; }
+function selUI(){ const s = document.getElementById('sel'), u = W.sel; if (!u || u.dead) { s.hidden = true; return; } s.hidden = false; document.getElementById('selt').innerHTML = `<b>${NAME[u.t]}</b> · قوة ${Math.round(u.hp / UT[u.t].hp * 100)}% · معنويات ${Math.round(u.mor)}${u.sup > 55 ? ' · تحت النار' : ''}<br><small>اضغط مكاناً للتحرك أو عدواً للهجوم</small>`; }
+document.getElementById('selx').onclick = () => { W.sel = null; selUI(); };
+const $ = id => document.getElementById(id);
+$('b-attack').onclick = () => { if (W.order === 'attack' && W.phase === 'prep') { W.t = Math.max(W.t, 20); } W.order = 'attack'; for (const u of W.units) if (u.side === 'iq') u.manual = null; ui(); };
+$('b-hold').onclick = () => { W.order = 'hold'; log('أمر: تثبيت المواقع والرد بالنار', 'iq'); ui(); };
+$('b-mlrs').onclick = () => { W.aim = W.aim === 'mlrs' ? null : 'mlrs'; hint(W.aim ? 'اضغط على الأرض: هدف الراجمات' : ''); ui(); };
+$('b-air').onclick = () => { W.aim = W.aim === 'air' ? null : 'air'; hint(W.aim ? 'اضغط على الأرض: هدف الضربة الجوية' : ''); ui(); };
+const SPEEDS = [1, 3, 6]; $('b-speed').onclick = () => { SPEED = SPEEDS[(SPEEDS.indexOf(SPEED) + 1) % SPEEDS.length]; ui(); };
+$('b-cam').onclick = () => { cam.follow = !cam.follow; uiCam(); };
+$('b-view').onclick = () => { const low = cam.pitch > .3; cam.pitch = low ? .16 : .55; cam.dist = low ? 900 : 2600; ui(); };
+$('b-reset').onclick = () => { setup(); ui(); };
+function uiCam(){ $('b-cam').classList.toggle('on', cam.follow); $('b-cam').querySelector('small').textContent = cam.follow ? 'تتبع' : 'حرة'; }
+function ui(){
+  $('b-attack').classList.toggle('on', W.order === 'attack'); $('b-hold').classList.toggle('on', W.order === 'hold');
+  $('b-attack').querySelector('small').textContent = W.phase === 'prep' ? `تمهيد ${Math.max(0, Math.ceil(20 - W.t))} ث` : 'تقدم';
+  $('b-mlrs').classList.toggle('on', W.aim === 'mlrs'); $('b-air').classList.toggle('on', W.aim === 'air');
+  $('b-mlrs').disabled = W.mlrsUsed >= 3; $('b-air').disabled = W.airUsed >= 2;
+  $('b-speed').querySelector('small').textContent = '×' + SPEED; $('b-view').querySelector('small').textContent = cam.pitch > .3 ? 'منخفضة' : 'عالية';
+  const m = Math.floor(W.t / 60), s = Math.floor(W.t % 60); $('time').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  const c = (side, t) => W.units.filter(u => u.side === side && !u.dead && u.t === t).length;
+  $('force').innerHTML = `<span style="color:var(--mine)">دبابات ${c('iq', 'tank')} · مشاة ${c('iq', 'squad')}</span> — <span style="color:var(--foe)">${c('tr', 'tank')} دبابات · ${c('tr', 'squad')} مشاة</span>`;
+  selUI();
+}
+
+// ================================================================== الحلقة: محاكاة بخطوات ثابتة، ورسم، وعداد إطارات
+const DUMMY = new THREE.Object3D();
+function drawSoldiers(){
+  for (const side of ['iq', 'tr']) {
+    const im = SOLDIERS[side]; let n = 0;
+    for (const u of W.units) {
+      if (u.side !== side || u.dead || !u.men) continue;
+      const prone = u.sup > 55 || u.dug;
+      for (const s of u.men) { const p = soldierPos(u, s); DUMMY.position.set(p.x, p.y - 1.2 - (u.dug ? .7 : 0), p.z); DUMMY.rotation.set(prone ? -1.45 : 0, u.yaw, 0, 'YXZ'); DUMMY.scale.setScalar(S_UNIT); DUMMY.updateMatrix(); im.setMatrixAt(n++, DUMMY.matrix); }
+    }
+    im.count = n; im.instanceMatrix.needsUpdate = true;
+  }
+}
+let last = performance.now(), acc = 0, fpsN = 0, fpsT = 0, lowT = 0, uiT = 0;
+function frame(now){
+  const real = Math.min(.05, (now - last) / 1000); last = now;
+  if (!W.end) { acc += real * SPEED; while (acc > .05) { step(.05); acc -= .05; } }
+  stepParticles(real * Math.max(1, SPEED * .6));
+  updateCamera(real);
+  for (const u of W.units) if (!u.dead || u.m) place(u);
+  drawSoldiers();
+  // خطوط الرصاص: خط قصير يتحرك مع الطلقة
+  const P = trGeo.attributes.position.array, C = trGeo.attributes.color.array; let n = 0;
+  for (const p of W.proj) {
+    if (n >= TRMAX || p.delay > 0) continue;
+    if (p.k !== 'bullet' && p.k !== 'shell') continue;
+    const dir = TMP.copy(p.to).sub(p.p).normalize(), L = p.k === 'shell' ? 30 : 9;
+    P.set([p.p.x, p.p.y, p.p.z, p.p.x - dir.x * L, p.p.y - dir.y * L, p.p.z - dir.z * L], n * 6);
+    const c = p.k === 'shell' ? [1, .95, .8] : p.side === 'iq' ? [1, .75, .35] : [1, .45, .3]; C.set([c[0], c[1], c[2], c[0] * .2, c[1] * .2, c[2] * .2], n * 6); n++;
+  }
+  trGeo.setDrawRange(0, n * 2); trGeo.attributes.position.needsUpdate = true; trGeo.attributes.color.needsUpdate = true;
+  for (const L of LIGHTS) if (L.t > 0) { L.t -= real; L.l.intensity = Math.max(0, L.p * L.t / .35); }
+  // أصوات المحركات والمروحيات حسب القرب
+  if ((uiT -= real) <= 0) {
+    uiT = .3; ui();
+    if (actx) { loop('battle_far', .14); loop('tank_pass', 0); loop('helicopter', 0); let nt = 1e9, nh = 1e9; for (const u of W.units) if (!u.dead) { const d = camera.position.distanceTo(V3.set(u.x, hY(u.x, u.z), u.z)); if ((u.t === 'tank' || u.t === 'ifv') && u.v > 1) nt = Math.min(nt, d); if (u.t === 'heli') nh = Math.min(nh, d); } loopVol('tank_pass', .6 * Math.max(0, 1 - nt / 1500)); loopVol('helicopter', .5 * Math.max(0, 1 - nh / 2500)); }
+  }
+  renderer.render(scene, camera);
+  // عداد الإطارات، وتخفيض الدقة تلقائياً إذا نزل الأداء
+  fpsN++; fpsT += real;
+  if (fpsT >= 1) { const f = Math.round(fpsN / fpsT); $('fps').textContent = f; $('fps').style.color = f >= 55 ? 'var(--good)' : f >= 40 ? 'var(--mine)' : 'var(--foe)'; if (f < 45) lowT++; else lowT = 0; if (lowT >= 3 && PR > 1) { PR = Math.max(1, PR - .25); renderer.setPixelRatio(PR); resize(); lowT = 0; } fpsN = 0; fpsT = 0; }
+  requestAnimationFrame(frame);
+}
+function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+setup(); ui(); uiCam();
+$('load').remove();
+window.__W = () => W; window.__cam = cam; window.__step = step; window.__mlrs = mlrsFire; window.__air = airStrike;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
