@@ -1,7 +1,47 @@
 // ================================================================== معركة دهوك: محاكاة قتال على أرض حقيقية
 // الإحداثيات بكسلات صورة الأرض (كل بكسل نحو 30 متراً). الزمن ثوانٍ من زمن المعركة (300 ثانية = 5 دقائق بسرعة ×1).
 // أحجام الوحدات مكبّرة عن الحقيقة حتى تُرى، لكن المسافات بينها حقيقية: الدبابة ترمي من 2-2.5 كم، والطائرة تطلق من 12 كم.
-const W_IMG = new Image(); W_IMG.src = FIELD_IMG;
+const W_IMG = new Image(); W_IMG.src = FIELD_IMG;          // صورة القمر الصناعي للمنطقة كلها (Sentinel-2)
+const HI_IMG = new Image(); HI_IMG.src = SAT_HI;            // دقة أعلى لمنطقة القتال
+// أنواع الأرض: لكل نوع قناع، ونسيج تفاصيل يظهر عند التقريب فوق صورة القمر دون أن يغيّر لونها
+const GTEX = ['dirt', 'grass', 'plow', 'wheat', 'rock', 'gravel'];
+const GMASK = [], GPAT = {}; let GREADY = false;
+(function(){
+  const cm = new Image(); cm.onload = () => {
+    const cv = document.createElement('canvas'); cv.width = cm.width; cv.height = cm.height; const x = cv.getContext('2d'); x.drawImage(cm, 0, 0);
+    const d = x.getImageData(0, 0, cm.width, cm.height).data;
+    for (let c = 0; c < GTEX.length; c++) {
+      const m = document.createElement('canvas'); m.width = cm.width; m.height = cm.height; const mx = m.getContext('2d'), id = mx.createImageData(cm.width, cm.height);
+      for (let i = 0, j = 0; i < d.length; i += 4, j += 4) if (d[i] === c) { id.data[j + 3] = 255; }
+      mx.putImageData(id, 0, 0); GMASK[c] = m;
+    }
+    let n = 0; for (const k of GTEX) { const im = new Image(); im.onload = () => { GPAT[k] = im; if (++n === GTEX.length) GREADY = true; }; im.src = GROUND.tex[k]; }
+  };
+  cm.src = GROUND.clsmap;
+})();
+const CHUNK = 64, CPX = 6, CHK = new Map(); let CHK_BUDGET = 0;   // قطعة 64×64 بكسل عالم بدقة 8 بكسل لكل بكسل عالم، وقطعتان جديدتان كحد أقصى لكل إطار
+function groundChunk(cx, cy){
+  const key = cx + ',' + cy; let ch = CHK.get(key); if (ch) { CHK.delete(key); CHK.set(key, ch); return ch; }
+  if (!GREADY || CHK_BUDGET <= 0) return null; CHK_BUDGET--;
+  const S = CHUNK * CPX; ch = document.createElement('canvas'); ch.width = S; ch.height = S; const x = ch.getContext('2d');
+  const tmp = groundChunk.tmp || (groundChunk.tmp = document.createElement('canvas')); tmp.width = S; tmp.height = S; const t = tmp.getContext('2d');
+  const wx = cx * CHUNK, wy = cy * CHUNK, mx = (wx - SAT_BOX[0]) / 2, my = (wy - SAT_BOX[1]) / 2;
+  for (let c = 0; c < GTEX.length; c++) {
+    t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, S, S); t.imageSmoothingEnabled = true;
+    t.drawImage(GMASK[c], mx, my, CHUNK / 2, CHUNK / 2, 0, 0, S, S);
+    t.globalCompositeOperation = 'source-in';
+    const p = t.createPattern(GPAT[GTEX[c]], 'repeat'), sc = 20 * CPX / 256;   // كل نسيج يغطي 20 بكسل عالم
+    // خطوط الحراثة والزرع باتجاهات مختلفة من مكان لآخر مثل الحقول الحقيقية
+    const rot = (c === 2 || c === 3) ? ((cx * 7 + cy * 13) % 4) * Math.PI / 4 : 0;
+    p.setTransform(new DOMMatrix().translate(-wx * CPX % (256 * sc), -wy * CPX % (256 * sc)).rotate(rot * 180 / Math.PI).scale(sc));
+    t.fillStyle = p; t.fillRect(0, 0, S, S);
+    x.drawImage(tmp, 0, 0);
+  }
+  CHK.set(key, ch); if (CHK.size > 40) CHK.delete(CHK.keys().next().value);
+  return ch;
+}
+// أشجار وشجيرات وصخور في أماكنها من صورة القمر
+const FLORA_K = ['olive', 'poplar', 'eucal', 'bush', 'rocks'], FLORA_S = [3.4, 2.8, 3.8, 2.2, 2.6];
 const WS = {}; for (const k in BSPR) { const im = new Image(); im.src = BSPR[k]; WS[k] = im; }
 const KM = 33;
 function hAt(x, y){ const i = Math.max(0, Math.min(FIELD.hh - 1, Math.floor(y / 8))), j = Math.max(0, Math.min(FIELD.hw - 1, Math.floor(x / 8))); return FIELD.H[i * FIELD.hw + j]; }
@@ -50,21 +90,20 @@ function mkUnit(side, t, x, y, o = {}){
   W.units.push(u); return u;
 }
 function setupWar(){
-  W = {sel: [], aim: null, t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], fly: [], smokes: [], log: [], order: 'attack', phase: 'prep', end: null,
+  W = {losC: new Map(), sel: [], aim: null, t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], fly: [], smokes: [], log: [], order: 'attack', phase: 'prep', end: null,
     stats: {iq: {lost: {}, fired: 0}, tr: {lost: {}, fired: 0}, msl: 0, trMsl: 0, jetsLost: 0},
     uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 70, droneT: 85, follow: true,
     cam: {x: 1250, y: 1400, k: 2.6}};
-  for (const tw of TOWNS) {
-    for (let i = 0; i < tw.houses; i++) { const a = i * 2.4 + tw.x * .01, rr = tw.r * (.25 + (i % 3) * .25); W.props.push({k: i % 4 === 3 ? 'ruins' : 'houses', x: tw.x + Math.cos(a) * rr, y: tw.y + Math.sin(a) * rr, s: 56, rot: (i % 4) * Math.PI / 2}); }
-    for (let i = 0; i < (tw.mosque || 0); i++) W.props.push({k: 'mosque', x: tw.x + 14 - i * 30, y: tw.y - 10 + i * 22, s: 34, rot: 0});
-  }
   // خط الدفاع التركي الأول على السلسلة الجنوبية، والثاني عند مدخل دهوك
   const line1 = [[1060, 1088], [1150, 1080], [1240, 1092], [1330, 1084], [1420, 1098]];
   const line2 = [[1080, 820], [1170, 812], [1260, 826]];
-  for (const [x, y] of line1.concat(line2)) { W.props.push({k: 'trench', x, y: y + 8, s: 44, rot: 0}); W.props.push({k: 'sandbags', x: x + 20, y: y - 4, s: 16, rot: 0}); }
-  W.props.push({k: 'checkpoint', x: 1175, y: 900, s: 24, rot: 0});
-  W.props.push({k: 'depot', x: 1260, y: 1680, s: 30, rot: 0}); W.props.push({k: 'hospital', x: 1180, y: 1700, s: 26, rot: 0});
-  W.props.push({k: 'depot', x: 1210, y: 560, s: 28, rot: 0});
+  for (const [x, y] of line1.concat(line2)) { W.props.push({k: 'trench', x, y: y + 6, s: 34, rot: 0, trench: true}); W.props.push({k: 'sandbags', x: x + 16, y: y - 3, s: 8, rot: 0}); }
+  W.props.push({k: 'checkpoint', x: 1175, y: 900, s: 9, rot: 0}); W.props.push({k: 'twall', x: 1175, y: 894, s: 8, rot: 0});
+  W.props.push({k: 'depot', x: 1260, y: 1680, s: 12, rot: 0}); W.props.push({k: 'hospital', x: 1180, y: 1700, s: 10, rot: 0}); W.props.push({k: 'shed', x: 1272, y: 1694, s: 5, rot: .3});
+  W.props.push({k: 'depot', x: 1210, y: 560, s: 11, rot: 0}); W.props.push({k: 'twall', x: 1210, y: 552, s: 9, rot: 0});
+  for (const [x, y] of [[1130, 520], [1220, 515]]) W.props.push({k: 'berm', x, y: y + 6, s: 10, rot: 0});
+  // آثار حرب سابقة على الطرق: سيارات محروقة ومتروكة
+  for (const [k, x, y, r] of [['car_burnt', 1200, 1180, .4], ['car_burnt', 1330, 1000, 2.1], ['pickup', 1100, 1300, 1.2], ['car', 1385, 1210, 3.0], ['car_burnt', 1160, 880, .9], ['pickup', 1260, 960, 2.6]]) W.props.push({k, x, y, s: 2.6, rot: r});
   // تركيا: دفاع متدرج في الخنادق، ودروع خلفها للهجوم المضاد
   line1.forEach(([x, y], i) => { mkUnit('tr', 'squad', x - 6, y, {dug: true}); if (i % 2 === 0) mkUnit('tr', 'atgm', x + 14, y + 2, {dug: true}); });
   mkUnit('tr', 'mg', 1195, 1086, {dug: true}); mkUnit('tr', 'mg', 1375, 1090, {dug: true}); mkUnit('tr', 'sniper', 1290, 1072, {dug: true});
@@ -115,33 +154,50 @@ function muzzleOf(u){
 // ------------------------------------------------------------------ الجزيئات بإحداثيات العالم
 function wp(img, x, y, o){ if (W.parts.length > 850) return; W.parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 10, s1: 20, a0: 1, a1: 0, rot: wrand() * 6.28, vr: (wrand() - .5) * .5, t: 0, life: 1, delay: 0, layer: 'top'}, o)); }
 function wboom(x, y, big = 1, snd = true){
-  const r = 14 * big;
+  const r = 10 * big;
   wp('fireball', x, y, {s0: r * .5, s1: r * 1.6, life: .5, vr: 0});
   wp('sparks', x, y, {s0: r * .6, s1: r * 1.9, life: .45});
   wp('shock', x, y, {s0: r * .5, s1: r * 2.6, a0: .55, life: .9, layer: 'mid', vr: 0});
   wp('launch_dust', x, y, {s0: r * .8, s1: r * 2.6, a0: .55, life: 2.6, layer: 'mid', vx: 2, vy: -2});
-  for (let i = 0; i < 1 + big; i++) wp('smoke_dark', x + (wrand() - .5) * r * .5, y + (wrand() - .5) * r * .5, {s0: r * .4, s1: r * (1.3 + wrand() * .6), a0: .7, life: 2.6 + wrand() * 1.5, delay: .12 + i * .08, vx: 2 + wrand() * 3, vy: -3 - wrand() * 4, layer: 'mid'});
-  if (big >= .8) { if (W.decals.length > 300) W.decals.shift(); W.decals.push({k: big > 1.2 ? 'crater_big' : 'crater_small', x, y, s: r * (big > 1.2 ? 1.1 : .8), rot: wrand() * 6.28, a: .55}); }
+  for (let i = 0; i < 1 + big; i++) wp('smoke_dark', x + (wrand() - .5) * r * .5, y + (wrand() - .5) * r * .5, {s0: r * .4, s1: r * (1.3 + wrand() * .6), a0: .5, life: 2.6 + wrand() * 1.5, delay: .12 + i * .08, vx: 2 + wrand() * 3, vy: -3 - wrand() * 4, layer: 'mid'});
+  if (big >= .8) { if (W.decals.length > 300) W.decals.shift(); W.decals.push({k: big > 1.2 ? 'crater_big' : 'crater_small', x, y, s: big > 1.6 ? 8 : big > 1.2 ? 6 : 4, rot: wrand() * 6.28, a: .5}); }
   if (snd) { wsound(big > 1.3 ? 'explosion_big' : big > .8 ? 'explosion_med' : 'explosion_med2', x, y, .6 + big * .15); if (big > 1.2 && wrand() < .4) wsound('debris', x, y, .35, .4); }
   // الانفجار يثبّت من حوله
   for (const v of W.units) if (ground(v)) { const d = Math.hypot(v.x - x, v.y - y); if (d < r * 3) v.sup = Math.min(100, v.sup + 35 * (1 - d / (r * 3))); }
 }
 // ------------------------------------------------------------------ الصوت بموضعه: يسار ويمين حسب الشاشة، ويخفت ويُكتم بالبعد
 let sndBudget = 0;
+const SNDS = {iq: {squad: 'ak_close', mg: 'pkm_close', ifv: 'cannon30', sniper: 'sniper2', mortar: 'mortar_launch'}, tr: {squad: 'g3', mg: 'm2', ifv: 'm2', sniper: 'sniper2', mortar: 'mortar_launch'}};
+const FAR = {tank_cannon: 'tank_far_shot', tank_close_shot: 'tank_far_shot', ak_close: 'ak_far', g3: 'ak_far', pkm_close: 'mg_far', m2: 'mg_far', cannon30: 'mg_far', dshk: 'mg_far', artillery: 'arty_far', mlrs: 'mlrs_far', explosion_big: 'boom_echo'};
+const ALT = {tank_cannon: ['tank_cannon', 'tank_close_shot'], explosion_med: ['explosion_med', 'boom_close'], ricochet: ['ricochet', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
+const NODELAY = {radio: 1, incoming: 1, mortar_in: 1, missile_alert: 1, jet_high: 1, war_horn: 1};
 function wsound(k, x, y, vol = .7, delay = 0, rate){
   if (sndBudget > 10) return; sndBudget++;
   const c = W.cam, sx = (x - c.x) * c.k + innerWidth / 2, d = Math.hypot(x - c.x, y - c.y) * c.k / innerWidth;
   if (d > 2.2) return;
+  if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
+  if (d > .8 && FAR[k]) { k = FAR[k]; vol *= 1.3; }
+  // الضوء يصل قبل الصوت: الانفجار البعيد تراه ثم تسمعه
+  if (!NODELAY[k]) delay += Math.min(2, Math.max(0, Math.hypot(x - c.x, y - c.y) / KM - 1.5) * .3);
   play(k, {vol: vol * Math.max(.15, 1 - d * .4), x: Math.max(0, Math.min(innerWidth, sx)), dist: Math.min(1, d * .6), delay, rate});
 }
 
 // ------------------------------------------------------------------ المحاكاة
+function los(a, b){
+  if (UT[a.t].air || UT[b.t].air || dist(a, b) < 1.2 * KM) return true;   // شبكة الارتفاع تقريبية (250 م)، فلا نحجب الرؤية القريبة
+  const key = a.id < b.id ? a.id * 4096 + b.id : b.id * 4096 + a.id, c = W.losC.get(key);
+  if (c && W.t - c.t < 1.5) return c.v;
+  const ha = hAt(a.x, a.y) + 12, hb = hAt(b.x, b.y) + 12, n = Math.max(4, Math.ceil(dist(a, b) / 6)); let v = true;
+  for (let i = 1; i < n; i++) { const k = i / n, h = hAt(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k); if (h > ha + (hb - ha) * k + 22) { v = false; break; } }
+  W.losC.set(key, {v, t: W.t}); return v;
+}
 function pickTarget(u, d){
   if (u.focus) { const f = W.units.find(v => v.id === u.focus && !v.dead); if (f && dist(u, f) <= d.rng && !(d.heavyOnly && !UT[f.t].arm) && !(d.softOnly && UT[f.t].arm)) return f; if (!f) u.focus = null; }
   let best = null, bs = -1;
   for (const v of W.units) {
     if (v.side === u.side || !ground(v)) continue;
     const r = dist(u, v); if (r > d.rng * (1 + Math.max(0, hAt(u.x, u.y) - hAt(v.x, v.y)) / 600)) continue;
+    if (!d.ind && !los(u, v)) continue;
     const hv = UT[v.t].arm > 0;
     if (d.heavyOnly && !hv) continue; if (d.softOnly && hv) continue;
     let sc = 1 / (r + 20); if (d.dh > d.ds && hv) sc *= 3; if (d.ds >= d.dh && !hv) sc *= 2; if (v.t === 'atgm' || v.t === 'arty') sc *= 1.5; if (smoked(u, v)) sc *= .3;
@@ -150,9 +206,9 @@ function pickTarget(u, d){
   return best;
 }
 // المدفعية تحتاج من يرى الهدف: وحدة صديقة قريبة، أو مسيّرة استطلاع فوقه
-function spotted(side, v){ for (const u of W.units) if (u.side === side && !u.dead && dist(u, v) < (u.t === 'recon' ? 6 : 4) * KM) return true; return false; }
+function spotted(side, v){ for (const u of W.units) if (u.side === side && !u.dead && dist(u, v) < (u.t === 'recon' ? 6 : 4) * KM && (u.t === 'recon' || los(u, v))) return true; return false; }
 function fire(u, v){
-  const d = UT[u.t]; W.stats[u.side].fired++; u.lastShot = W.t;
+  const d = UT[u.t]; W.stats[u.side].fired++; u.lastShot = W.t; const snd = (SNDS[u.side] || {})[u.t] || d.snd;
   const r = dist(u, v), hv = UT[v.t].arm > 0;
   let p = d.acc * (1 - r / (d.rng * 1.6)) * cover(v) * (1 - u.sup / 140);
   if (hAt(v.x, v.y) - hAt(u.x, u.y) > 60) p *= .8;
@@ -167,8 +223,8 @@ function fire(u, v){
     wp('muzzle', m.x, m.y, {s0: d.sz * .8, s1: d.sz * 1.2, life: .16, rot: u.ta + Math.PI / 2, vr: 0});
     wp('blast_dust', m.x, m.y, {s0: d.sz * .8, s1: d.sz * 3, a0: .75, life: 2.2, layer: 'mid'});
     u.recoil = 1;
-    wsound(d.snd, u.x, u.y, u.t === 'mortar' ? .35 : .55);
-    wsound('incoming', tx, ty, .4, Math.max(0, dur - 1.6));
+    wsound(snd, u.x, u.y, u.t === 'mortar' ? .4 : .55);
+    wsound(u.t === 'mortar' ? 'mortar_in' : 'incoming', tx, ty, .4, Math.max(0, dur - (u.t === 'mortar' ? 1.4 : 1.6)));
     return;
   }
   const m = muzzleOf(u), fx = d.fx;
@@ -180,13 +236,20 @@ function fire(u, v){
     wp('blast_dust', m.x, m.y, {s0: d.sz * .9, s1: d.sz * 2.8, a0: .8, life: 1.8, layer: 'mid', vr: 0});
     wp('smoke_light', m.x, m.y, {s0: d.sz * .4, s1: d.sz * 1.6, a0: .4, life: 2, vx: 2, vy: -2, layer: 'mid'});
     u.recoil = 1;
-    wsound(d.snd, u.x, u.y, .55);
+    wsound(snd, u.x, u.y, .55);
+  } else if (fx === 'tracer' && u.t === 'squad' && UT[v.t].arm && r < .7 * KM && wrand() < .25) {
+    // المشاة يطلقون آر بي جي على المدرعات القريبة
+    W.proj.push({k: 'hrkt', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.15, r / 150), target: v, hit, dmg: 48 * (.7 + wrand() * .6), side: u.side, by: 'rpg'});
+    wp('backblast', u.x - Math.cos(u.ta) * 5, u.y - Math.sin(u.ta) * 5, {s0: 6, s1: 16, a0: .8, life: 1.4, rot: u.ta + Math.PI / 2, vr: 0, layer: 'mid'}); wsound('rpg2', u.x, u.y, .5);
   } else if (fx === 'tracer') {
     // رشقة: عدة طلقات مضيئة متتابعة، وغبار حيث تسقط
     const n = u.t === 'mg' ? 5 : 3;
     for (let i = 0; i < n; i++) W.proj.push({k: 'tracer', x0: m.x, y0: m.y, x1: v.x + mx + (wrand() - .5) * 10, y1: v.y + my + (wrand() - .5) * 10, t: -i * .07, dur: Math.max(.06, r / 300), target: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, by: u.t});
     wp('rifle_flash', m.x, m.y, {s0: 4, s1: 6, life: .1, vr: 0});
-    if (wrand() < .55) wsound(d.snd, u.x, u.y, .38);
+    if (wrand() < .55) wsound(snd, u.x, u.y, .38);
+    // من يقف قرب الهدف يسمع الرصاص يطقطق فوقه، وفي القتال القريب تُرمى قنابل يدوية
+    if (wrand() < .2 && Math.hypot(v.x - W.cam.x, v.y - W.cam.y) * W.cam.k < innerWidth * .4) wsound('cracks', v.x, v.y, .28);
+    if (u.t === 'squad' && r < .55 * KM && wrand() < .08) { wboom(v.x + (wrand() - .5) * 6, v.y + (wrand() - .5) * 6, .25, false); wsound('grenade', v.x, v.y, .45); if (hit) damage(v, 12, u.side); }
   } else if (fx === 'atgm') {
     // صاروخ مضاد دروع: عصفة غبار خلف الرامي، وصاروخ بطيء يتمايل ووراءه دخان
     W.proj.push({k: 'atgm', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / 95), target: v, hit, dmg, side: u.side, by: u.t});
@@ -202,7 +265,7 @@ function fire(u, v){
   } else {
     // قناص: طلقة واحدة بلا خط مضيء
     W.proj.push({k: 'bullet', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.05, r / 600), target: v, hit, dmg, side: u.side, by: u.t});
-    wsound(d.snd, u.x, u.y, .35);
+    wsound(snd, u.x, u.y, .35);
   }
 }
 function damage(v, dmg, by, kind){
@@ -333,7 +396,8 @@ function stepWar(dt){
       if (lead.length) { const ly = Math.min(...lead.map(v => v.y)); goal = {x: lead.reduce((s, v) => s + v.x, 0) / lead.length + (u.id % 2 ? 40 : -40), y: ly + 70}; }
     }
     // إذا اقترب عدو صامد جداً (خارج المدن) نتراجع قليلاً إلى مسافة الرمي بدل الالتحام
-    if (ne && !d.air && !u.dug && !u.manual && !inTown(u) && !broken && ne.d < d.minD * .7) { goal = {x: u.x + (u.x - ne.v.x) / ne.d * 30, y: u.y + (u.y - ne.v.y) / ne.d * 30}; sp *= .5; }
+    let backing = false;
+    if (ne && !d.air && !u.dug && !u.manual && !inTown(u) && !broken && ne.d < d.minD * .7) { backing = true; goal = {x: u.x + (u.x - ne.v.x) / ne.d * 30, y: u.y + (u.y - ne.v.y) / ne.d * 30}; sp *= .5; }
     // لا التحام: لا نقترب من عدو صامد أقرب من الحد الأدنى
     if (goal && !u.retreat && order !== 'retreat') {
       const gx = goal.x - u.x, gy = goal.y - u.y, gr = Math.hypot(gx, gy) || 1;
@@ -347,7 +411,7 @@ function stepWar(dt){
       }
     }
     if (goal && !(u.side === 'tr' || order !== 'hold' || u.retreat || u.manual)) goal = null;
-    if (halt) goal = null;
+    if (halt && !backing) goal = null;
     drive(u, d, goal, sp, dt);
     if (u.dug && u.moving && dist(u, u.home) > 25) u.dug = false;
   }
@@ -357,6 +421,11 @@ function stepWar(dt){
     const a = gr[i], b = gr[j], dx = b.x - a.x, dy = b.y - a.y, r = Math.hypot(dx, dy) || .01;
     const min = a.side === b.side ? (UT[a.t].sz + UT[b.t].sz) * .62 : 20;
     if (r < min) { const push = (min - r) / 2, ux = dx / r, uy = dy / r; if (!a.dug) { a.x -= ux * push; a.y -= uy * push; } if (!b.dug) { b.x += ux * push; b.y += uy * push; } }
+  }
+  for (const u of gr) {
+    if (u.dug) continue;
+    for (const h of W.decals) if (h.k === 'hulk' || h.k === 'wreck_apc' || h.k === 'wreck_truck') { const dx = u.x - h.x, dy = u.y - h.y, r = Math.hypot(dx, dy) || .01, m = (h.s + UT[u.t].sz) * .45; if (r < m) { u.x += dx / r * (m - r); u.y += dy / r * (m - r); } }
+    if (UT[u.t].veh) for (const p of W.props) if (p.trench) { const dx = u.x - p.x, dy = u.y - p.y; if (Math.abs(dx) < p.s * .55 && Math.abs(dy) < 7) u.y = p.y + (dy < 0 ? -7 : 7); }
   }
   stepProj(dt);
   stepAir(dt);
@@ -415,7 +484,7 @@ function stepProj(dt){
       const v = p.target;
       if (v && p.hit && !v.dead) {
         damage(v, p.dmg, p.side, p.k);
-        if (UT[v.t].arm) { wp('armor_sparks', p.x1, p.y1, {s0: 5, s1: 16, life: .35}); if (p.k !== 'tracer' && p.k !== 'bullet') wsound('armor_hit', p.x1, p.y1, .45); }
+        if (UT[v.t].arm) { wp('armor_sparks', p.x1, p.y1, {s0: 5, s1: 16, life: .35}); if (p.k !== 'tracer' && p.k !== 'bullet') wsound('armor_hit', p.x1, p.y1, .45); else if (wrand() < .3) wsound('metal_hits', p.x1, p.y1, .3); }
         if (p.k === 'atgm' || p.k === 'hrkt' || (p.k === 'shell' && wrand() < .5)) wboom(p.x1, p.y1, .5, p.k !== 'shell');
       } else if (v) v.sup = Math.min(100, v.sup + (p.k === 'tracer' || p.k === 'bullet' ? 9 : 18));
       if (!p.hit || !v) {
@@ -573,12 +642,27 @@ function drawWar(dt){
   if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 70, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   c.fillStyle = '#1a1712'; c.fillRect(0, 0, Wd, Hd);
   c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
-  if (W_IMG.complete) c.drawImage(W_IMG, 0, 0, FIELD.w, FIELD.h);
+  {
+    const x0 = Math.max(0, cam.x - Wd / 2 / cam.k - 2), y0 = Math.max(0, cam.y - Hd / 2 / cam.k - 2), x1 = Math.min(FIELD.w, cam.x + Wd / 2 / cam.k + 2), y1 = Math.min(FIELD.h, cam.y + Hd / 2 / cam.k + 2);
+    if (W_IMG.complete && x1 > x0 && y1 > y0) c.drawImage(W_IMG, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    const [bx, by, bw, bh] = SAT_BOX, hx0 = Math.max(x0, bx), hy0 = Math.max(y0, by), hx1 = Math.min(x1, bx + bw), hy1 = Math.min(y1, by + bh);
+    if (HI_IMG.complete && hx1 > hx0 && hy1 > hy0) c.drawImage(HI_IMG, (hx0 - bx) * 2, (hy0 - by) * 2, (hx1 - hx0) * 2, (hy1 - hy0) * 2, hx0, hy0, hx1 - hx0, hy1 - hy0);
+  }
   const vis = (x, y, m = 80) => Math.abs(x - cam.x) * cam.k < Wd / 2 + m * cam.k && Math.abs(y - cam.y) * cam.k < Hd / 2 + m * cam.k;
   const spr = (k, x, y, s, rot, a = 1, comp, oy = 0) => { const im = img(k); if (!im || !im.complete || !im.width) return; const w = s * im.width / Math.max(im.width, im.height), h = s * im.height / Math.max(im.width, im.height); c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a; if (comp) c.globalCompositeOperation = comp; c.drawImage(im, -w / 2, -h / 2 + oy, w, h); c.restore(); };
   // جسم طائر: ظله على الأرض يبتعد كلما ارتفع، وهو يكبر قليلاً
   const airSpr = (k, x, y, s, rot, alt, a = 1) => { shade(c, k, x + alt * .35, y + alt * .55, s, rot, .22); spr(k, x, y, s * (1 + alt / 420), rot, a); };
-  for (const p of W.props) if (vis(p.x, p.y)) { shade(c, p.k, p.x + 2.5, p.y + 3.5, p.s, p.rot, .3); spr(p.k, p.x, p.y, p.s, p.rot); }
+  // تفاصيل الأرض عند التقريب: تظهر تدريجياً فوق صورة القمر
+  CHK_BUDGET = 2;
+  if (cam.k > 2.4 && GREADY) {
+    const a = Math.min(.85, (cam.k - 2.4) * .45), x0 = cam.x - Wd / 2 / cam.k, y0 = cam.y - Hd / 2 / cam.k, x1 = cam.x + Wd / 2 / cam.k, y1 = cam.y + Hd / 2 / cam.k;
+    c.globalAlpha = a;
+    for (let cy = Math.floor(Math.max(y0, SAT_BOX[1]) / CHUNK); cy * CHUNK < Math.min(y1, SAT_BOX[1] + SAT_BOX[3]); cy++)
+      for (let cx = Math.floor(Math.max(x0, SAT_BOX[0]) / CHUNK); cx * CHUNK < Math.min(x1, SAT_BOX[0] + SAT_BOX[2]); cx++) { const ch = groundChunk(cx, cy); if (ch) c.drawImage(ch, cx * CHUNK, cy * CHUNK, CHUNK, CHUNK); }
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  if (cam.k > 1.3) for (const f of GROUND.flora) if (vis(f[0], f[1], 10)) { const k = FLORA_K[f[2]], s = FLORA_S[f[2]]; shade(c, k, f[0] + s * .25, f[1] + s * .35, s, 0, .32); spr(k, f[0], f[1], s, (f[0] * 7 + f[1]) % 6.28); }
+  for (const p of W.props) if (vis(p.x, p.y)) { shade(c, p.k, p.x + 1.2, p.y + 1.6, p.s, p.rot, .3); spr(p.k, p.x, p.y, p.s, p.rot); }
   for (const d of W.decals) if (vis(d.x, d.y)) {
     if (d.k === 'hulk') { spr(d.spr, d.x, d.y, d.s, d.rot, 1, null, d.off || 0); shade(c, d.spr, d.x, d.y, d.s, d.rot, .62, d.off || 0); }
     else spr(d.k, d.x, d.y, d.s, d.rot, d.a);
@@ -599,8 +683,6 @@ function drawWar(dt){
       shade(c, u.spr, u.x + 1.6, u.y + 2.2, s, u.ang + Math.PI / 2, .35);
       spr(u.spr, u.x, u.y, s, u.ang + Math.PI / 2, d.inf && u.sup > 55 ? .8 : u.retreat ? .85 : 1);
     }
-    c.fillStyle = u.side === 'iq' ? '#d2a24c' : '#c0473b'; c.beginPath(); c.arc(u.x - s * .5, u.y - s * .5, 1.8, 0, 7); c.fill();
-    if (cam.k > .8 && u.hp < d.hp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(u.x - 7, u.y + s * .6, 14, 2.2); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(u.x - 7, u.y + s * .6, 14 * u.hp / d.hp, 2.2); }
   }
   for (const u of W.units) if (W.sel && W.sel.includes(u.id) && !u.dead) {
     c.strokeStyle = 'rgba(255,230,150,.95)'; c.lineWidth = 1.6 / cam.k; c.beginPath(); c.arc(u.x, u.y, UT[u.t].sz * .7, 0, 7); c.stroke();
@@ -653,11 +735,19 @@ function drawWar(dt){
       c.strokeStyle = 'rgba(25,25,25,.55)'; c.lineWidth = .9;
       for (let b = 0; b < 5; b++) { const a = ra + b * Math.PI * 2 / 5; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * R, Math.sin(a) * R); c.stroke(); }
       c.restore();
-      if (u.side === 'iq' || cam.k > .8) { c.fillStyle = u.side === 'iq' ? '#d2a24c' : '#c0473b'; c.beginPath(); c.arc(u.x - d.sz * .5, u.y - d.sz * .5, 1.8, 0, 7); c.fill(); }
     }
   }
   drawWParts(dt, 'top');
   c.restore();
+  // علامات الوحدات على الشاشة: نقطة الطرف، وشريط القوة للمصاب أو المحدد
+  for (const u of W.units) {
+    if (u.dead || u.gone || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue;
+    const d = UT[u.t], sx = (u.x - cam.x) * cam.k + Wd / 2, sy = (u.y - cam.y) * cam.k + Hd / 2, R = d.sz * cam.k * .5;
+    if (sx < -20 || sx > Wd + 20 || sy < -20 || sy > Hd + 20) continue;
+    c.fillStyle = u.side === 'iq' ? '#e2b04f' : '#d0473b'; c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 1;
+    c.beginPath(); c.arc(sx - R * .75, sy - R * .75, 2.6, 0, 7); c.fill(); c.stroke();
+    if (u.hp < d.hp || (W.sel && W.sel.includes(u.id))) { const bw = 16; c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(sx - bw / 2 - 1, sy + R + 2, bw + 2, 4); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(sx - bw / 2, sy + R + 3, bw * u.hp / d.hp, 2); }
+  }
   c.font = '700 13px "IBM Plex Sans Arabic", sans-serif'; c.textAlign = 'center'; c.direction = 'rtl';
   for (const tw of TOWNS) {
     const sx = (tw.x - cam.x) * cam.k + Wd / 2, sy = (tw.y - cam.y) * cam.k + Hd / 2; if (sx < -60 || sx > Wd + 60 || sy < -40 || sy > Hd + 40) continue;
@@ -688,7 +778,11 @@ function engineSounds(){
   const c = W.cam, R = innerWidth / c.k * .7;
   const near = f => { let best = 1e9; for (const u of W.units) if (!u.dead && f(u)) best = Math.min(best, Math.hypot(u.x - c.x, u.y - c.y)); return Math.max(0, 1 - best / R); };
   const set = (k, v) => { const L = LOOPS[k]; if (L) L.g.gain.setTargetAtTime(v, actx.currentTime, .4); };
-  set('tank_close', .55 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
+  set('tank_pass', .55 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
+  set('tank_idle', .35 * near(u => !u.moving && u.t === 'tank'));
+  set('wheeled', .35 * near(u => u.moving && (u.t === 'arty' || u.t === 'mlrs' || u.t === 'ad')));
+  // صيحات الجنود حين يكون المشاة في اشتباك قريب من الكاميرا
+  if (Math.random() < .05 && near(u => UT[u.t].inf && W.t - u.lastShot < 2) > .5) play('shouts', {vol: .28});
   set('tank_tracks', .08 + .2 * near(u => u.moving && UT[u.t].veh));
   set('footsteps', .3 * near(u => u.moving && UT[u.t].inf));
   set('helicopter', .06 + .5 * near(u => u.t === 'heli'));
@@ -707,8 +801,8 @@ function warLoop(now){
 function startWar(){
   document.getElementById('wres').classList.remove('on');
   stopLoops(); setupWar(); wspeed = 1; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '1'));
-  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert'].forEach(k => setTimeout(() => load(k), 5));
-  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_close', 0); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
+  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','battle_far','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
+  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('battle_far', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
   wResize(); syncWarUI();
 }
 function war(){ document.getElementById('war').classList.add('on'); startWar(); cancelAnimationFrame(wraf); wlast = performance.now(); wraf = requestAnimationFrame(warLoop); }

@@ -75,3 +75,40 @@
 | `38.mp3` | 4 ث | Mixkit #1274 جري على طريق خشن (Mixkit Sound Effects Free License) |
 | `39.mp3` | 5 ث | Mixkit #1446 تشويش راديو وطقطقة (Mixkit Sound Effects Free License) |
 | `40.mp3` | 3 ث | Mixkit #2802 قنبلة دخان (Mixkit Sound Effects Free License) |
+
+## أصوات الاشتباك — الدفعة الرابعة
+
+تسجيلات حقيقية، مو مولَّدة. القريب بقي حاداً، والبعيد انقصّ تردده وزيد صداه حتى يبين من بعيد. المعالجة: قصّ، وتوحيد العلو، وMP3 أحادي 80k.
+
+| الملف | المدة | المصدر والترخيص |
+|---|---|---|
+| `41.mp3` | 2 ث | SoundBible #987 رشقة AK-47 (Attribution 3.0) |
+| `42.mp3` | 4 ث | نفس تسجيل الـ AK، مبعّد بصدى عبر الوادي |
+| `43.mp3` | 3 ث | SoundBible #640 رشاش عسكري، رشقة طويلة (Attribution 3.0) |
+| `44.mp3` | 4 ث | SoundBible #1575 رشاش، مبعّد (Attribution 3.0) |
+| `45.mp3` | 3 ث | SoundBible #1387 رشاش ثقيل قريب (Attribution 3.0) |
+| `46.mp3` | 3 ث | SoundBible #1228 رشقة عيار 50 (Attribution 3.0) |
+| `47.mp3` | 3 ث | SoundBible #1631 طلقات مفردة متتالية من AR-15 في الخارج (Attribution 3.0). أقرب تسجيل متاح لبندقية قتال تضرب طلقة طلقة |
+| `48.mp3` | 3 ث | SoundBible #1788 طلقة قناص 50، مع صدى (Public Domain) |
+| `49.mp3` | 3 ث | SoundBible #1201 رشقات مدفع ثقيل (Attribution 3.0) |
+| `50.mp3` | 3 ث | SoundBible #1326 إطلاق مدفع دبابة (Attribution 3.0) |
+| `51.mp3` | 4 ث | نفس مدفع الدبابة، مبعّد بصدى التلال |
+| `52.mp3` | 2 ث | SoundBible #1327 إطلاق هاون (Attribution 3.0) |
+| `53.mp3` | 3 ث | صفير نازل من Mixkit #1714 ثم انفجار SoundBible #1467 |
+| `54.mp3` | 4 ث | Mixkit #1690 انفجار بعيد (Mixkit Sound Effects Free License) |
+| `55.mp3` | 3 ث | SoundBible #2051 طقطقة وارتداد، التردد الواطي مقصوص حتى تبقى الفرقعة بلا صوت الإطلاق (Attribution 3.0) |
+| `56.mp3` | 3 ث | ذيل الحطام من Mixkit #1703 بعد الانفجار |
+| `57.mp3` | 2 ث | Mixkit #2775 ضرب على درع معدني (Mixkit Sound Effects Free License) |
+| `58.mp3` | 2 ث | مقطع رنين من SoundBible #2051 (Attribution 3.0) |
+| `59.mp3` | 2 ث | Mixkit #855 محرك مثقاب كهربائي، أقرب أنين محرك مستمر (Mixkit Sound Effects Free License) |
+| `60.mp3` | 2 ث | Mixkit #1714 مرور صاروخ (Mixkit Sound Effects Free License) |
+| `61.mp3` | 5 ث | نفس الصاروخ مكرّر بفواصل ومبعّد، حتى تصير رشقة |
+| `62.mp3` | 5 ث | SoundBible #1807 انفجار كبير مع صدى (Attribution 3.0) |
+| `63.mp3` | 3 ث | Mixkit #1703 انفجار قريب مع حطام (Mixkit Sound Effects Free License) |
+| `64.mp3` | 15 ث | SoundBible #2078 معركة: رصاص وارتداد ومدفعية بعيدة (Attribution 3.0) |
+| `65.mp3` | 5 ث | Mixkit #2175 و#2170 صيحات، مبعّدة حتى ما تنفهم (Mixkit Sound Effects Free License) |
+| `66.mp3` | 5 ث | Mixkit #2753 محرك دبابة يشتغل (Mixkit Sound Effects Free License) |
+| `67.mp3` | 5 ث | Mixkit #1621 شاحنة تسير بثبات، ديزل وعجلات (Mixkit Sound Effects Free License) |
+| `68.mp3` | 2 ث | SoundBible #1467 انفجار قنبلة (Attribution 3.0) |
+| `69.mp3` | 3 ث | SoundBible #2075 إطلاق آر بي جي ثم الانفجار (Attribution 3.0) |
+| `70.mp3` | 5 ث | Mixkit #2756 دبابة تمر (Mixkit Sound Effects Free License) |
