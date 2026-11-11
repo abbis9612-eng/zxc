@@ -133,7 +133,7 @@ function muzzleOf(u){
 // ------------------------------------------------------------------ الجزيئات بإحداثيات العالم
 function wp(img, x, y, o){ if (W.parts.length > 850) return; W.parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 10, s1: 20, a0: 1, a1: 0, rot: wrand() * 6.28, vr: (wrand() - .5) * .5, t: 0, life: 1, delay: 0, layer: 'top'}, o)); }
 function wboom(x, y, big = 1, snd = true){
-  const r = Math.max(10 * big, 9 / W.cam.k * big); (W.flashes = W.flashes || []).push({x, y, r: 34 * big, t: .45});
+  const r = Math.max(10 * big, 9 / W.cam.k * big); (W.flashes = W.flashes || []).push({x, y, r: 34 * big, t: .45}); c2Mark(x, y, 'boom', 14 * big);
   wp('flare', x, y, {s0: r * 1.4, s1: r * 2.4, a0: 1, life: .18, vr: 0});
   wp('fireball', x, y, {s0: r * .7, s1: r * 2.1, life: .75, vr: 0});
   wp('fireball', x + (wrand() - .5) * r * .5, y + (wrand() - .5) * r * .5, {s0: r * .5, s1: r * 1.5, life: .6, delay: .08, vr: 0});
@@ -464,7 +464,7 @@ function stepProj(dt){
     } else {
       const v = p.target;
       if (v && p.hit && !v.dead) {
-        damage(v, p.dmg, p.side, p.k);
+        damage(v, p.dmg, p.side, p.k); c2Mark(p.x1, p.y1, 'hit');
         if (UT[v.t].arm) { wp('armor_sparks', p.x1, p.y1, {s0: 5, s1: 16, life: .35}); if (p.k !== 'tracer' && p.k !== 'bullet') wsound('armor_hit', p.x1, p.y1, .45); else if (wrand() < .3) wsound('metal_hits', p.x1, p.y1, .3); }
         if (p.k === 'atgm' || p.k === 'hrkt' || (p.k === 'shell' && wrand() < .5)) wboom(p.x1, p.y1, .5, p.k !== 'shell');
       } else if (v) v.sup = Math.min(100, v.sup + (p.k === 'tracer' || p.k === 'bullet' ? 9 : 18));
@@ -792,7 +792,7 @@ function warLoop(now){
   const real = Math.min(.05, (now - wlast) / 1000); wlast = now;
   const dt = real * wspeed;
   if (W && !W.end && wspeed > 0) { let left = dt; while (left > 0) { const s = Math.min(.05, left); stepWar(s); left -= s; } }
-  if (W) { drawWar(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); engineSounds(); } }
+  if (W) { (C2MODE ? drawC2 : drawWar)(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); engineSounds(); } }
   fpsN++; fpsT += real;
   if (fpsT >= 1) { const f = Math.round(fpsN / fpsT), el = document.getElementById('wfps'); if (el) { el.textContent = f + ' fps'; el.style.color = f >= 55 ? '#6fbf86' : f >= 40 ? '#e2b04f' : '#e0705f'; } if (f < 45) lowN++; else lowN = 0; if (lowN >= 3 && WDPR > 1) { WDPR = Math.max(1, WDPR - .25); wResize(); lowN = 0; } fpsN = 0; fpsT = 0; }
   wraf = requestAnimationFrame(warLoop);
@@ -866,3 +866,146 @@ function selUI(){
 }
 document.getElementById('wsel-x').onclick = () => { if (W) { W.sel = []; selUI(); } };
 document.getElementById('wsel-free').onclick = () => { if (W) { for (const u of W.units) if (W.sel.includes(u.id)) { u.manual = null; u.focus = null; } W.sel = []; selUI(); wlog('الوحدات المحددة تعود للخطة', 'iq'); } };
+// ================================================================== شاشة غرفة القيادة: خريطة القمر الحقيقية ورموز عسكرية قياسية (نظام الناتو APP-6)
+// قواتنا: مستطيل أزرق. العدو: معيّن أحمر. العدو لا يظهر إلا إذا رأته قواتنا، وإلا يبقى آخر موقع معروف له باهتاً.
+let C2MODE = true;
+const C2 = {friend: '#7fd3f7', friendFill: 'rgba(128,224,255,.92)', hostile: '#ff6b5e', hostileFill: 'rgba(255,128,128,.92)', ink: '#06121a', grid: 'rgba(160,220,255,.16)', gridTxt: 'rgba(190,230,255,.55)'};
+// من يرى العدو؟ نحسبها مرتين في الثانية
+function c2Visibility(){
+  if ((W.visT = (W.visT || 0) - .05) > 0) return; W.visT = .5;
+  for (const v of W.units) {
+    if (v.side !== 'tr' || v.dead || v.t === 'jet') continue;
+    const air = UT[v.t].air;
+    v.vis = air ? W.units.some(u => u.side === 'iq' && !u.dead && dist(u, v) < 8 * KM) : spotted('iq', v);
+    if (v.vis) v.last = {x: v.x, y: v.y, t: W.t};
+  }
+}
+// علامة الانفجار والإصابة على الخريطة
+function c2Mark(x, y, kind, r = 12){ (W.marks = W.marks || []).push({x, y, kind, r, t: 0, life: kind === 'kill' ? 6 : kind === 'boom' ? 1.6 : .8}); }
+// رسم رمز وحدة بحجم ثابت على الشاشة
+function c2Symbol(c, u, sx, sy, alpha = 1, unknown = false){
+  const fr = u.side === 'iq', t = u.t, S = 12;
+  c.save(); c.globalAlpha = alpha; c.translate(sx, sy); c.lineJoin = 'round';
+  // الإطار: مستطيل للصديق، معيّن للعدو، ورباعي ورقي للمجهول
+  c.beginPath();
+  if (unknown) { for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; c.arc(Math.cos(a) * 6, Math.sin(a) * 6, 7, a - 1.3, a + 1.3); } c.closePath(); c.fillStyle = 'rgba(255,240,140,.9)'; }
+  else if (fr) { c.rect(-S, -S * .68, S * 2, S * 1.36); c.fillStyle = C2.friendFill; }
+  else { c.moveTo(0, -S * 1.05); c.lineTo(S * 1.05, 0); c.lineTo(0, S * 1.05); c.lineTo(-S * 1.05, 0); c.closePath(); c.fillStyle = C2.hostileFill; }
+  if (UT[t] && UT[t].air && !unknown) { c.restore(); c.save(); c.globalAlpha = alpha; c.translate(sx, sy); c.beginPath(); if (fr) { c.moveTo(-S, S * .6); c.lineTo(-S, -S * .1); c.arc(0, -S * .1, S, Math.PI, 0); c.lineTo(S, S * .6); c.closePath(); } else { c.moveTo(-S, S * .6); c.lineTo(-S, 0); c.lineTo(0, -S * 1.05); c.lineTo(S, 0); c.lineTo(S, S * .6); c.closePath(); } c.fillStyle = fr ? C2.friendFill : C2.hostileFill; }
+  c.fill(); c.lineWidth = 1.6; c.strokeStyle = C2.ink; c.stroke();
+  if (unknown) { c.fillStyle = C2.ink; c.font = '700 11px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', 0, 1); c.restore(); return; }
+  // أيقونة النوع داخل الإطار
+  const w = fr ? S : S * .62, h = fr ? S * .68 : S * .62;
+  c.beginPath(); c.lineWidth = 1.4; c.strokeStyle = C2.ink; c.fillStyle = C2.ink;
+  const X = () => { c.moveTo(-w, -h); c.lineTo(w, h); c.moveTo(w, -h); c.lineTo(-w, h); };
+  const oval = (rx, ry) => { c.ellipse(0, 0, rx, ry, 0, 0, 7); };
+  switch (t) {
+    case 'tank': oval(w * .62, h * .5); break;                                   // دروع
+    case 'ifv': oval(w * .62, h * .5); c.moveTo(w * .62, 0); X(); break;          // مشاة ميكانيكية
+    case 'squad': X(); break;                                                     // مشاة
+    case 'atgm': c.moveTo(-w, h); c.lineTo(0, -h); c.lineTo(w, h); break;        // مضاد دروع
+    case 'mg': X(); c.stroke(); c.beginPath(); c.font = '700 7px sans-serif'; c.textAlign = 'center'; c.fillText('MG', 0, h + 7); break;
+    case 'sniper': X(); c.stroke(); c.beginPath(); c.font = '700 7px sans-serif'; c.textAlign = 'center'; c.fillText('SN', 0, h + 7); break;
+    case 'mortar': c.arc(0, h * .55, 2, 0, 7); c.moveTo(0, h * .3); c.lineTo(0, -h * .8); c.moveTo(-3, -h * .45); c.lineTo(0, -h * .8); c.lineTo(3, -h * .45); break;
+    case 'arty': c.arc(0, 0, 2.6, 0, 7); c.fill(); break;                         // مدفعية
+    case 'mlrs': c.arc(0, h * .25, 2.4, 0, 7); c.fill(); c.beginPath(); c.moveTo(-4, -1); c.lineTo(0, -h * .8); c.lineTo(4, -1); break;   // راجمة صواريخ
+    case 'ad': c.arc(0, h, w * .7, Math.PI, 0); break;                            // دفاع جوي
+    case 'heli': c.moveTo(-w * .7, -h * .3); c.lineTo(w * .7, h * .5); c.lineTo(w * .7, -h * .3); c.lineTo(-w * .7, h * .5); c.closePath(); break;   // جناح دوّار
+    case 'jet': case 'drone': case 'recon': c.moveTo(-w * .8, 0); c.lineTo(0, -h * .5); c.lineTo(w * .8, 0); c.moveTo(0, -h * .5); c.lineTo(0, h * .6); if (t !== 'jet') { c.stroke(); c.beginPath(); c.font = '700 6px sans-serif'; c.textAlign = 'center'; c.fillText('UAV', 0, h + 6); } break;
+  }
+  c.stroke();
+  // مستوى الوحدة فوق الإطار: فصيل ••• وفريق •
+  if (!UT[t].air) { const n = t === 'squad' || t === 'tank' || t === 'ifv' ? 3 : 1; for (let i = 0; i < n; i++) { c.beginPath(); c.arc((i - (n - 1) / 2) * 4.5, -S * (fr ? .68 : 1.05) - 4, 1.5, 0, 7); c.fill(); } }
+  c.restore();
+}
+function drawC2(dt){
+  const c = wctx, Wd = wc().clientWidth, Hd = wc().clientHeight, cam = W.cam;
+  c2Visibility();
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 70, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  c.fillStyle = '#061016'; c.fillRect(0, 0, Wd, Hd);
+  c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
+  const x0 = Math.max(0, cam.x - Wd / 2 / cam.k - 2), y0 = Math.max(0, cam.y - Hd / 2 / cam.k - 2), x1 = Math.min(FIELD.w, cam.x + Wd / 2 / cam.k + 2), y1 = Math.min(FIELD.h, cam.y + Hd / 2 / cam.k + 2);
+  if (W_IMG.complete && x1 > x0 && y1 > y0) c.drawImage(W_IMG, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  { const [bx, by, bw, bh] = SAT_BOX, hx0 = Math.max(x0, bx), hy0 = Math.max(y0, by), hx1 = Math.min(x1, bx + bw), hy1 = Math.min(y1, by + bh);
+    if (hx1 > hx0 && hy1 > hy0) for (let j = Math.floor((hy0 - by) / TILE); j * TILE < hy1 - by; j++) for (let i = Math.floor((hx0 - bx) / TILE); i * TILE < hx1 - bx; i++) { const t = satTile(i, j); if (t) c.drawImage(t, bx + i * TILE, by + j * TILE, t.width / 2, t.height / 2); } }
+  // تعتيم خفيف بلون شاشات القيادة حتى تبرز الرموز
+  c.fillStyle = 'rgba(3,16,26,.38)'; c.fillRect(x0, y0, x1 - x0, y1 - y0);
+  // شبكة الكيلومترات
+  const step = cam.k > 1.6 ? KM : 5 * KM; c.strokeStyle = C2.grid; c.lineWidth = 1 / cam.k; c.beginPath();
+  for (let x = Math.floor(x0 / step) * step; x < x1; x += step) { c.moveTo(x, y0); c.lineTo(x, y1); }
+  for (let y = Math.floor(y0 / step) * step; y < y1; y += step) { c.moveTo(x0, y); c.lineTo(x1, y); }
+  c.stroke();
+  // خنادق العدو المعروفة: خط متعرج أحمر
+  c.strokeStyle = 'rgba(255,107,94,.85)'; c.lineWidth = 2 / cam.k;
+  for (const p of W.props) if (p.trench) { const L = p.s * .5; c.beginPath(); for (let i = 0; i <= 8; i++) { const x = p.x - L + i * L / 4, y = p.y - 4 + (i % 2 ? -2 : 2); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+  // الستار الدخاني: دائرة مخططة
+  for (const s of W.smokes) { c.save(); c.beginPath(); c.arc(s.x, s.y, s.r, 0, 7); c.fillStyle = 'rgba(220,225,230,.18)'; c.fill(); c.clip(); c.strokeStyle = 'rgba(230,235,240,.35)'; c.lineWidth = 1 / cam.k; c.beginPath(); for (let d = -s.r * 2; d < s.r * 2; d += 5) { c.moveTo(s.x + d, s.y - s.r); c.lineTo(s.x + d + s.r * 2, s.y + s.r); } c.stroke(); c.restore(); }
+  // حلقة مدى الوحدة المحددة
+  for (const u of W.units) if (W.sel && W.sel.includes(u.id) && !u.dead) {
+    const d = UT[u.t]; if (d.rng) { c.setLineDash([6 / cam.k, 5 / cam.k]); c.strokeStyle = 'rgba(127,211,247,.55)'; c.lineWidth = 1.2 / cam.k; c.beginPath(); c.arc(u.x, u.y, d.rng, 0, 7); c.stroke(); c.setLineDash([]); }
+    if (u.manual) { const f = u.focus && W.units.find(v => v.id === u.focus && !v.dead), g = f || u.manual; c.strokeStyle = f ? 'rgba(255,107,94,.9)' : 'rgba(127,211,247,.9)'; c.lineWidth = 2 / cam.k; c.beginPath(); c.moveTo(u.x, u.y); c.lineTo(g.x, g.y); c.stroke(); const a = Math.atan2(g.y - u.y, g.x - u.x), L = 7 / cam.k; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x - Math.cos(a - .4) * L, g.y - Math.sin(a - .4) * L); c.moveTo(g.x, g.y); c.lineTo(g.x - Math.cos(a + .4) * L, g.y - Math.sin(a + .4) * L); c.stroke(); }
+  }
+  // خطوط النار والمقذوفات
+  for (const p of W.proj) {
+    if (p.t < 0 || p.done) continue;
+    const q = projPos(p), col = p.side === 'iq' ? '127,211,247' : '255,107,94';
+    if (p.k === 'tracer' || p.k === 'shell' || p.k === 'bullet') { c.strokeStyle = `rgba(${col},${p.k === 'shell' ? .75 : .4})`; c.lineWidth = (p.k === 'shell' ? 1.6 : 1) / cam.k; c.beginPath(); c.moveTo(p.x0, p.y0); c.lineTo(q.x, q.y); c.stroke(); }
+    else {
+      // قذائف وصواريخ بعيدة: خط متقطع إلى نقطة السقوط، ودائرة السقوط المتوقع
+      const far = p.k === 'arty' || p.k === 'rkt' || p.k === 'bm' || p.k === 'agm';
+      if (far) { c.setLineDash([4 / cam.k, 4 / cam.k]); c.strokeStyle = `rgba(${col},.45)`; c.lineWidth = 1 / cam.k; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(p.x1, p.y1); c.stroke(); c.setLineDash([]); c.strokeStyle = `rgba(${col},.8)`; c.beginPath(); c.arc(p.x1, p.y1, (p.k === 'bm' ? 14 : p.k === 'agm' ? 10 : 7) * (1 + .15 * Math.sin(W.t * 8)), 0, 7); c.stroke(); }
+      else { c.strokeStyle = `rgba(${col},.6)`; c.lineWidth = 1.2 / cam.k; c.beginPath(); c.moveTo(p.x0, p.y0); c.lineTo(q.x, q.y); c.stroke(); }
+      c.fillStyle = p.k === 'int' ? '#ffe28a' : `rgb(${col})`; c.beginPath(); c.arc(q.x, q.y, 2.6 / cam.k, 0, 7); c.fill();
+    }
+  }
+  c.restore();
+  // ---------- طبقة الشاشة: علامات الانفجار، والرموز، وأسماء المدن (بحجم ثابت)
+  const S2 = (x, y) => [(x - cam.x) * cam.k + Wd / 2, (y - cam.y) * cam.k + Hd / 2];
+  W.marks = (W.marks || []).filter(m => (m.t += dt) < m.life);
+  for (const m of W.marks) {
+    const [sx, sy] = S2(m.x, m.y), k = m.t / m.life;
+    if (m.kind === 'boom') { c.strokeStyle = `rgba(255,170,80,${1 - k})`; c.lineWidth = 2; c.beginPath(); c.arc(sx, sy, 4 + k * Math.max(14, m.r * cam.k), 0, 7); c.stroke(); c.fillStyle = `rgba(255,200,120,${(1 - k) * .5})`; c.beginPath(); c.arc(sx, sy, 3 + (1 - k) * 4, 0, 7); c.fill(); }
+    else if (m.kind === 'hit') { c.strokeStyle = `rgba(255,230,140,${1 - k})`; c.lineWidth = 1.5; c.beginPath(); c.moveTo(sx - 5, sy - 5); c.lineTo(sx + 5, sy + 5); c.moveTo(sx + 5, sy - 5); c.lineTo(sx - 5, sy + 5); c.stroke(); }
+  }
+  // الوحدات المدمرة: رمز رمادي عليه علامة ×
+  for (const u of W.units) {
+    if (!u.dead || u.gone || UT[u.t].air || (u.side === 'tr' && !u.last)) continue;
+    const [sx, sy] = S2(u.x, u.y); if (sx < -20 || sx > Wd + 20 || sy < -20 || sy > Hd + 20) continue;
+    c2Symbol(c, u, sx, sy, .35); c.strokeStyle = 'rgba(20,20,20,.8)'; c.lineWidth = 2; c.beginPath(); c.moveTo(sx - 12, sy - 9); c.lineTo(sx + 12, sy + 9); c.moveTo(sx + 12, sy - 9); c.lineTo(sx - 12, sy + 9); c.stroke();
+  }
+  for (const u of W.units) {
+    if (u.dead || u.gone) continue;
+    let x = u.x, y = u.y, a = 1, unk = false;
+    if (u.side === 'tr' && !u.vis) { if (!u.last || W.t - u.last.t > 90) continue; x = u.last.x; y = u.last.y; a = .5; unk = W.t - u.last.t > 20; }
+    const [sx, sy] = S2(x, y); if (sx < -24 || sx > Wd + 24 || sy < -24 || sy > Hd + 24) continue;
+    const d = UT[u.t];
+    // خط اتجاه الحركة وسرعتها
+    if (u.moving && (u.side === 'iq' || u.vis)) { const L = 8 + Math.min(18, (d.spd || 10) * .8); c.strokeStyle = u.side === 'iq' ? C2.friend : C2.hostile; c.lineWidth = 1.5; c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + Math.cos(u.ang) * L, sy + Math.sin(u.ang) * L); c.stroke(); }
+    c2Symbol(c, u, sx, sy, a, unk);
+    if (W.sel && W.sel.includes(u.id)) { c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.strokeRect(sx - 16, sy - 13, 32, 26); }
+    if (a === 1) {
+      // شريط القوة، وعلامة «تحت النار»، وسهم الانسحاب
+      const bw = 22, f = u.hp / d.hp; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(sx - bw / 2 - 1, sy + 13, bw + 2, 4); c.fillStyle = f > .6 ? '#6fd08c' : f > .3 ? '#e2c04f' : '#e0604f'; c.fillRect(sx - bw / 2, sy + 14, bw * f, 2);
+      if (u.sup > 55) { c.fillStyle = '#ffd34d'; c.font = '700 12px sans-serif'; c.textAlign = 'left'; c.fillText('!', sx + 14, sy - 6); }
+      if (u.retreat) { c.fillStyle = '#ffd34d'; c.font = '700 11px sans-serif'; c.textAlign = 'right'; c.fillText('↩', sx - 14, sy - 6); }
+    }
+  }
+  // أسماء المدن وأشرطة السيطرة
+  c.font = '700 13px "IBM Plex Sans Arabic", sans-serif'; c.textAlign = 'center'; c.direction = 'rtl';
+  for (const tw of TOWNS) {
+    const [sx, sy] = S2(tw.x, tw.y); if (sx < -60 || sx > Wd + 60 || sy < -40 || sy > Hd + 40) continue;
+    const y = sy - tw.r * cam.k - 8;
+    c.setLineDash([4, 4]); c.strokeStyle = 'rgba(190,230,255,.35)'; c.lineWidth = 1; c.beginPath(); c.arc(sx, sy, tw.r * cam.k, 0, 7); c.stroke(); c.setLineDash([]);
+    c.lineWidth = 4; c.strokeStyle = 'rgba(3,10,16,.9)'; c.fillStyle = '#e9f4fa'; c.strokeText(tw.n, sx, y); c.fillText(tw.n, sx, y);
+    if (tw.obj) { const v = W.ctl[tw.id] / 100; c.fillStyle = 'rgba(3,10,16,.85)'; c.fillRect(sx - 26, y + 5, 52, 7); c.fillStyle = C2.hostile; c.fillRect(sx - 25, y + 6, 50, 5); c.fillStyle = C2.friend; c.fillRect(sx - 25, y + 6, 50 * v, 5); }
+  }
+  // أرقام الشبكة على الحافة
+  c.font = '10px monospace'; c.fillStyle = C2.gridTxt; c.textAlign = 'left'; c.direction = 'ltr';
+  for (let x = Math.floor(x0 / step) * step; x < x1; x += step) { const [sx] = S2(x, 0); if (sx > 4 && sx < Wd - 20) c.fillText(String(Math.round(x / KM)).padStart(2, '0'), sx + 2, Hd - 150); }
+  for (let y = Math.floor(y0 / step) * step; y < y1; y += step) { const [, sy] = S2(0, y); if (sy > 120 && sy < Hd - 160) c.fillText(String(Math.round(y / KM)).padStart(2, '0'), Wd - 18, sy - 2); }
+  c.direction = 'rtl';
+  // الجزيئات لا تُرسم هنا، لكن تتقدم وتنتهي
+  for (const p of W.parts) { if (p.delay > 0) p.delay -= dt; else p.t += dt; }
+  W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
+}
+document.getElementById('wc2').onclick = () => { C2MODE = !C2MODE; document.getElementById('wc2').classList.toggle('on', C2MODE); document.getElementById('wc2').textContent = C2MODE ? '⌗' : '▣'; };
