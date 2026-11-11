@@ -22,3 +22,4 @@
 | الحقول والطرق والقرى والأشجار والصخور | **مولّدة** بحسب الانحدار ومجاري الماء، وليست مواقع حقيقية | — |
 | مروحية Mi-24V | Rhine_Lab_Muelsyse على Sketchfab | CC BY-NC 4.0 |
 | مقاتلة Mitsubishi F-2 | bohmerang على Sketchfab | CC BY-NC-SA 4.0 |
+| أرض صخرية جاهزة (Rocky Desert - Terrain) | artfromheath على Sketchfab | CC BY 4.0 |
