@@ -5,6 +5,11 @@
 ```
 You are generating a consistent set of military game sprites for my personal strategy game. Follow these rules for EVERY image:
 
+IMPORTANT
+- ONE single full-size 1024x1024 image per reply. NEVER a grid, collage or contact sheet of several items.
+- Every item must look clearly different from the others of the same type (follow the distinguishing details written in its description).
+- Keep the same scale: a tank fills the frame the same way every time; aircraft fill the frame the same way every time.
+
 STYLE RULES (identical for all images)
 - Strict top-down orthographic view (camera directly above, 90 degrees), no perspective, no side view.
 - Photorealistic, highly detailed, like a high-resolution satellite photo of the real thing.
@@ -22,18 +27,18 @@ PROCESS
 - If one item cannot be generated because of its real name, generate it from the description without the name.
 
 ITEMS (number — description — paint — orientation)
-1. T-72 main battle tank — desert tan camouflage — turret and gun pointing up
-2. M1A1 Abrams main battle tank — desert tan camouflage — turret and gun pointing up
-3. T-90S main battle tank with Shtora boxes — desert tan camouflage — turret and gun pointing up
-4. BMP-1 infantry fighting vehicle — desert tan camouflage — front pointing up
-5. F-16 Fighting Falcon fighter jet in flight — light grey air superiority paint — nose pointing up
+1. T-72 main battle tank with a rounded dome-shaped cast turret, smaller and lower than western tanks — desert tan camouflage — turret and gun pointing up
+2. M1A1 Abrams main battle tank with a large flat angular slab-sided turret and long rear turret bustle, wider and longer than Soviet tanks — desert tan camouflage — turret and gun pointing up
+3. T-90S main battle tank with a welded angular turret, two Shtora infrared jammer boxes on the turret front and reactive armor bricks — desert tan camouflage — turret and gun pointing up
+4. BMP-1 infantry fighting vehicle: low narrow tracked hull with a pointed nose, a SMALL one-man turret near the front with a SHORT gun, rear troop hatches (NOT a tank) — desert tan camouflage — front pointing up
+5. F-16 Fighting Falcon fighter jet in flight: SINGLE engine, SINGLE vertical tail, cropped delta-like wings, bubble canopy — light grey air superiority paint — nose pointing up
 6. Su-25 ground attack jet in flight — desert camouflage — nose pointing up
-7. Mi-35 attack helicopter in flight with rotor blades visible — desert camouflage — nose pointing up
+7. Mi-35 attack helicopter in flight: FIVE main rotor blades, stub wings with rockets, bulky fuselage — desert camouflage — nose pointing up
 8. CH-4 combat drone in flight — light grey paint — nose pointing up
 9. M1A2S Abrams main battle tank — desert tan camouflage — turret and gun pointing up
-10. F-15SA Strike Eagle fighter jet in flight — two-tone grey paint — nose pointing up
-11. Eurofighter Typhoon fighter jet in flight — light grey paint — nose pointing up
-12. AH-64 Apache attack helicopter in flight with rotor blades visible — desert tan paint — nose pointing up
+10. F-15SA Strike Eagle fighter jet in flight: large twin-engine fighter, TWIN vertical tails, wide straight-edged wings, big rectangular air intakes — two-tone grey paint — nose pointing up
+11. Eurofighter Typhoon fighter jet in flight: delta wing with small front canards, SINGLE vertical tail, twin engines — light grey paint — nose pointing up
+12. AH-64 Apache attack helicopter in flight: FOUR main rotor blades, narrow fuselage, stub wings with missiles — desert tan paint — nose pointing up
 13. Patriot PAC-3 missile launcher truck with launcher raised — desert tan camouflage — front of the truck pointing up
 14. CAESAR truck-mounted 155mm howitzer — desert tan camouflage — barrel pointing up
 15. DF-21 ballistic missile transporter-erector-launcher truck — desert tan camouflage — front of the truck pointing up
@@ -41,11 +46,11 @@ ITEMS (number — description — paint — orientation)
 17. Leopard 2A4 main battle tank — green and brown woodland camouflage — turret and gun pointing up
 18. Altay main battle tank — green and brown camouflage — turret and gun pointing up
 19. ACV-15 armored personnel carrier — green camouflage — front pointing up
-20. KAAN fifth-generation stealth fighter jet in flight — dark grey stealth paint — nose pointing up
+20. KAAN fifth-generation stealth fighter jet in flight: twin engines, large trapezoid wings, twin canted tails, broad body — dark grey stealth paint — nose pointing up
 21. Bayraktar TB2 combat drone in flight — light grey paint — nose pointing up
 22. Bayraktar Akinci heavy combat drone in flight — light grey paint — nose pointing up
 23. Bayraktar Kizilelma jet-powered unmanned fighter in flight — dark grey paint — nose pointing up
-24. T129 ATAK attack helicopter in flight with rotor blades visible — green camouflage — nose pointing up
+24. T129 ATAK attack helicopter in flight: FOUR main rotor blades, slim tandem fuselage, stub wings — green camouflage — nose pointing up
 25. T-155 Firtina self-propelled howitzer — green camouflage — barrel pointing up
 26. Ada-class MILGEM corvette warship at sea, small wake — naval grey paint — bow pointing up
 27. T-55 main battle tank — olive green paint — turret and gun pointing up
@@ -53,15 +58,15 @@ ITEMS (number — description — paint — orientation)
 29. Su-24 strike jet in flight with wings swept — desert camouflage — nose pointing up
 30. Pantsir-S1 air defense truck — desert camouflage — front of the truck pointing up
 31. Scud ballistic missile launcher truck with missile raised — olive green paint — front of the truck pointing up
-32. F-35A Lightning II stealth fighter jet in flight — dark grey stealth paint — nose pointing up
-33. F-22 Raptor stealth fighter jet in flight — dark grey stealth paint — nose pointing up
+32. F-35A Lightning II stealth fighter jet in flight: SINGLE engine, compact body, twin canted tails, trapezoid wings — dark grey stealth paint — nose pointing up
+33. F-22 Raptor stealth fighter jet in flight: TWIN engines, diamond-shaped wings, large twin canted tails, flat rectangular exhausts — dark grey stealth paint — nose pointing up
 34. HIMARS rocket artillery truck with launcher pod — desert tan camouflage — front of the truck pointing up
 35. MQ-9 Reaper drone in flight — light grey paint — nose pointing up
 36. T-90M main battle tank — green camouflage — turret and gun pointing up
-37. Su-57 stealth fighter jet in flight — pixel camouflage in grey and blue — nose pointing up
+37. Su-57 stealth fighter jet in flight: very long flat body, WIDELY separated twin engines with a gap between them, small all-moving tails — pixel camouflage in grey and blue — nose pointing up
 38. Su-35 fighter jet in flight — grey and blue camouflage — nose pointing up
 39. S-400 missile launcher truck with launch tubes raised — green camouflage — front of the truck pointing up
-40. J-20 stealth fighter jet in flight — dark grey stealth paint — nose pointing up
+40. J-20 stealth fighter jet in flight: very long and slender, front CANARD wings, delta main wing — dark grey stealth paint — nose pointing up
 41. Shahed-136 delta-wing loitering munition drone in flight — light grey paint — nose pointing up
 42. Fateh-110 ballistic missile launcher truck with missile raised — desert camouflage — front of the truck pointing up
 43. T-72 based main battle tank heavily upgraded with extra side armor skirts, explosive reactive armor blocks and a remote weapon station — desert tan camouflage with brown patches — turret and gun pointing up [ORIGINAL design, do not copy any real vehicle]
