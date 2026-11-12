@@ -15,3 +15,6 @@ android/capacitor-cordova-android-plugins/
 *.jks
 keys/
 tools/keys/
+
+# ناتج بناء المعركة (يُعاد بناؤه بـ prototype/build.py)
+prototype/pub/
