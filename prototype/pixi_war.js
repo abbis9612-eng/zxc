@@ -94,7 +94,7 @@ function drawFX(dt){
     f.t += dt * f.ts; const t = f.t; if (t > last + 4) continue;
     let a = 0, b = 0, w = 0;
     if (t >= tm[0]) { let j = 1; while (j < tm.length && tm[j] < t) j++; if (j >= tm.length) { a = b = tm.length - 1; } else { a = j - 1; b = j; w = (t - tm[a]) / (tm[b] - tm[a]); } }
-    const fade = t > last ? Math.max(0, 1 - (t - last) / 4) : 1, S = FX.size_m * M2W * f.sc;
+    const fade = t > last ? Math.max(0, 1 - (t - last) / 4) : 1, S = FX.size_m * M2W * f.sc * Math.min(12, EX(30, 46));
     for (const [i, al] of [[a, 1 - w], [b, w]]) {
       if (al <= .01) continue;
       put(L.fxsh, T.fxs[i], f.x, f.y, S, S, 0, al * fade * .55, 'normal', 0xffffff, FX.cx, FX.cy);
@@ -150,23 +150,26 @@ const SUNX = .54, SUNY = .84;     // اتجاه الظل (الشمس من الش
 const FORM = [[0, 0], [-55, -45], [55, -45]];   // فصيل الدبابات: إسفين، بالأمتار (يمين، أمام)
 const SQ = [[-30, 0], [-21, 6], [-12, -3], [-4, 5], [5, -4], [13, 5], [22, -2], [31, 4]];   // فصيل المشاة: خط متباعد
 const WRECKS = [];
+let CAMK = 1;
+const EX = (m, px) => Math.max(1, px / (m * M2W * CAMK));   // كم نكبّر حتى يبقى المجسم مرئياً
 function unitN(u, n){ const d = UT[u.t]; return u.dead ? 0 : Math.max(1, Math.ceil(n * u.hp / d.hp - 1e-6)); }
 function vehAt(u, i, list){ const [r, f] = list[i], c = Math.cos(u.ang), s = Math.sin(u.ang); return {x: u.x + (c * f - s * r) * M2W, y: u.y + (s * f + c * r) * M2W}; }
-function drawVehicle(m, x, y, ang, ta, recoil, burnt){
-  const V = VEH[m], S = 256 * V.mpp * M2W, ox = (V.px - 128) * V.mpp * M2W, oy = (V.py - 128) * V.mpp * M2W;
+function drawVehicle(m, x, y, ang, ta, recoil, burnt, ex = 1){
+  const V = VEH[m], S = 256 * V.mpp * M2W * ex, ox = (V.px - 128) * V.mpp * M2W * ex, oy = (V.py - 128) * V.mpp * M2W * ex;
   const tint = burnt ? 0x3a3430 : 0xffffff;
   put(L.unit, T[m + '_hull'], x, y, S, S, ang + Math.PI / 2, 1, 'normal', tint);
   // البرج يدور حول حلقته؛ ظله على البدن والأرض
   const c = Math.cos(ang + Math.PI / 2), s = Math.sin(ang + Math.PI / 2), rx = x + c * ox - s * oy, ry = y + s * ox + c * oy;
   const tp = (V.px) / 256, tq = (V.py) / 256, rec = (recoil || 0) * .4 * M2W;
   const tr = ta + Math.PI / 2, bx = rx - Math.sin(ta + Math.PI / 2) * -rec, by = ry + Math.cos(ta + Math.PI / 2) * -rec;
-  put(L.unit, T[m + '_turret'], bx + 1.1 * M2W * SUNX, by + 1.1 * M2W * SUNY, S, S, tr, .32, 'normal', 0x000000, tp, tq);
+  put(L.unit, T[m + '_turret'], bx + 1.1 * M2W * ex * SUNX, by + 1.1 * M2W * ex * SUNY, S, S, tr, .32, 'normal', 0x000000, tp, tq);
   put(L.unit, T[m + '_turret'], bx, by, S, S, tr, 1, 'normal', tint, tp, tq);
 }
 function drawUnits(cam){
+  CAMK = cam.k;
   begin(L.unit); begin(L.air); begin(L.wreckfx);
   const vis = (x, y, m = 2) => Math.abs(x - cam.x) * cam.k < innerWidth / 2 + m * cam.k + 40 && Math.abs(y - cam.y) * cam.k < innerHeight / 2 + m * cam.k + 40;
-  for (const w of WRECKS) if (vis(w.x, w.y)) drawVehicle(w.m, w.x, w.y, w.ang, w.ta, 0, true);
+  for (const w of WRECKS) if (vis(w.x, w.y)) drawVehicle(w.m, w.x, w.y, w.ang, w.ta, 0, true, EX(VEH[w.m].len, 22));
   for (const u of W.units) {
     if (u.gone || UT[u.t].air) continue;
     const d = UT[u.t], m = (MODEL[u.side] || {})[u.spr];
@@ -174,10 +177,16 @@ function drawUnits(cam){
       const n = unitN(u, 3); u.vn = u.vn ?? 3;
       // مركبة خرجت من القتال: تبقى حطاماً محترقاً مكانها
       while (u.vn > n) { u.vn--; const p = vehAt(u, u.vn, FORM); WRECKS.push({m, x: p.x, y: p.y, ang: u.ang, ta: u.ta + (Math.random() - .5), t: W.t}); PX.boom(p.x, p.y, .5); if (WRECKS.length > 80) WRECKS.shift(); }
-      for (let i = 0; i < n; i++) { const p = vehAt(u, i, FORM); if (vis(p.x, p.y)) drawVehicle(m, p.x, p.y, u.ang, u.ta, i === 0 ? u.recoil : 0, false); }
+      const ex = EX(VEH[m].len, 38);
+      if (ex > 2.5) { if (n && vis(u.x, u.y)) drawVehicle(m, u.x, u.y, u.ang, u.ta, u.recoil, false, ex); }   // من بعيد: مركبة واحدة مكبّرة تمثل الفصيل
+      else for (let i = 0; i < n; i++) { const p = vehAt(u, i, FORM); if (vis(p.x, p.y)) drawVehicle(m, p.x, p.y, u.ang, u.ta, i === 0 ? u.recoil : 0, false, ex); }
       continue;
     }
     if (u.dead || !vis(u.x, u.y)) continue;
+    if (u.t === 'squad' && EX(30, 40) > 2.5) {   // من بعيد: صورة الفصيل كاملة
+      const t = tex(u.spr), S = 30 * M2W * EX(30, 40); if (t) { put(L.unit, t, u.x + S * .05, u.y + S * .07, S, S, u.ang + Math.PI / 2, .3, 'normal', 0); put(L.unit, t, u.x, u.y, (u.prone || u.sup > 55) ? S * .86 : S, (u.prone || u.sup > 55) ? S * .86 : S, u.ang + Math.PI / 2); }
+      continue;
+    }
     if (u.t === 'squad') {
       const n = unitN(u, 8), k = u.prone || u.sup > 55 ? 'prone' : (u.side === 'tr' ? 'soldier_tr' : 'soldier'), t = tex(k) || tex('soldier');
       const S = REAL.squad * M2W * (k === 'prone' ? 1.25 : 1);
@@ -185,15 +194,15 @@ function drawUnits(cam){
       continue;
     }
     const t = tex(u.spr); if (!t) continue;
-    const S = (REAL[u.t] || 8) * M2W, ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S;
-    put(L.unit, t, u.x + .9 * M2W * SUNX, u.y + .9 * M2W * SUNY, w, h, u.ang + Math.PI / 2, .35, 'normal', 0);
+    const S = (REAL[u.t] || 8) * M2W * EX(REAL[u.t] || 8, 34), ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S;
+    put(L.unit, t, u.x + S * .1 * SUNX, u.y + S * .1 * SUNY, w, h, u.ang + Math.PI / 2, .35, 'normal', 0);
     put(L.unit, t, u.x, u.y, w, h, u.ang + Math.PI / 2, u.retreat ? .85 : 1);
   }
   // الطائرات والمروحيات: ظلها على الأرض يبتعد بارتفاعها
   for (const u of W.units) {
     if ((u.dead && !(u.falling > 0)) || u.gone || !UT[u.t].air) continue;
     const t = tex(u.spr); if (!t) continue;
-    const S = (REAL[u.t] || 14) * M2W, ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S, alt = u.alt * 1.2 * M2W * 30 / 30;
+    const S = (REAL[u.t] || 14) * M2W * EX(REAL[u.t] || 14, 44), ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S, alt = u.alt * 1.2 * M2W * 30 / 30;
     put(L.air, t, u.x + alt * SUNX * 0.6, u.y + alt * SUNY * 0.6, w, h, u.ang + Math.PI / 2, .25, 'normal', 0);
     put(L.air, t, u.x, u.y, w, h, u.ang + Math.PI / 2);
   }
@@ -247,7 +256,7 @@ function drawParts(dt, layer, cam){
     const e = 1 - Math.pow(1 - k, 2); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
     const sz = p.s0 + (p.s1 - p.s0) * e, al = p.a0 + (p.a1 - p.a0) * k;
     if (al <= 0 || Math.abs(p.x - cam.x) > vw + sz || Math.abs(p.y - cam.y) > vh + sz) continue;
-    put(c, tex(p.img), p.x, p.y, sz, sz, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
+    const G = Math.min(30, EX(10, 38)); put(c, tex(p.img), p.x, p.y, sz * G, sz * G, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
   }
   end(c);
   if (layer === 'top') W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
@@ -257,7 +266,7 @@ function drawOverlay(dt){
   const c = wctx, cv = wc(), Wd = cv.clientWidth, Hd = cv.clientHeight, cam = W.cam;
   c.setTransform(WDPR, 0, 0, WDPR, 0, 0); c.clearRect(0, 0, Wd, Hd);
   const sx = x => (x - cam.x) * cam.k + Wd / 2, sy = y => (y - cam.y) * cam.k + Hd / 2;
-  const ia = Math.max(0, Math.min(1, (45 - cam.k) / 25));          // الرموز العسكرية تظهر عند الإبعاد
+  const ia = 0;   // الرموز العسكرية بزر ⌗ فقط؛ العرض العادي مجسمات
   for (const u of W.units) {
     if (u.dead || u.gone || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue;
     const x = sx(u.x), y = sy(u.y); if (x < -30 || x > Wd + 30 || y < -30 || y > Hd + 30) continue;
