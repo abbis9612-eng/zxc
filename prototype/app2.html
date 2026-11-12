@@ -1563,7 +1563,7 @@ function warLoop(now){
   const real = Math.min(.05, (now - wlast) / 1000); wlast = now;
   const dt = real * wspeed;
   if (W && !W.end && wspeed > 0) { let left = dt; while (left > 0) { const s = Math.min(wspeed > 8 ? .12 : .05, left); stepWar(s); left -= s; } }
-  if (W) { if (window.PXW) PXW.show && PXW.show(!C2MODE); (C2MODE ? drawC2 : (window.PXW && PXW.ok ? PXW.draw : drawWar))(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); engineSounds(); } }
+  if (W) { if (window.PXW) PXW.show && PXW.show(!C2MODE); (C2MODE ? drawC2 : (window.PXW ? PXW.draw : drawWar))(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); engineSounds(); } }
   fpsN++; fpsT += real;
   if (fpsT >= 1) { const f = Math.round(fpsN / fpsT), el = document.getElementById('wfps'); if (el) { el.textContent = f + ' fps'; el.style.color = f >= 55 ? '#6fbf86' : f >= 40 ? '#e2b04f' : '#e0705f'; } if (f < 45) lowN++; else lowN = 0; if (lowN >= 3 && WDPR > 1) { WDPR = Math.max(1, WDPR - .25); wResize(); lowN = 0; } fpsN = 0; fpsT = 0; }
   wraf = requestAnimationFrame(warLoop);
@@ -1598,14 +1598,14 @@ document.getElementById('wfollow').onclick = () => { if (W) { W.follow = !W.foll
 document.getElementById('wzin').onclick = () => { if (W) W.cam.k = Math.min(ZMAX, W.cam.k * 1.4); };
 document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(.4, W.cam.k / 1.4); };
 document.getElementById('wclose').onclick = closeWar;
-document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 20000) { stepWar(.15); n++; } };
+document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 40000) { stepWar(.15); n++; } };   /* حتى نهاية المعركة دائماً (3750 ث) */
 
 // ------------------------------------------------------------------ التحكم المباشر: تحديد وحدة ثم أمرها
 function hint(t){ const el = document.getElementById('whint'); el.textContent = t; el.hidden = !t; }
 function wTap(sx, sy){
   if (!W || W.end) return;
   const cv = wc(), x = (sx - cv.clientWidth / 2) / W.cam.k + W.cam.x, y = (sy - cv.clientHeight / 2) / W.cam.k + W.cam.y;
-  if (W.aim) { W.aimAt = {x, y}; const k = W.aim; W.aim = null; hint(''); wOrder(k + '-go'); W.aimAt = null; wp('flare', x, y, {s0: 8, s1: 24, life: .8}); return; }
+  if (W.aim) { W.aimAt = {x, y}; const k = W.aim; W.aim = null; hint(''); wOrder(k + '-go'); W.aimAt = null; wp('flare', x, y, {s0: 8, s1: 24, life: .8}); if (window.PXW && PXW.ping) PXW.ping(x, y, 'strike'); return; }
   const R = Math.max(10, 20 / W.cam.k);
   let hitU = null, bd = R;
   for (const u of W.units) { if (u.dead || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue; const r = Math.hypot(u.x - x, u.y - y); if (r < bd) { bd = r; hitU = u; } }
@@ -1618,12 +1618,12 @@ function wTap(sx, sy){
   const sel = W.units.filter(u => W.sel.includes(u.id) && !u.dead);
   wsound('radio', W.cam.x, W.cam.y, .25);
   if (hitU && hitU.side === 'tr') {
-    for (const u of sel) { u.focus = hitU.id; u.manual = {x: hitU.x, y: hitU.y}; }
+    for (const u of sel) { u.focus = hitU.id; u.manual = {x: hitU.x, y: hitU.y}; } if (window.PXW && PXW.ping) PXW.ping(hitU.x, hitU.y, 'attack');
     wlog(`أمر: ${sel.length > 1 ? sel.length + ' وحدات تهاجم' : NAME[sel[0].t] + ' تهاجم'} ${NAME[hitU.t]} للعدو`, 'iq');
   } else {
     const cx = sel.reduce((s, u) => s + u.x, 0) / sel.length, cy = sel.reduce((s, u) => s + u.y, 0) / sel.length;
     for (const u of sel) { u.focus = null; u.manual = {x: x + (u.x - cx) * .7, y: y + (u.y - cy) * .7}; }
-    wp('flare', x, y, {s0: 5, s1: 14, life: .6});
+    wp('flare', x, y, {s0: 5, s1: 14, life: .6}); if (window.PXW && PXW.ping) PXW.ping(x, y, 'move');
     wlog(`أمر: ${sel.length > 1 ? sel.length + ' وحدات تتحرك' : NAME[sel[0].t] + ' تتحرك'} إلى النقطة المحددة`, 'iq');
   }
 }

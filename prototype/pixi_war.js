@@ -57,8 +57,8 @@ PX.init = async function(){
   if (ready || PX.busy) return; PX.busy = true;
   const host = document.getElementById('war'), wcv = document.getElementById('wc');
   const cv = document.createElement('canvas'); cv.id = 'wgl';
-  cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block;pointer-events:none';
-  host.insertBefore(cv, wcv); wcv.style.position = 'relative'; wcv.style.zIndex = 1; wcv.style.background = 'transparent';
+  cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:-1;display:block;pointer-events:none';
+  host.insertBefore(cv, wcv);
   R = await P.autoDetectRenderer({canvas: cv, width: host.clientWidth || 400, height: host.clientHeight || 800, resolution: Math.min(devicePixelRatio || 1, 1.75), autoDensity: true, backgroundColor: 0x1a1712, preference: 'webgl', antialias: false});
   stage = new P.Container(); world = new P.Container(); stage.addChild(world);
   for (const k of ['map', 'detail', 'feat', 'decal', 'shadow', 'unit', 'wreckfx', 'partmid', 'proj', 'fxsh', 'fx', 'air', 'parttop']) {
@@ -261,6 +261,9 @@ function drawParts(dt, layer, cam){
   end(c);
   if (layer === 'top') W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
 }
+// علامة مكان الضغط: دائرة تتسع وتختفي (أمر تحرك، هدف ضربة، مهاجمة)
+const PINGS = [];
+PX.ping = (x, y, kind) => PINGS.push({x, y, kind, t: 0});
 // ---------- طبقة العلامات فوق العالم (الكانفس القديم، شفاف)
 function drawOverlay(dt){
   const c = wctx, cv = wc(), Wd = cv.clientWidth, Hd = cv.clientHeight, cam = W.cam;
@@ -277,6 +280,12 @@ function drawOverlay(dt){
       if (u.manual) { const f = u.focus && W.units.find(v => v.id === u.focus && !v.dead), g = f || u.manual; c.setLineDash([4, 4]); c.strokeStyle = f ? 'rgba(230,90,70,.9)' : 'rgba(255,230,150,.7)'; c.beginPath(); c.moveTo(x, y); c.lineTo(sx(g.x), sy(g.y)); c.stroke(); c.setLineDash([]); } }
     if (u.hp < d.hp || selected) { const bw = 18, yy = y + Math.max(16, 60 * M2W * cam.k); c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - bw / 2 - 1, yy, bw + 2, 4); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(x - bw / 2, yy + 1, bw * u.hp / d.hp, 2); }
   }
+  for (const g of PINGS) { g.t += Math.max(.016, dt / Math.max(1, wspeed || 1)); const k = g.t / .9; if (k >= 1) continue; const x = sx(g.x), y = sy(g.y), col = g.kind === 'strike' ? '255,90,70' : g.kind === 'attack' ? '230,90,70' : '255,225,140';
+    c.strokeStyle = `rgba(${col},${1 - k})`; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 8 + 34 * k, 0, 7); c.stroke(); c.beginPath(); c.arc(x, y, 4, 0, 7); c.fillStyle = `rgba(${col},${1 - k})`; c.fill();
+    if (g.kind === 'strike') { c.beginPath(); c.moveTo(x - 14, y); c.lineTo(x + 14, y); c.moveTo(x, y - 14); c.lineTo(x, y + 14); c.stroke(); } }
+  while (PINGS.length && PINGS[0].t > .9) PINGS.shift();
+  // هدف الوحدات المحددة: علامة ثابتة بمكان الوصول
+  for (const u of W.units) if (W.sel && W.sel.includes(u.id) && u.manual && !u.focus && !u.dead) { const x = sx(u.manual.x), y = sy(u.manual.y); c.strokeStyle = 'rgba(255,225,140,.9)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x - 6, y - 6); c.lineTo(x + 6, y + 6); c.moveTo(x + 6, y - 6); c.lineTo(x - 6, y + 6); c.stroke(); }
   c.font = '700 13px "IBM Plex Sans Arabic", sans-serif'; c.textAlign = 'center'; c.direction = 'rtl';
   for (const tw of TOWNS) {
     const x = sx(tw.x), y0 = sy(tw.y); if (x < -60 || x > Wd + 60 || y0 < -40 || y0 > Hd + 40) continue;
@@ -290,7 +299,7 @@ function drawOverlay(dt){
 }
 // ---------- الرسم الكامل لكل إطار
 PX.draw = function(dt){
-  if (!ready) { drawWar(dt); return; }
+  if (!ready) { const c = wctx, cv = wc(); if (c) { c.setTransform(WDPR, 0, 0, WDPR, 0, 0); c.fillStyle = '#1a1712'; c.fillRect(0, 0, cv.clientWidth, cv.clientHeight); c.fillStyle = '#d8cfbd'; c.font = '600 15px sans-serif'; c.textAlign = 'center'; c.fillText('جارٍ تحميل ساحة المعركة…', cv.clientWidth / 2, cv.clientHeight / 2); } return; }
   const host = document.getElementById('war'), Wd = host.clientWidth, Hd = host.clientHeight, cam = W.cam;
   if (R.width !== Math.round(Wd * R.resolution) || R.height !== Math.round(Hd * R.resolution)) R.resize(Wd, Hd);
   if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 70, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
@@ -300,5 +309,6 @@ PX.draw = function(dt){
   R.render(stage);
   drawOverlay(dt);
 };
+if (document.readyState === 'loading') addEventListener('DOMContentLoaded', () => PX.init()); else PX.init();
 PX.show = on => { const cv = document.getElementById('wgl'); if (cv) cv.style.display = on ? 'block' : 'none'; };
 })();
