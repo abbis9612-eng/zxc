@@ -8,7 +8,7 @@ const { chromium, devices } = require('playwright');
   const R = []; const ok = (name, cond, extra = '') => { R.push((cond ? 'OK   ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); };
   const tap = async s => { const r = await p.locator(s).first().boundingBox(); if (!r) return false; await p.touchscreen.tap(r.x + r.width / 2, r.y + r.height / 2); return true; };
   const ev = (f, a) => p.evaluate(f, a);
-  const shot = n => p.screenshot({path: `qa/${n}.png`});
+  const shot = async n => { const t0 = Date.now(); console.log('shot', n, 'W.t', await p.evaluate(() => W && Math.round(W.t))); await p.screenshot({path: `qa/${n}.png`, timeout: 60000}); console.log('  done', Date.now() - t0, 'ms'); };
   // 1) الدخول: هل يظهر الرسم القديم قبل الجديد؟
   await tap('#advice');
   const seen = [];
@@ -32,7 +32,8 @@ const { chromium, devices } = require('playwright');
   ok('لوحة الوحدة المحددة تظهر', await p.locator('#wsel').isVisible());
   await shot('03_selected');
   // تحريك إلى نقطة
-  await p.touchscreen.tap(box.x + box.width / 2 + 60, box.y + box.height / 2 - 120); await p.waitForTimeout(300);
+  const fp = await ev(() => { const cv = wc(); for (let r = 80; r < 300; r += 20) for (let a = 0; a < 6.28; a += .5) { const sx = cv.clientWidth / 2 + Math.cos(a) * r, sy = cv.clientHeight / 2 + Math.sin(a) * r; if (sy < 150 || sy > cv.clientHeight - 200 || sx < 70 || sx > cv.clientWidth - 20) continue; const x = (sx - cv.clientWidth / 2) / W.cam.k + W.cam.x, y = (sy - cv.clientHeight / 2) / W.cam.k + W.cam.y, R = Math.max(.4, 24 / W.cam.k) * 1.5; if (!W.units.some(u => !u.dead && Math.hypot(u.x - x, u.y - y) < R)) return [sx, sy]; } return [200, 300]; });
+  await p.touchscreen.tap(box.x + fp[0], box.y + fp[1]); await p.waitForTimeout(300);
   ok('أمر تحرك لنقطة', await ev(() => { const u = W.units.find(v => v.id === window._u); return !!u.manual; }));
   await p.waitForTimeout(100); await shot('04_move_order');
   // مهاجمة عدو محدد

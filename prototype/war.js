@@ -102,6 +102,7 @@ const FLORA_K = ['olive', 'poplar', 'eucal', 'bush', 'rocks'], FLORA_S = [3.4, 2
 const WS = {}; for (const k in BSPR) { const im = new Image(); im.src = BSPR[k]; WS[k] = im; }
 const KM = 33;
 let ZMAX = 6;   /* أقصى تقريب: العرض الجديد يرفعه */
+const ZMIN = (typeof MAP2 !== 'undefined') ? 1.6 : .4;   /* أبعد تقريب: الساحة كلها */
 function hAt(x, y){
   const HGRID = HGRIDN, gx = (x - HGRID.x0) / HGRID.cell, gy = (y - HGRID.y0) / HGRID.cell;
   if (gx >= 0 && gy >= 0 && gx < HGRID.w - 1 && gy < HGRID.h - 1) { const i = gx | 0, j = gy | 0, fx = gx - i, fy = gy - j, W_ = HGRID.w, a = HG[j * W_ + i], b = HG[j * W_ + i + 1], c = HG[(j + 1) * W_ + i], d = HG[(j + 1) * W_ + i + 1]; return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; } const i = Math.max(0, Math.min(FIELD.hh - 1, Math.floor(y / 8))), j = Math.max(0, Math.min(FIELD.hw - 1, Math.floor(x / 8))); return FIELD.H[i * FIELD.hw + j]; }
@@ -203,7 +204,7 @@ function setupMap2(){
   // كل المواقع نسبة للأهداف: T البلدة، H التلة، X المفرق (وحدة = 30 م). الجنوب = الأسفل
   const [T, H, X] = TOWNS, S = MAP2.half * 2;
   const at = (dx, dy) => [T.x + dx, T.y + dy];
-  W.cam = {x: T.x, y: T.y + 140, k: 6};
+  W.cam = {x: T.x, y: T.y + 140, k: 45};
   // خط تركي أمامي على أطراف البلدة الجنوبية (~650 م جنوب مركزها)
   const line1 = [at(-22, 24), at(-10, 22), at(2, 21), at(14, 22), at(26, 25)];
   for (const [x, y] of line1) { W.props.push({k: 'trench', x, y: y + 1.5, s: 34, rot: 0, trench: true}); W.props.push({k: 'sandbags', x: x + 4, y: y - .8, s: 8, rot: 0}); }
@@ -227,7 +228,7 @@ function setupMap2(){
   // الإسناد التركي من خارج الساحة (شمالاً)
   mkUnit('tr', 'arty', T.x - 12, -45); mkUnit('tr', 'arty', T.x + 12, -47); mkUnit('tr', 'ad', T.x + 10, -15); mkUnit('tr', 'heli', T.x + 18, -10);
   // العراق: خط الانطلاق ~4.7 كم جنوب البلدة (~4 كم من الخط التركي)، خارج مدى أسلحته
-  const Y0 = T.y + 157;
+  const Y0 = T.y + 146;
   const C = [at(0, 80), at(0, 35), at(0, 4)], Ww = [at(-26, 80), [X.x, X.y + 2], at(-6, 2)], E = [at(32, 80), at(26, 30), [H.x, H.y + 2]];
   const sc = .25;
   const grp = (pts, list, x0, y0, g) => list.forEach(([t, dx, dy]) => mkUnit('iq', t, x0 + dx * sc, y0 + dy * sc, {grp: g, path: pts.map(([x, y]) => ({x: x + dx * sc * .5, y: y + dy * sc * .3}))}));
@@ -238,7 +239,7 @@ function setupMap2(){
   mkUnit('iq', 'arty', T.x - 14, S + 30); mkUnit('iq', 'arty', T.x, S + 34); mkUnit('iq', 'arty', T.x + 14, S + 30);
   mkUnit('iq', 'mlrs', T.x - 8, S + 45); mkUnit('iq', 'mlrs', T.x + 8, S + 47);
   mkUnit('iq', 'ad', T.x, S + 8);
-  mkUnit('iq', 'heli', T.x - 16, Y0 + 6, {grp: 'المروحيات'}); mkUnit('iq', 'heli', T.x + 18, Y0 + 6, {grp: 'المروحيات'});
+  mkUnit('iq', 'heli', T.x - 16, Y0 + 4, {grp: 'المروحيات'}); mkUnit('iq', 'heli', T.x + 18, Y0 + 4, {grp: 'المروحيات'});
   mkUnit('iq', 'recon', T.x, Y0 - 30, {orbit: {x: T.x, y: T.y + 18, r: 30}, oa: 0});
 }
 function nearestEnemy(u){ let best = null, bd = 1e9; for (const v of W.units) { if (v.side === u.side || !ground(v)) continue; const r = dist(u, v); if (r < bd) { bd = r; best = v; } } return best ? {v: best, d: bd} : null; }
@@ -265,8 +266,8 @@ function muzzleOf(u){
 }
 
 // ------------------------------------------------------------------ الجزيئات بإحداثيات العالم
-const PSCALE = {launch_dust: .05, smoke_screen: .04, smoke_oil: .05, dust_trail: .03, smoke_light: .03, intercept: .03};
-function wp(img, x, y, o){ if (W.parts.length > 850) return; if (window.PXW && PXW.ok && o) { const f = PSCALE[img] || .025; o = Object.assign({}, o); for (const k of ['s0', 's1', 'vx', 'vy']) if (o[k] !== undefined) o[k] *= f; if (o.s0 === undefined) o.s0 = 10 * f; if (o.s1 === undefined) o.s1 = 20 * f; } W.parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 10, s1: 20, a0: 1, a1: 0, rot: wrand() * 6.28, vr: (wrand() - .5) * .5, t: 0, life: 1, delay: 0, layer: 'top'}, o)); }
+const PSCALE = {launch_dust: .07, smoke_screen: .05, smoke_oil: .09, dust_trail: .05, smoke_light: .045, intercept: .05, smoke_dark: .07, blast_dust: .06};
+function wp(img, x, y, o){ if (W.parts.length > 850) return; if (window.PXW && PXW.ok && o) { const f = PSCALE[img] || .045; o = Object.assign({}, o); for (const k of ['s0', 's1', 'vx', 'vy']) if (o[k] !== undefined) o[k] *= f; if (o.s0 === undefined) o.s0 = 10 * f; if (o.s1 === undefined) o.s1 = 20 * f; } W.parts.push(Object.assign({img, x, y, vx: 0, vy: 0, s0: 10, s1: 20, a0: 1, a1: 0, rot: wrand() * 6.28, vr: (wrand() - .5) * .5, t: 0, life: 1, delay: 0, layer: 'top'}, o)); }
 function wboom(x, y, big = 1, snd = true){
   const px = window.PXW && PXW.ok;
   const r = (typeof MAP2 !== 'undefined') ? 1.4 * big : Math.max(10 * big, 9 / W.cam.k * big); if (!px) (W.flashes = W.flashes || []).push({x, y, r: 34 * big, t: .45}); c2Mark(x, y, 'boom', 14 * big);
@@ -753,7 +754,7 @@ function wOrder(k){
       for (let i = 0; i < 2; i++) { const x0 = tg.x - 30 + i * 60, y0 = tg.y + 22 * KM; const rx = tg.x - 20 + i * 40, ry = tg.y + 18 * KM; mkUnit('iq', 'jet', x0, y0 + i * 30, {phase: 'in', rx, ry, tx: tg.x + (i - .5) * 16, ty: tg.y, ang: -Math.PI / 2}); }
     }
   }
-  if (k === 'res' && W.uses.res > 0) { W.uses.res--; const T0 = TOWNS[0], c = (typeof MAP2 !== 'undefined') ? [[T0.x, T0.y + 80], [T0.x, T0.y + 35], [T0.x, T0.y + 4]] : [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -28], ['tank', 8], ['tank', 44], ['ifv', -10], ['squad', -28], ['squad', 28]]) { const u = (typeof MAP2 !== 'undefined') ? mkUnit('iq', t, T0.x + dx * .25, T0.y + 165 + (t === 'squad' ? 9 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .12, y}))}) : mkUnit('iq', t, 1240 + dx, 1420 + (t === 'squad' ? 36 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
+  if (k === 'res' && W.uses.res > 0) { W.uses.res--; const T0 = TOWNS[0], c = (typeof MAP2 !== 'undefined') ? [[T0.x, T0.y + 80], [T0.x, T0.y + 35], [T0.x, T0.y + 4]] : [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -28], ['tank', 8], ['tank', 44], ['ifv', -10], ['squad', -28], ['squad', 28]]) { const u = (typeof MAP2 !== 'undefined') ? mkUnit('iq', t, T0.x + dx * .25, T0.y + 150 + (t === 'squad' ? 5 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .12, y}))}) : mkUnit('iq', t, 1240 + dx, 1420 + (t === 'squad' ? 36 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
   syncWarUI();
 }
 function syncWarUI(){
@@ -799,7 +800,7 @@ function shadowOf(k){ if (SHD[k]) return SHD[k]; const im = img(k); if (!im || !
 function shade(c, k, x, y, s, rot, a, oy = 0){ const sh = shadowOf(k); if (!sh) return; const w = s * sh.width / Math.max(sh.width, sh.height), h = s * sh.height / Math.max(sh.width, sh.height); c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = a; c.drawImage(sh, -w / 2, -h / 2 + oy, w, h); c.restore(); }
 function drawWar(dt){
   const c = wctx, Wd = wc().clientWidth, Hd = wc().clientHeight, cam = W.cam;
-  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + ((typeof MAP2 !== 'undefined') ? 22 : 70), tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { let ty, tx; if (typeof MAP2 !== 'undefined') { const lead = f.reduce((a, b) => (b.y - (W.t - b.lastShot < 6 ? 8 : 0)) < (a.y - (W.t - a.lastShot < 6 ? 8 : 0)) ? b : a); tx = lead.x; ty = lead.y + 2; } else { ty = Math.min(...f.map(u => u.y)) + 70; tx = f.reduce((s, u) => s + u.x, 0) / f.length; } cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   c.fillStyle = '#1a1712'; c.fillRect(0, 0, Wd, Hd);
   c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
   drawMapTiles(c, cam, Wd, Hd);
@@ -990,18 +991,18 @@ addEventListener('resize', () => { if (W) wResize(); });
   let down = null, moved = 0;
   c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = e; if (pts.size === 1) { down = {x: e.clientX, y: e.clientY, t: performance.now()}; moved = 0; } if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } });
   c.addEventListener('pointermove', e => { if (!W || !pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
-    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); W.cam.k = Math.max(.4, Math.min(ZMAX, W.cam.k * d / pinch)); pinch = d; W.follow = false; moved = 99; return; }
+    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); W.cam.k = Math.max(ZMIN, Math.min(ZMAX, W.cam.k * d / pinch)); pinch = d; W.follow = false; moved = 99; return; }
     moved += Math.abs(e.clientX - last.clientX) + Math.abs(e.clientY - last.clientY);
     if (moved < 10) { last = e; return; }
     W.cam.x -= (e.clientX - last.clientX) / W.cam.k; W.cam.y -= (e.clientY - last.clientY) / W.cam.k; last = e; W.follow = false; document.getElementById('wfollow').classList.remove('on'); });
   c.addEventListener('pointerup', e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; if (down && moved < 10 && performance.now() - down.t < 600 && pts.size === 0) { const r = c.getBoundingClientRect(); wTap(e.clientX - r.left, e.clientY - r.top); } if (pts.size === 0) down = null; });
   c.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = 0; });
-  c.addEventListener('wheel', e => { e.preventDefault(); if (W) { W.cam.k = Math.max(.4, Math.min(ZMAX, W.cam.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); } }, {passive: false});
+  c.addEventListener('wheel', e => { e.preventDefault(); if (W) { W.cam.k = Math.max(ZMIN, Math.min(ZMAX, W.cam.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); } }, {passive: false});
 })();
 document.querySelectorAll('[data-wsp]').forEach(b => b.onclick = () => { wspeed = +b.dataset.wsp; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x === b)); });
 document.getElementById('wfollow').onclick = () => { if (W) { W.follow = !W.follow; document.getElementById('wfollow').classList.toggle('on', W.follow); } };
 document.getElementById('wzin').onclick = () => { if (W) W.cam.k = Math.min(ZMAX, W.cam.k * 1.4); };
-document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(.4, W.cam.k / 1.4); };
+document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(ZMIN, W.cam.k / 1.4); };
 document.getElementById('wclose').onclick = closeWar;
 document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 40000) { stepWar(.15); n++; } };   /* حتى نهاية المعركة دائماً (3750 ث) */
 
@@ -1011,7 +1012,7 @@ function wTap(sx, sy){
   if (!W || W.end) return;
   const cv = wc(), x = (sx - cv.clientWidth / 2) / W.cam.k + W.cam.x, y = (sy - cv.clientHeight / 2) / W.cam.k + W.cam.y;
   if (W.aim) { W.aimAt = {x, y}; const k = W.aim; W.aim = null; hint(''); wOrder(k + '-go'); W.aimAt = null; wp('flare', x, y, {s0: 8, s1: 24, life: .8}); if (window.PXW && PXW.ping) PXW.ping(x, y, 'strike'); return; }
-  const R = Math.max(10, 20 / W.cam.k);
+  const R = (typeof MAP2 !== 'undefined') ? Math.max(.4, 24 / W.cam.k) : Math.max(10, 20 / W.cam.k);   /* اللمس بمسافة على الشاشة */
   let hitU = null, bd = R;
   for (const u of W.units) { if (u.dead || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue; const r = Math.hypot(u.x - x, u.y - y); if (r < bd) { bd = r; hitU = u; } }
   if (hitU && hitU.side === 'iq') {
@@ -1097,7 +1098,7 @@ function c2Symbol(c, u, sx, sy, alpha = 1, unknown = false){
 function drawC2(dt){
   const c = wctx, Wd = wc().clientWidth, Hd = wc().clientHeight, cam = W.cam;
   c2Visibility();
-  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + ((typeof MAP2 !== 'undefined') ? 22 : 70), tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { let ty, tx; if (typeof MAP2 !== 'undefined') { const lead = f.reduce((a, b) => (b.y - (W.t - b.lastShot < 6 ? 8 : 0)) < (a.y - (W.t - a.lastShot < 6 ? 8 : 0)) ? b : a); tx = lead.x; ty = lead.y + 2; } else { ty = Math.min(...f.map(u => u.y)) + 70; tx = f.reduce((s, u) => s + u.x, 0) / f.length; } cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   c.fillStyle = '#061016'; c.fillRect(0, 0, Wd, Hd);
   c.save(); c.translate(Wd / 2, Hd / 2); c.scale(cam.k, cam.k); c.translate(-cam.x, -cam.y);
   const x0 = Math.max(0, cam.x - Wd / 2 / cam.k - 2), y0 = Math.max(0, cam.y - Hd / 2 / cam.k - 2), x1 = Math.min(typeof MAP2 !== 'undefined' ? MAP2.half * 2 : FIELD.w, cam.x + Wd / 2 / cam.k + 2), y1 = Math.min(typeof MAP2 !== 'undefined' ? MAP2.half * 2 : FIELD.h, cam.y + Hd / 2 / cam.k + 2);

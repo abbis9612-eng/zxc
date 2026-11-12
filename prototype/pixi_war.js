@@ -77,7 +77,7 @@ PX.init = async function(){
   for (let i = 0; i < FX.n; i++) { const fr = new P.Rectangle((i % FX.cols) * FX.frame, Math.floor(i / FX.cols) * FX.frame, FX.frame, FX.frame); T.fx.push(new P.Texture({source: fa.source, frame: fr})); T.fxs.push(new P.Texture({source: fs.source, frame: fr})); }
   ovGfx = null; ready = PX.ok = true; PX.busy = false;
   MT.clear();   /* نعيد بناء قطع الخريطة بلا نقش الحبيبات القديم */
-  window.ZMAX = 250; ZMAX = 250;
+  window.ZMAX = 150; ZMAX = 150;
 };
 // ---------- الانفجارات: تسلسل صور المحاكاة الفيزيائية بدل كرة النار القديمة
 const FXL = [];
@@ -94,7 +94,7 @@ function drawFX(dt){
     f.t += dt * f.ts; const t = f.t; if (t > last + 4) continue;
     let a = 0, b = 0, w = 0;
     if (t >= tm[0]) { let j = 1; while (j < tm.length && tm[j] < t) j++; if (j >= tm.length) { a = b = tm.length - 1; } else { a = j - 1; b = j; w = (t - tm[a]) / (tm[b] - tm[a]); } }
-    const fade = t > last ? Math.max(0, 1 - (t - last) / 4) : 1, S = FX.size_m * M2W * f.sc * Math.min(12, EX(30, 46));
+    const fade = t > last ? Math.max(0, 1 - (t - last) / 4) : 1, S = FX.size_m * M2W * f.sc * VS;
     for (const [i, al] of [[a, 1 - w], [b, w]]) {
       if (al <= .01) continue;
       put(L.fxsh, T.fxs[i], f.x, f.y, S, S, 0, al * fade * .55, 'normal', 0xffffff, FX.cx, FX.cy);
@@ -180,7 +180,10 @@ const FORM = [[0, 0], [-55, -45], [55, -45]];   // فصيل الدبابات: إ
 const SQ = [[-30, 0], [-21, 6], [-12, -3], [-4, 5], [5, -4], [13, 5], [22, -2], [31, 4]];   // فصيل المشاة: خط متباعد
 const WRECKS = [];
 let CAMK = 1;
-const EX = (m, px) => Math.max(1, px / (m * M2W * CAMK));   // كم نكبّر حتى يبقى المجسم مرئياً
+// نسبة ثابتة لكل الأشياء (لا تتغير مع التقريب): المركبات والطائرات والتأثيرات ×1.5 من الحقيقي، والجنود ×2.5، والبيوت والطرق حقيقية
+const VS = 1.5, IS = 2.5;
+const EX = () => VS;
+const onMapV = u => typeof MAP2 === 'undefined' || (u.x >= -2 && u.y >= -2 && u.x <= MAP2.half * 2 + 2 && u.y <= MAP2.half * 2 + 2);
 function unitN(u, n){ const d = UT[u.t]; return u.dead ? 0 : Math.max(1, Math.ceil(n * u.hp / d.hp - 1e-6)); }
 function vehAt(u, i, list){ const [r, f] = list[i], c = Math.cos(u.ang), s = Math.sin(u.ang); return {x: u.x + (c * f - s * r) * M2W, y: u.y + (s * f + c * r) * M2W}; }
 function drawVehicle(m, x, y, ang, ta, recoil, burnt, ex = 1){
@@ -198,7 +201,7 @@ function drawUnits(cam){
   CAMK = cam.k;
   begin(L.unit); begin(L.air); begin(L.wreckfx);
   const vis = (x, y, m = 2) => Math.abs(x - cam.x) * cam.k < innerWidth / 2 + m * cam.k + 40 && Math.abs(y - cam.y) * cam.k < innerHeight / 2 + m * cam.k + 40;
-  for (const w of WRECKS) if (vis(w.x, w.y)) drawVehicle(w.m, w.x, w.y, w.ang, w.ta, 0, true, EX(VEH[w.m].len, 22));
+  for (const w of WRECKS) if (vis(w.x, w.y)) drawVehicle(w.m, w.x, w.y, w.ang, w.ta, 0, true, VS);
   for (const u of W.units) {
     if (u.gone || UT[u.t].air) continue;
     const d = UT[u.t], m = (MODEL[u.side] || {})[u.spr];
@@ -206,32 +209,30 @@ function drawUnits(cam){
       const n = unitN(u, 3); u.vn = u.vn ?? 3;
       // مركبة خرجت من القتال: تبقى حطاماً محترقاً مكانها
       while (u.vn > n) { u.vn--; const p = vehAt(u, u.vn, FORM); WRECKS.push({m, x: p.x, y: p.y, ang: u.ang, ta: u.ta + (Math.random() - .5), t: W.t}); PX.boom(p.x, p.y, .5); if (WRECKS.length > 80) WRECKS.shift(); }
-      const ex = EX(VEH[m].len, 38);
-      if (ex > 2.5) { if (n && vis(u.x, u.y)) drawVehicle(m, u.x, u.y, u.ang, u.ta, u.recoil, false, ex); }   // من بعيد: مركبة واحدة مكبّرة تمثل الفصيل
-      else for (let i = 0; i < n; i++) { const p = vehAt(u, i, FORM); if (vis(p.x, p.y)) drawVehicle(m, p.x, p.y, u.ang, u.ta, i === 0 ? u.recoil : 0, false, ex); }
+      if (onMapV(u)) for (let i = 0; i < n; i++) { const p = vehAt(u, i, FORM); if (vis(p.x, p.y)) drawVehicle(m, p.x, p.y, u.ang, u.ta, i === 0 ? u.recoil : 0, false, VS); }
       continue;
     }
-    if (u.dead || !vis(u.x, u.y)) continue;
-    if (u.t === 'squad' && EX(30, 40) > 2.5) {   // من بعيد: صورة الفصيل كاملة
+    if (u.dead || !vis(u.x, u.y) || !onMapV(u)) continue;
+    if (false) {   // من بعيد: صورة الفصيل كاملة
       const t = tex(u.spr), S = 30 * M2W * EX(30, 40); if (t) { put(L.unit, t, u.x + S * .05, u.y + S * .07, S, S, u.ang + Math.PI / 2, .3, 'normal', 0); put(L.unit, t, u.x, u.y, (u.prone || u.sup > 55) ? S * .86 : S, (u.prone || u.sup > 55) ? S * .86 : S, u.ang + Math.PI / 2); }
       continue;
     }
     if (u.t === 'squad') {
       const n = unitN(u, 8), k = u.prone || u.sup > 55 ? 'prone' : (u.side === 'tr' ? 'soldier_tr' : 'soldier'), t = tex(k) || tex('soldier');
-      const S = REAL.squad * M2W * (k === 'prone' ? 1.25 : 1);
+      const S = 1.8 * IS * M2W * (k === 'prone' ? 1.25 : 1);
       for (let i = 0; i < n; i++) { const p = vehAt(u, i, SQ); put(L.unit, t, p.x + .25 * M2W * SUNX, p.y + .25 * M2W * SUNY, S, S, u.ang + Math.PI / 2, .3, 'normal', 0); put(L.unit, t, p.x, p.y, S, S, u.ang + Math.PI / 2); }
       continue;
     }
     const t = tex(u.spr); if (!t) continue;
-    const S = (REAL[u.t] || 8) * M2W * EX(REAL[u.t] || 8, 34), ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S;
+    const S = (REAL[u.t] || 8) * M2W * (UT[u.t].inf ? IS * .6 : VS), ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S;
     put(L.unit, t, u.x + S * .1 * SUNX, u.y + S * .1 * SUNY, w, h, u.ang + Math.PI / 2, .35, 'normal', 0);
     put(L.unit, t, u.x, u.y, w, h, u.ang + Math.PI / 2, u.retreat ? .85 : 1);
   }
   // الطائرات والمروحيات: ظلها على الأرض يبتعد بارتفاعها
   for (const u of W.units) {
-    if ((u.dead && !(u.falling > 0)) || u.gone || !UT[u.t].air) continue;
+    if ((u.dead && !(u.falling > 0)) || u.gone || !UT[u.t].air || !onMapV(u)) continue;
     const t = tex(u.spr); if (!t) continue;
-    const S = (REAL[u.t] || 14) * M2W * EX(REAL[u.t] || 14, 44), ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S, alt = u.alt * 1.2 * M2W * 30 / 30;
+    const S = (REAL[u.t] || 14) * M2W * VS, ar = t.width / t.height, w = ar >= 1 ? S : S * ar, h = ar >= 1 ? S / ar : S, alt = u.alt * 1.2 * M2W * 30 / 30;
     put(L.air, t, u.x + alt * SUNX * 0.6, u.y + alt * SUNY * 0.6, w, h, u.ang + Math.PI / 2, .25, 'normal', 0);
     put(L.air, t, u.x, u.y, w, h, u.ang + Math.PI / 2);
   }
@@ -285,7 +286,7 @@ function drawParts(dt, layer, cam){
     const e = 1 - Math.pow(1 - k, 2); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
     const sz = p.s0 + (p.s1 - p.s0) * e, al = p.a0 + (p.a1 - p.a0) * k;
     if (al <= 0 || Math.abs(p.x - cam.x) > vw + sz || Math.abs(p.y - cam.y) > vh + sz) continue;
-    const BIG = p.img === 'smoke_light' || p.img === 'dust_trail' || p.img === 'smoke_screen' || p.img === 'smoke_oil' || p.img === 'launch_dust' || p.img === 'smoke_dark' || p.img === 'blast_dust', G = BIG ? 1 : Math.min(6, EX(10, 38)); put(c, tex(p.img), p.x, p.y, sz * G, sz * G, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
+    const BIG = p.img === 'smoke_light' || p.img === 'dust_trail' || p.img === 'smoke_screen' || p.img === 'smoke_oil' || p.img === 'launch_dust' || p.img === 'smoke_dark' || p.img === 'blast_dust', G = 1; put(c, tex(p.img), p.x, p.y, sz * G, sz * G, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
   }
   end(c);
   if (layer === 'top') W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
@@ -299,15 +300,20 @@ function drawOverlay(dt){
   c.setTransform(WDPR, 0, 0, WDPR, 0, 0); c.clearRect(0, 0, Wd, Hd);
   const sx = x => (x - cam.x) * cam.k + Wd / 2, sy = y => (y - cam.y) * cam.k + Hd / 2;
   const ia = 0;   // الرموز العسكرية بزر ⌗ فقط؛ العرض العادي مجسمات
+  const mk = 15 * VS * M2W * cam.k;                       // طول الدبابة على الشاشة
   for (const u of W.units) {
-    if (u.dead || u.gone || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue;
+    if (u.dead || u.gone || u.t === 'jet' || u.t === 'drone' || u.t === 'recon' || !onMapV(u)) continue;
     const x = sx(u.x), y = sy(u.y); if (x < -30 || x > Wd + 30 || y < -30 || y > Hd + 30) continue;
-    const d = UT[u.t], selected = W.sel && W.sel.includes(u.id);
-    if (ia > 0) c2Symbol(c, u, x, y, ia * (u.retreat ? .7 : .95));
-    else { c.fillStyle = u.side === 'iq' ? '#e2b04f' : '#d0473b'; c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 1; c.beginPath(); c.arc(x - 16, y - 16, 3, 0, 7); c.fill(); c.stroke(); }
-    if (selected) { c.strokeStyle = 'rgba(255,230,150,.95)'; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, Math.max(18, 70 * M2W * cam.k), 0, 7); c.stroke();
+    const d = UT[u.t], selected = W.sel && W.sel.includes(u.id), fr = u.side === 'iq';
+    // علامة صغيرة ثابتة الحجم حين تصغر المجسمات (أقل من 12 بكسل)، وتتلاشى كلما كبرت
+    const ma = Math.max(0, Math.min(1, (16 - mk) / 8));
+    if (ma > 0) { c.globalAlpha = ma; c.fillStyle = fr ? '#e2b04f' : '#d0473b'; c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 1.2; c.beginPath();
+      if (fr) c.rect(x - 4, y - 3, 8, 6); else { c.moveTo(x, y - 4.5); c.lineTo(x + 4.5, y); c.lineTo(x, y + 4.5); c.lineTo(x - 4.5, y); c.closePath(); }
+      c.fill(); c.stroke(); if (d.veh) { c.fillStyle = 'rgba(0,0,0,.8)'; c.fillRect(x - 2, y - .6, 4, 1.2); } c.globalAlpha = 1; }
+    const R = Math.max(10, 60 * M2W * cam.k);
+    if (selected) { c.strokeStyle = 'rgba(255,230,150,.95)'; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, R, 0, 7); c.stroke();
       if (u.manual) { const f = u.focus && W.units.find(v => v.id === u.focus && !v.dead), g = f || u.manual; c.setLineDash([4, 4]); c.strokeStyle = f ? 'rgba(230,90,70,.9)' : 'rgba(255,230,150,.7)'; c.beginPath(); c.moveTo(x, y); c.lineTo(sx(g.x), sy(g.y)); c.stroke(); c.setLineDash([]); } }
-    if (u.hp < d.hp || selected) { const bw = 18, yy = y + Math.max(16, 60 * M2W * cam.k); c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - bw / 2 - 1, yy, bw + 2, 4); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(x - bw / 2, yy + 1, bw * u.hp / d.hp, 2); }
+    if (u.hp < d.hp || selected) { const bw = 18, yy = y + R + 3; c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - bw / 2 - 1, yy, bw + 2, 4); c.fillStyle = u.hp > d.hp * .5 ? '#5fae7b' : '#d4574a'; c.fillRect(x - bw / 2, yy + 1, bw * u.hp / d.hp, 2); }
   }
   for (const g of PINGS) { g.t += Math.max(.016, dt / Math.max(1, wspeed || 1)); const k = g.t / .9; if (k >= 1) continue; const x = sx(g.x), y = sy(g.y), col = g.kind === 'strike' ? '255,90,70' : g.kind === 'attack' ? '230,90,70' : '255,225,140';
     c.strokeStyle = `rgba(${col},${1 - k})`; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 8 + 34 * k, 0, 7); c.stroke(); c.beginPath(); c.arc(x, y, 4, 0, 7); c.fillStyle = `rgba(${col},${1 - k})`; c.fill();
@@ -331,7 +337,7 @@ PX.draw = function(dt){
   if (!ready) { const c = wctx, cv = wc(); if (c) { c.setTransform(WDPR, 0, 0, WDPR, 0, 0); c.fillStyle = '#1a1712'; c.fillRect(0, 0, cv.clientWidth, cv.clientHeight); c.fillStyle = '#d8cfbd'; c.font = '600 15px sans-serif'; c.textAlign = 'center'; c.fillText('جارٍ تحميل ساحة المعركة…', cv.clientWidth / 2, cv.clientHeight / 2); } return; }
   const host = document.getElementById('war'), Wd = host.clientWidth, Hd = host.clientHeight, cam = W.cam;
   if (R.width !== Math.round(Wd * R.resolution) || R.height !== Math.round(Hd * R.resolution)) R.resize(Wd, Hd);
-  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + (typeof MAP2 !== 'undefined' ? 22 : 70), tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { let ty, tx; if (typeof MAP2 !== 'undefined') { const lead = f.reduce((a, b) => (b.y - (W.t - b.lastShot < 6 ? 8 : 0)) < (a.y - (W.t - a.lastShot < 6 ? 8 : 0)) ? b : a); tx = lead.x; ty = lead.y + 2; } else { ty = Math.min(...f.map(u => u.y)) + 70; tx = f.reduce((s, u) => s + u.x, 0) / f.length; } cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   world.scale.set(cam.k); world.position.set(Wd / 2 - cam.x * cam.k, Hd / 2 - cam.y * cam.k);
   if (M2) drawMap2(cam, Wd, Hd); else { drawMap(cam, Wd, Hd); drawFeat(cam, Wd, Hd); }
   drawDecals(cam);
@@ -340,5 +346,6 @@ PX.draw = function(dt){
   drawOverlay(dt);
 };
 if (document.readyState === 'loading') addEventListener('DOMContentLoaded', () => PX.init()); else PX.init();
+PX._dbg = () => ({unit: L.unit._list.filter(x => x.visible).length, units: L.unit._list.length, first: L.unit._list.filter(x => x.visible).slice(0, 3).map(x => [x.x.toFixed(1), x.y.toFixed(1), x.width.toFixed(2), x.alpha, x.texture && x.texture.label])});
 PX.show = on => { const cv = document.getElementById('wgl'); if (cv) cv.style.display = on ? 'block' : 'none'; };
 })();
