@@ -1,0 +1,269 @@
+{
+ "dry_ground_01": {
+  "name": "Dry Ground 01",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   4000,
+   4000
+  ],
+  "license": "CC0"
+ },
+ "dry_ground_rocks": {
+  "name": "Dry Ground Rocks",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   4000,
+   4000
+  ],
+  "license": "CC0"
+ },
+ "aerial_ground_rock": {
+  "name": "Aerial Ground Rock",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   19999.950408935547,
+   20000
+  ],
+  "license": "CC0"
+ },
+ "withered_grass": {
+  "name": "Withered Grass",
+  "authors": [
+   "Charlotte Baglioni"
+  ],
+  "scale_m": [
+   1999.9996423721313,
+   1999.9996423721313
+  ],
+  "license": "CC0"
+ },
+ "sparse_grass": {
+  "name": "Sparse Grass",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "aerial_grass_rock": {
+  "name": "Aerial Grass Rock",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   15000,
+   15000
+  ],
+  "license": "CC0"
+ },
+ "farm_soil": {
+  "name": "Farm Soil",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   1999.9992847442627,
+   2000.000238418579
+  ],
+  "license": "CC0"
+ },
+ "dry_mud_field_001": {
+  "name": "Dry Mud Field 001",
+  "authors": [
+   "Rob Tuytel",
+   "Rico Cilliers"
+  ],
+  "scale_m": [
+   3000,
+   3000.000238418579
+  ],
+  "license": "CC0"
+ },
+ "raked_dirt": {
+  "name": "Raked Dirt",
+  "authors": [
+   "Dario Barresi",
+   "Dimitrios Savva"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "dirt": {
+  "name": "Dirt",
+  "authors": [
+   "Charlotte Baglioni"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "stony_dirt_path": {
+  "name": "Stony Dirt Path",
+  "authors": [
+   "eye-candy.xyz"
+  ],
+  "scale_m": [
+   2170.0000762939453,
+   2170.0000762939453
+  ],
+  "license": "CC0"
+ },
+ "asphalt_02": {
+  "name": "Asphalt 02",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   3000.000238418579,
+   3000
+  ],
+  "license": "CC0"
+ },
+ "worn_asphalt": {
+  "name": "Worn Asphalt",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "aerial_asphalt_01": {
+  "name": "Aerial Asphalt 01",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   30000,
+   30000
+  ],
+  "license": "CC0"
+ },
+ "gravel_road": {
+  "name": "Gravel Road",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "sandy_gravel": {
+  "name": "Sandy Gravel",
+  "authors": [
+   "Charlotte Baglioni"
+  ],
+  "scale_m": [
+   2099.99942779541,
+   2099.99942779541
+  ],
+  "license": "CC0"
+ },
+ "forest_ground_04": {
+  "name": "Forest Ground 04",
+  "authors": [
+   "Rob Tuytel",
+   "Rico Cilliers"
+  ],
+  "scale_m": [
+   3150.0000953674316,
+   3150.0000953674316
+  ],
+  "license": "CC0"
+ },
+ "dry_riverbed_rock": {
+  "name": "Dry Riverbed Rock",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "dry_river_pebbles": {
+  "name": "Dry River Pebbles",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2000.9167194366455,
+   2000.917911529541
+  ],
+  "license": "CC0"
+ },
+ "rocks_ground_02": {
+  "name": "Rocks Ground 02",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "aerial_rocks_02": {
+  "name": "Aerial Rocks 02",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   50000,
+   50000
+  ],
+  "license": "CC0"
+ },
+ "cracked_concrete": {
+  "name": "Cracked Concrete",
+  "authors": [
+   "Dimitrios Savva"
+  ],
+  "scale_m": [
+   2000,
+   2000
+  ],
+  "license": "CC0"
+ },
+ "burned_ground_01": {
+  "name": "Burned Ground 01",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "scale_m": [
+   1000,
+   1000
+  ],
+  "license": "CC0"
+ },
+ "muddy_tracks": {
+  "name": "Muddy Tracks",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "scale_m": [
+   2250,
+   2250
+  ],
+  "license": "CC0"
+ }
+}
