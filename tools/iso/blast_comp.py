@@ -8,7 +8,7 @@ K = float(sys.argv[6]) if len(sys.argv) > 6 else 1.0      # تكبير الحج�
 img = np.asarray(Image.open(base).convert('RGB'), np.float32) / 255
 H, W = img.shape[:2]
 # الكاميرا (مطابقة لـ street.py)
-el, az = math.radians(40), math.radians(35); MPP = 62 / W
+el, az = math.radians(40), math.radians(35); MPP = float(__import__('os').environ.get('OS', 62)) / W
 dirv = np.array([math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)]); f = -dirv
 right = np.cross(f, [0, 0, 1]); right /= np.linalg.norm(right); up = np.cross(right, f)
 tgt = np.array([0, 2, 0.])
@@ -85,6 +85,7 @@ full_reg = zoom(reg, (SUB, SUB, 1), order=1)[: y1 - y0, : x1 - x0]
 out_img = img.copy(); out_img[y0:y0 + full_reg.shape[0], x0:x0 + full_reg.shape[1]] = full_reg
 # كتل التراب الطائرة: نقاط داكنة بظلها
 for cxl, cyl, czl, sz in v['cl'] if len(v['cl']) else []:
+    if czl > 14 or math.hypot(cxl - cx * float(v['dx']), cyl - cy * float(v['dx'])) > 22: continue
     Pw = np.array([(cxl - cx * float(v['dx'])) * K + BX, (cyl - cy * float(v['dx'])) * K + BY, czl * K])
     px = np.dot(Pw - tgt, right) / MPP + W / 2; py = -np.dot(Pw - tgt, up) / MPP + H / 2; r = (.06 + .17 * sz) / MPP
     if r < 1 or not (0 <= px < W and 0 <= py < H): continue

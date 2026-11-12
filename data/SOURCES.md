@@ -54,3 +54,21 @@
 
 ### ساحة المعركة الجديدة
 اختيرت آلياً من بين نحو 2000 مربع 5×5 كم في المنطقة (`tools/map2/score.py`): بلدة متوسطة (~1300 بيت، «شزي» غرب دهوك)، وسلسلة جبال ووديان شمالها الشرقي، وسهل مكشوف جنوبها الغربي. المركز: 36.9095 شمالاً، 42.8868 شرقاً.
+
+## نماذج الشارع (البيوت والأشجار وآثار المعركة، Sketchfab)
+
+| المعرّف | النموذج وصاحبه | الترخيص |
+|---|---|---|
+| house123 | [House](https://sketchfab.com/3d-models/house-29c8806ec8794150802a58e582ad44a2) — 123a9el | CC Attribution |
+| desertGR | [Desert House - Game Ready Building](https://sketchfab.com/3d-models/desert-house-game-ready-building-c50babb583374543b34f9cc2a122c243) — Webster3D | CC Attribution |
+| meshow | [Middle Eastern Hut Kitset - Showcase Scene](https://sketchfab.com/3d-models/middle-eastern-hut-kitset-showcase-scene-e829f8db1bb24bd0bcaba50f65dbe389) — MrMffn | CC Attribution |
+| mudhouse | [Desert Mud Concrete House Lowpoly](https://sketchfab.com/3d-models/desert-mud-concrete-house-lowpoly-bd4917fa72c84e41aa1e5299871f1b2e) — 00amza | CC Attribution |
+| deshouse2 | [Desert House](https://sketchfab.com/3d-models/desert-house-dfd9dd93d3ed4e8eae1b1b4c2659857e) — Avgust9 | CC Attribution |
+| olive | [Old olive tree](https://sketchfab.com/3d-models/old-olive-tree-6328df8a0f214143a880a72b86db2ab4) — massive-graphisme | CC Attribution |
+| datepalm | [Realistic HD Date palm (17/78)](https://sketchfab.com/3d-models/realistic-hd-date-palm-1778-9a6e53a3c4a94c3c8144492709fca607) — PlantCatalog | CC Attribution |
+| shrubs | [Desert Shrubs](https://sketchfab.com/3d-models/desert-shrubs-3f116a7e0c464f2798fe25c7dae4fabb) — evolveduk | Free Standard |
+| burntcars | [Burned-out Cars](https://sketchfab.com/3d-models/burned-out-cars-701066df6b914fd08318524c7ccd96a7) — Renafox | CC Attribution |
+| aleppo | [Welcome to Aleppo](https://sketchfab.com/3d-models/welcome-to-aleppo-8b7efbe144f34c8297e1f2ba8836f89b) — NNihad | CC Attribution |
+| sandbag | [Sandbag Barrier (Ready for Unreal Engine)](https://sketchfab.com/3d-models/sandbag-barrier-ready-for-unreal-engine-593800671c8e45eca93b8b7c765c0f77) — G4AGamingLabs | CC Attribution |
+| jersey | [Jersey Barrier](https://sketchfab.com/3d-models/jersey-barrier-b52246c9611a42a99a03b425535a0237) — emran.bayati | CC Attribution |
+| pickup | [Pickup Truck](https://sketchfab.com/3d-models/pickup-truck-047615f53e2d45b9a1a2a4dd203d459c) — 00amza | CC Attribution |
