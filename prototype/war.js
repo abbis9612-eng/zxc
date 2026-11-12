@@ -230,7 +230,7 @@ function wboom(x, y, big = 1, snd = true){
 let sndBudget = 0;
 const SNDS = {iq: {squad: 'ak_close', mg: 'pkm_close', ifv: 'cannon30', sniper: 'sniper2', mortar: 'mortar_launch'}, tr: {squad: 'g3', mg: 'm2', ifv: 'm2', sniper: 'sniper2', mortar: 'mortar_launch'}};
 const FAR = {tank_cannon: 'tank_far_shot', tank_close_shot: 'tank_far_shot', ak_close: 'ak_far', g3: 'ak_far', pkm_close: 'mg_far', m2: 'mg_far', cannon30: 'mg_far', dshk: 'mg_far', artillery: 'arty_far', mlrs: 'mlrs_far', explosion_big: 'boom_echo'};
-const ALT = {tank_cannon: ['tank_cannon', 'tank_close_shot', 'real_tank'], explosion_big: ['explosion_big', 'real_strike'], dshk: ['dshk', 'real_hmg'], ak_close: ['ak_close', 'real_bursts'], explosion_med: ['explosion_med', 'boom_close'], ricochet: ['ricochet', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
+const ALT = {artillery: ['arty_c1', 'arty_c2', 'arty_c3', 'cannon_real'], arty_far: ['arty_f1', 'arty_f2', 'arty_f3'], mortar_launch: ['mort_1', 'mort_2', 'mort_3', 'mort_4', 'mort_t'], rpg2: ['rpg2', 'rpg_real'], cracks: ['bullet_crack', 'bullet_crack', 'cracks'], jet_flyby: ['jet_pass'], tank_cannon: ['tank_cannon', 'tank_close_shot', 'real_tank'], explosion_big: ['explosion_big', 'real_strike'], dshk: ['dshk', 'real_hmg'], ak_close: ['ak_close', 'real_bursts'], explosion_med: ['explosion_med', 'boom_close', 'range_blast'], ricochet: ['rico_1', 'rico_2', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
 const NODELAY = {radio: 1, missile_alert: 1, jet_high: 1, war_horn: 1, cracks: 1, shouts: 1};
 // المستمع في مركز الشاشة، وارتفاعه بحسب التقريب (كلما ابتعدت الكاميرا ابتعد المستمع)
 function listenerDist(x, y){ const c = W.cam, g = Math.hypot(x - c.x, y - c.y) * 30, h = 1100 / c.k; return Math.hypot(g, h); }
@@ -239,8 +239,8 @@ function wsound(k, x, y, vol = .7, delay = 0, rate){
   const c = W.cam, d = listenerDist(x, y);                      // بالأمتار
   if (d > 30000) return;
   sndBudget++;
-  if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
   if (d > 1600 && FAR[k]) { k = FAR[k]; vol *= 1.5; }
+  if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
   // الضوء يصل فوراً، والصوت بسرعة 343 م/ث: انفجار على 3 كم تراه ثم تسمعه بعد 9 ثوانٍ
   const travel = NODELAY[k] ? 0 : d / 343;
   const sx = (x - c.x) * c.k + innerWidth / 2;
@@ -861,6 +861,7 @@ function engineSounds(){
   const set = (k, v) => { const L = LOOPS[k]; if (L) L.g.gain.setTargetAtTime(v, actx.currentTime, .4); };
   set('tank_pass', .55 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
   set('tank_idle', .35 * near(u => !u.moving && u.t === 'tank'));
+  set('track_loop', .45 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
   set('wheeled', .35 * near(u => u.moving && (u.t === 'arty' || u.t === 'mlrs' || u.t === 'ad')));
   // صيحات الجنود حين يكون المشاة في اشتباك قريب من الكاميرا
   if (Math.random() < .05 && near(u => UT[u.t].inf && W.t - u.lastShot < 2) > .5) play('shouts', {vol: .28});
@@ -886,8 +887,8 @@ function warLoop(now){
 function startWar(){
   document.getElementById('wres').classList.remove('on');
   stopLoops(); setupWar(); wspeed = 4; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '4'));
-  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','real_battle','real_tank','real_strike','real_rockets_in','real_hmg','real_bursts','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
-  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('real_battle', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
+  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','arty_c1','arty_c2','arty_c3','cannon_real','arty_f1','arty_f2','arty_f3','mort_1','mort_2','mort_3','mort_4','mort_t','rpg_real','rico_1','rico_2','bullet_crack','jet_pass','range_blast','track_loop','helicopter_chinook','real_battle','real_tank','real_strike','real_rockets_in','real_hmg','real_bursts','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
+  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('track_loop', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('real_battle', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
   wResize(); syncWarUI();
 }
 function war(){ document.getElementById('war').classList.add('on'); startWar(); cancelAnimationFrame(wraf); wlast = performance.now(); wraf = requestAnimationFrame(warLoop); }
