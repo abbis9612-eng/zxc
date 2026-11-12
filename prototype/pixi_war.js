@@ -120,6 +120,35 @@ function drawMap(cam, Wd, Hd){
   const d = L.detail, a = Math.max(0, Math.min(.9, (cam.k - 10) / 40));
   d.visible = a > 0; if (d.visible) { d.position.set(x0, y0); d.width = x1 - x0; d.height = y1 - y0; const s = 12 * M2W / d.texture.width; d.tileScale.set(s, s); const tw = d.texture.width, md = v => ((v % tw) + tw) % tw; d.tilePosition.set(md(-x0 / s), md(-y0 / s));   /* باقي القسمة: أرقام صغيرة تحفظ دقة كرت الرسوميات */ d.alpha = a; }
 }
+// ---------- الخريطة الحقيقية (ساحة شزي): صورة كاملة + قطع بدقة 1 م و0.5 م تُحمّل عند الحاجة
+const M2T = new Map(); let M2L0 = null, m2frame = 0, M2UP = 0;
+const M2 = (typeof MAP2 !== 'undefined') ? {L0: MAP2.tiles.l0, L1: Object.assign({name: 'l1'}, MAP2.tiles.l1), L2: Object.assign({name: 'l2'}, MAP2.tiles.l2)} : null;
+function m2tex(key, url){
+  let e = M2T.get(key);
+  if (!e) { e = {img: new Image(), tex: null, used: 0, ready: false}; e.img.onload = () => { e.ready = true; }; e.img.src = url; M2T.set(key, e);
+    if (M2T.size > 90) { const old = [...M2T.entries()].filter(([, v]) => v.tex).sort((a, b) => a[1].used - b[1].used).slice(0, 20); for (const [k, v] of old) { v.tex.destroy(true); M2T.delete(k); } } }
+  // نرفع للكرت 3 قطع جديدة كحد أقصى في الإطار (حتى لا يتجمد العرض)؛ الصورة الكاملة فقط بنسخ مصغّرة
+  if (!e.tex && e.ready && M2UP < 3) { M2UP++; e.tex = P.Texture.from({resource: e.img, autoGenerateMipmaps: key === 'l0'}); }
+  e.used = m2frame; return e.tex;
+}
+function drawMap2(cam, Wd, Hd){
+  const c = L.map; begin(c); m2frame++; M2UP = 0;
+  const x0 = cam.x - Wd / 2 / cam.k, y0 = cam.y - Hd / 2 / cam.k, x1 = cam.x + Wd / 2 / cam.k, y1 = cam.y + Hd / 2 / cam.k;
+  const l0 = m2tex('l0', 'map/l0.webp'); if (l0) put(c, l0, 0, 0, M2.L0.size, M2.L0.size, 0, 1, 'normal', 0xffffff, 0, 0);
+  for (const [L_, kmin] of [[M2.L1, 5], [M2.L2, 22]]) {
+    if (cam.k < kmin) continue;
+    const t = L_.tile, i0 = Math.max(0, Math.floor((x0 - L_.x0) / t)), i1 = Math.min(L_.n - 1, Math.floor((x1 - L_.x0) / t)), j0 = Math.max(0, Math.floor((y0 - L_.y0) / t)), j1 = Math.min(L_.n - 1, Math.floor((y1 - L_.y0) / t));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const tx = m2tex(L_.name + i + '_' + j, `map/${L_.name}_${i}_${j}.webp`); if (tx) put(c, tx, L_.x0 + i * t - .01, L_.y0 + j * t - .01, t + .02, t + .02, 0, 1, 'normal', 0xffffff, 0, 0); }
+  }
+  end(c);
+  // حدود ساحة القتال (5 كم): ما خارجها معتّم
+  const g = L.feat; g.clear(); const a = 6.67, b = M2.L0.size - 6.67;
+  g.rect(-400, -400, 1000, 400 + a).fill({color: 0x0e0c09, alpha: .55}); g.rect(-400, b, 1000, 600).fill({color: 0x0e0c09, alpha: .55});
+  g.rect(-400, a, 400 + a, b - a).fill({color: 0x0e0c09, alpha: .55}); g.rect(b, a, 600, b - a).fill({color: 0x0e0c09, alpha: .55});
+  g.rect(a, a, b - a, b - a).stroke({width: 1.5 / cam.k, color: 0xe2b04f, alpha: .5});
+  const d = L.detail, al = Math.max(0, Math.min(.45, (cam.k - 60) / 150));
+  d.visible = al > 0; if (d.visible) { d.position.set(x0, y0); d.width = x1 - x0; d.height = y1 - y0; const s = 12 * M2W / d.texture.width; d.tileScale.set(s, s); const tw = d.texture.width, md = v => ((v % tw) + tw) % tw; d.tilePosition.set(md(-x0 / s), md(-y0 / s)); d.alpha = al; }
+}
 // المباني والطرق والأشجار حادة عند التقريب الكبير (أدق من قطع الخريطة)
 function drawFeat(cam, Wd, Hd){
   const g = L.feat; g.clear(); if (cam.k < 14) return;
@@ -302,9 +331,10 @@ PX.draw = function(dt){
   if (!ready) { const c = wctx, cv = wc(); if (c) { c.setTransform(WDPR, 0, 0, WDPR, 0, 0); c.fillStyle = '#1a1712'; c.fillRect(0, 0, cv.clientWidth, cv.clientHeight); c.fillStyle = '#d8cfbd'; c.font = '600 15px sans-serif'; c.textAlign = 'center'; c.fillText('جارٍ تحميل ساحة المعركة…', cv.clientWidth / 2, cv.clientHeight / 2); } return; }
   const host = document.getElementById('war'), Wd = host.clientWidth, Hd = host.clientHeight, cam = W.cam;
   if (R.width !== Math.round(Wd * R.resolution) || R.height !== Math.round(Hd * R.resolution)) R.resize(Wd, Hd);
-  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + 70, tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
+  if (W.follow) { const f = W.units.filter(u => u.side === 'iq' && ground(u) && (u.t === 'tank' || u.t === 'ifv' || u.t === 'squad')); if (f.length) { const ty = Math.min(...f.map(u => u.y)) + (typeof MAP2 !== 'undefined' ? 22 : 70), tx = f.reduce((s, u) => s + u.x, 0) / f.length; cam.x += (tx - cam.x) * Math.min(1, dt * .8); cam.y += (ty - cam.y) * Math.min(1, dt * .8); } }
   world.scale.set(cam.k); world.position.set(Wd / 2 - cam.x * cam.k, Hd / 2 - cam.y * cam.k);
-  drawMap(cam, Wd, Hd); drawFeat(cam, Wd, Hd); drawDecals(cam);
+  if (M2) drawMap2(cam, Wd, Hd); else { drawMap(cam, Wd, Hd); drawFeat(cam, Wd, Hd); }
+  drawDecals(cam);
   drawParts(dt, 'mid', cam); drawUnits(cam); drawProj(cam); drawFX(dt); drawParts(dt, 'top', cam);
   R.render(stage);
   drawOverlay(dt);
