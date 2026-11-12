@@ -164,6 +164,7 @@ while fi < len(times):
             alive &= ~hit
     t += dt
     if t >= times[fi] - 1e-4:
+        if os.environ.get('DUMP'): np.savez_compressed(f'{out}/vol{fi:02d}.npz', S=S.astype(np.float16), D=D.astype(np.float16), T=T.astype(np.float16), cl=np.array([[*cp[i], csz[i]] for i in np.where(alive)[0]] or np.zeros((0, 4))), dx=dx)
         rgb, a, shd = render(S, D, T, [(cp[i], csz[i]) for i in np.where(alive)[0]], t)
         img = np.dstack([rgb, a]); Image.fromarray((img * 255).astype(np.uint8), 'RGBA').save(f'{out}/f{fi:02d}.png')
         Image.fromarray((shd * 255).astype(np.uint8), 'L').save(f'{out}/s{fi:02d}.png')
