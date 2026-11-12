@@ -763,7 +763,7 @@ const TOWNS = [
 ];
 // أنواع الوحدات (المدى بالبكسل، والسرعة بكسل/ثانية، hold = مسافة الوقوف والرمي نسبة للمدى، minD = أقرب مسافة لعدو صامد)
 const UT = {
-  tank:   {hp: 100, arm: 2, rng: 2.6 * KM, rof: 3.6, ds: 22, dh: 46, acc: .55, spd: (12 / 30),  sz: 13, cost: 3,   snd: 'tank_cannon', fx: 'shell', veh: 1, turn: .9, hold: .85, minD: 1.5 * KM},
+  tank:   {hp: 100, arm: 2, rng: 2.6 * KM, rof: 7.5, ds: 30, dh: 85, acc: .72, spd: (12 / 30),  sz: 13, cost: 3,   snd: 'tank_cannon', fx: 'shell', veh: 1, turn: .9, hold: .85, minD: 1.5 * KM},
   ifv:    {hp: 70,  arm: 1, rng: 1.8 * KM, rof: 1.5, ds: 16, dh: 14, acc: .5,  spd: (13 / 30),  sz: 11, cost: 2,   snd: 'hmg', fx: 'tracer', veh: 1, turn: 1.2, hold: .9, minD: 1.1 * KM},
   squad:  {hp: 60,  arm: 0, rng: 1.0 * KM, rof: 1.1, ds: 9,  dh: 2,  acc: .45, spd: (1.6 / 30), sz: 15, cost: 1,   snd: 'ak47', fx: 'tracer', inf: 1, hold: 1, minD: .8 * KM},
   atgm:   {hp: 40,  arm: 0, rng: 3.5 * KM, rof: 10,  ds: 4,  dh: 72, acc: .62, spd: (1.3 / 30), sz: 10, cost: 1.5, snd: 'atgm_launch', fx: 'atgm', heavyOnly: true, ammo: 4, inf: 1, hold: .9, minD: 1.5 * KM},
@@ -773,8 +773,8 @@ const UT = {
   arty:   {hp: 60,  arm: 1, rng: 25 * KM,  rof: 8,   ds: 24, dh: 16, acc: .3,  spd: (8 / 30), sz: 15, cost: 2,   snd: 'artillery', fx: 'indirect', ind: true, area: 22, veh: 1, turn: .6, hold: .3, minD: 4 * KM},
   mlrs:   {hp: 50,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: (10 / 30),   sz: 15, cost: 2,   veh: 1, turn: .8, hold: 0, minD: 5 * KM},
   ad:     {hp: 60,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: (8 / 30), sz: 14, cost: 2,   airRng: 22 * KM, veh: 1, turn: .6, hold: 0, minD: 4 * KM},
-  heli:   {hp: 70,  arm: 1, rng: 4.5 * KM, rof: 2.2, ds: 14, dh: 40, acc: .55, spd: (60 / 30),  sz: 20, cost: 3,   snd: 'heli_gun', fx: 'heli', air: true, alt: 24, hold: .8, minD: 3 * KM},
-  drone:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (45 / 30), sz: 16, cost: 0, air: true, alt: 55},
+  heli:   {hp: 70,  arm: 1, rng: 6 * KM, rof: 2.2, ds: 14, dh: 40, acc: .55, spd: (60 / 30),  sz: 20, cost: 3,   snd: 'heli_gun', fx: 'heli', air: true, alt: 24, hold: .8, minD: 3 * KM},
+  drone:  {hp: 30, arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (45 / 30), sz: 16, cost: 0, air: true, alt: 140},
   recon:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (35 / 30), sz: 18, cost: 0, air: true, alt: 60},
   jet:    {hp: 40,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (250 / 30), sz: 28, cost: 0, air: true, alt: 95},
 };
@@ -801,7 +801,7 @@ function mkUnit(side, t, x, y, o = {}){
 function setupWar(){
   W = {losC: new Map(), sel: [], aim: null, t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], fly: [], smokes: [], log: [], order: 'attack', phase: 'prep', end: null,
     stats: {iq: {lost: {}, fired: 0}, tr: {lost: {}, fired: 0}, msl: 0, trMsl: 0, jetsLost: 0},
-    uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 300, droneT: 360, follow: true,
+    uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 300, trBm: 4, droneT: 360, follow: true,
     cam: {x: 1250, y: 1400, k: 2.6}};
   // خط الدفاع التركي الأول على السلسلة الجنوبية، والثاني عند مدخل دهوك
   const line1 = [[1060, 1088], [1150, 1080], [1240, 1092], [1330, 1084], [1420, 1098]];
@@ -881,7 +881,7 @@ function wboom(x, y, big = 1, snd = true){
 let sndBudget = 0;
 const SNDS = {iq: {squad: 'ak_close', mg: 'pkm_close', ifv: 'cannon30', sniper: 'sniper2', mortar: 'mortar_launch'}, tr: {squad: 'g3', mg: 'm2', ifv: 'm2', sniper: 'sniper2', mortar: 'mortar_launch'}};
 const FAR = {tank_cannon: 'tank_far_shot', tank_close_shot: 'tank_far_shot', ak_close: 'ak_far', g3: 'ak_far', pkm_close: 'mg_far', m2: 'mg_far', cannon30: 'mg_far', dshk: 'mg_far', artillery: 'arty_far', mlrs: 'mlrs_far', explosion_big: 'boom_echo'};
-const ALT = {tank_cannon: ['tank_cannon', 'tank_close_shot', 'real_tank'], explosion_big: ['explosion_big', 'real_strike'], dshk: ['dshk', 'real_hmg'], ak_close: ['ak_close', 'real_bursts'], explosion_med: ['explosion_med', 'boom_close'], ricochet: ['ricochet', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
+const ALT = {artillery: ['arty_c1', 'arty_c2', 'arty_c3', 'cannon_real'], arty_far: ['arty_f1', 'arty_f2', 'arty_f3'], mortar_launch: ['mort_1', 'mort_2', 'mort_3', 'mort_4', 'mort_t'], rpg2: ['rpg2', 'rpg_real'], cracks: ['bullet_crack', 'bullet_crack', 'cracks'], jet_flyby: ['jet_pass'], tank_cannon: ['tank_cannon', 'tank_close_shot', 'real_tank'], explosion_big: ['explosion_big', 'real_strike'], dshk: ['dshk', 'real_hmg'], ak_close: ['ak_close', 'real_bursts'], explosion_med: ['explosion_med', 'boom_close', 'range_blast'], ricochet: ['rico_1', 'rico_2', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
 const NODELAY = {radio: 1, missile_alert: 1, jet_high: 1, war_horn: 1, cracks: 1, shouts: 1};
 // المستمع في مركز الشاشة، وارتفاعه بحسب التقريب (كلما ابتعدت الكاميرا ابتعد المستمع)
 function listenerDist(x, y){ const c = W.cam, g = Math.hypot(x - c.x, y - c.y) * 30, h = 1100 / c.k; return Math.hypot(g, h); }
@@ -890,8 +890,8 @@ function wsound(k, x, y, vol = .7, delay = 0, rate){
   const c = W.cam, d = listenerDist(x, y);                      // بالأمتار
   if (d > 30000) return;
   sndBudget++;
-  if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
   if (d > 1600 && FAR[k]) { k = FAR[k]; vol *= 1.5; }
+  if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
   // الضوء يصل فوراً، والصوت بسرعة 343 م/ث: انفجار على 3 كم تراه ثم تسمعه بعد 9 ثوانٍ
   const travel = NODELAY[k] ? 0 : d / 343;
   const sx = (x - c.x) * c.k + innerWidth / 2;
@@ -928,12 +928,13 @@ function fire(u, v){
   const r = dist(u, v), hv = UT[v.t].arm > 0;
   let p = d.acc * (1 - r / (d.rng * 1.6)) * cover(v) * (1 - u.sup / 140);
   if (hAt(v.x, v.y) - hAt(u.x, u.y) > 60) p *= .8;
-  if (v.moving) p *= .85; if (u.moving) p *= .6; if (smoked(u, v)) p *= .35;
+  if (v.moving) p *= .85; if (u.moving) p *= .6; if (v.prone) p *= .6; if (u.prone) p *= 1.15; if (smoked(u, v)) p *= .35;
   const hit = wrand() < p;
   const dmg = (UT[v.t].arm === 2 ? d.dh : UT[v.t].arm === 1 ? (d.ds + d.dh) / 2 : d.ds) * (.7 + wrand() * .6);
   if (d.ind) {
     // مدفعية وهاون: القذيفة تعلو ثم تنزل، والصفير يسبق السقوط
     const tx = v.x + (wrand() - .5) * 24, ty = v.y + (wrand() - .5) * 24, dur = u.t === 'mortar' ? 10 + r / KM * 5 : 8 + r / KM * 2.5; /* هاون: قوس عالٍ بطيء. 155 ملم: نحو 45 ث لـ 15 كم */
+    if (u.t === 'arty' && (u.shots = (u.shots || 0) + 1) >= 6) { u.shots = 0; const a = wrand() * 6.283; u.relocT = W.t + 150; u.relocTo = {x: u.x + Math.cos(a) * 16, y: u.y + Math.sin(a) * 16}; if (u.side === 'iq' && wrand() < .5) wlog('مدفع أنهى رشقته وينتقل إلى موقع جديد حتى لا يُرصد', 'iq'); }
     W.proj.push({k: 'arty', x0: u.x, y0: u.y, x1: tx, y1: ty, t: 0, dur, peak: u.t === 'mortar' ? 70 : 140, side: u.side, area: d.area, soft: d.ds, hard: d.dh});
     const m = muzzleOf(u);
     wp('muzzle', m.x, m.y, {s0: d.sz * .8, s1: d.sz * 1.2, life: .16, rot: u.ta + Math.PI / 2, vr: 0});
@@ -969,7 +970,8 @@ function fire(u, v){
     if (u.t === 'squad' && r < .55 * KM && wrand() < .08) { wboom(v.x + (wrand() - .5) * 6, v.y + (wrand() - .5) * 6, .25, false); wsound('grenade', v.x, v.y, .45); if (hit) damage(v, 12, u.side); }
   } else if (fx === 'atgm') {
     // صاروخ مضاد دروع: عصفة غبار خلف الرامي، وصاروخ بطيء يتمايل ووراءه دخان
-    W.proj.push({k: 'atgm', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / (280 / 30)), target: v, hit, dmg, side: u.side, by: u.t}); /* مضاد دروع ~280 م/ث */
+    const sm = UT[v.t].veh && !v.smokeUsed && wrand() < .35; if (sm) v.popSmoke = W.t + 2.5;
+    W.proj.push({k: 'atgm', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / (280 / 30)), target: v, hit: hit && !(sm && wrand() < .55), dmg, side: u.side, by: u.t, shooter: u}); /* مضاد دروع ~280 م/ث */
     const bx = u.x - Math.cos(u.ta) * 7, by = u.y - Math.sin(u.ta) * 7;
     wp('backblast', bx, by, {s0: 10, s1: 26, a0: .85, life: 1.8, rot: u.ta + Math.PI / 2, vr: 0, layer: 'mid'});
     wp('muzzle', m.x, m.y, {s0: 5, s1: 8, life: .12, rot: u.ta + Math.PI / 2, vr: 0});
@@ -990,13 +992,14 @@ function damage(v, dmg, by, kind){
   // قذيفة الدبابة قد ترتد عن الدرع الأمامي فلا تخترق
   if (kind === 'shell' && UT[v.t].arm === 2 && wrand() < .3) { dmg *= .25; wsound('ricochet', v.x, v.y, .35); }
   v.hp -= dmg; v.mor -= 10 + dmg * .25; v.lastHit = W.t; v.sup = Math.min(100, v.sup + 30);
-  if (v.hp <= 0) { kill(v, by); return; }
-  // الدبابة المصابة تطلق قنابل دخان وتتراجع خلفها
-  if (UT[v.t].veh && v.hp < UT[v.t].hp * .6 && !v.smokeUsed && (v.t === 'tank' || v.t === 'ifv')) {
-    v.smokeUsed = true; W.smokes.push({x: v.x, y: v.y, r: 18, until: W.t + 90});
-    for (let i = 0; i < 5; i++) wp('smoke_screen', v.x + Math.cos(v.ta + (i - 2) * .5) * 10, v.y + Math.sin(v.ta + (i - 2) * .5) * 10, {s0: 8, s1: 42, a0: .65, a1: 0, life: 22, delay: i * .1, vx: 1, vy: -.6, vr: .05, layer: 'top'});
-    wsound('smoke_pop', v.x, v.y, .45);
-  }
+  if (v.hp <= 0) { const kb = W.kb || (W.kb = {}), kk = v.side + ":" + v.t + "<" + kind; kb[kk] = (kb[kk] || 0) + 1; kill(v, by); return; }
+  if (UT[v.t].veh && v.hp < UT[v.t].hp * .6 && !v.smokeUsed && (v.t === 'tank' || v.t === 'ifv')) popSmoke(v);
+}
+// قنابل الدخان: ستار أبيض أمام المركبة يحجب الرؤية والتوجيه
+function popSmoke(v){
+  v.smokeUsed = true; W.smokes.push({x: v.x, y: v.y, r: 18, until: W.t + 90});
+  for (let i = 0; i < 5; i++) wp('smoke_screen', v.x + Math.cos(v.ta + (i - 2) * .5) * 10, v.y + Math.sin(v.ta + (i - 2) * .5) * 10, {s0: 8, s1: 42, a0: .65, a1: 0, life: 22, delay: i * .1, vx: 1, vy: -.6, vr: .05, layer: 'top'});
+  wsound('smoke_pop', v.x, v.y, .45);
 }
 function kill(v, by){
   v.dead = true; v.hp = 0;
@@ -1060,6 +1063,7 @@ function stepWar(dt){
     if (u.dead || u.t === 'jet' || u.t === 'drone' || u.t === 'recon') continue;
     const d = UT[u.t];
     if (W.t - u.lastHit > 4) u.mor = Math.min(100, u.mor + dt * 3);
+    if (u.popSmoke && W.t >= u.popSmoke) { u.popSmoke = 0; if (!u.smokeUsed) popSmoke(u); }
     u.sup = Math.max(0, u.sup - dt * (W.t - u.lastHit > 2 ? 12 : 3));
     u.recoil = Math.max(0, u.recoil - dt * 4);
     if (!u.retreat && u.mor < 22) { u.retreat = true; if (wrand() < .5) wlog(`${NAME[u.t]} ${u.side === 'tr' ? 'تركي' : 'عراقي'} ينسحب بعد خسائر`, u.side === 'tr' ? 'iq' : 'tr'); }
@@ -1075,13 +1079,21 @@ function stepWar(dt){
     const aligned = Math.abs(angDiff(u.ta, aim)) < .1;
     let halt = false;
     if (tgt && u.ammo === 0) tgt = null;
+    if (u.relocT > W.t) tgt = null;
+    // المروحية: مخفية خلف التضاريس، تقفز للأعلى 12 ثانية كل 20 ثانية لتضرب ثم تنزل
+    if (d.air && u.t === 'heli') { u.popped = ((W.t + u.id * 7) % 20) < 12; u.alt += ((u.popped ? 26 : 7) - u.alt) * Math.min(1, dt * .8); if (!u.popped) tgt = null; }
     if (tgt && u.cd <= 0 && aligned) {
       if (u.t === 'tank' && u.v > .12) halt = true;
       else { fire(u, tgt); if (u.ammo > 0) u.ammo--; u.cd = d.rof * (.8 + wrand() * .4) * (u.retreat ? 1.6 : 1); }
     } else if (tgt && u.t === 'tank' && u.cd < .8 && aligned) halt = true;
     // الحركة
     let goal = null, sp = d.spd;
-    if (d.inf && u.side === 'iq') { const n0 = nearestEnemy(u); u.mounted = !n0 || n0.d > 3.5 * KM; if (u.mounted) sp = 12 / 30; }
+    u.prone = false;
+    if (d.inf && u.side === 'iq') {
+      const n0 = nearestEnemy(u); u.mounted = !n0 || n0.d > 3.5 * KM;
+      if (u.mounted) sp = 12 / 30;
+      else { const rush = ((W.t + u.id * 3.7) % 9) < 4; if (rush) sp = 3.5 / 30; else u.prone = true; }
+    }
     const order = u.side === 'iq' ? W.order : (W.trCollapse ? 'retreat' : 'hold');
     const ne = nearestEnemy(u);
     const broken = ne && (ne.v.retreat || ne.v.mor < 30), pinned = ne && ne.v.sup > 55;
@@ -1111,8 +1123,8 @@ function stepWar(dt){
     }
     if (d.air && u.side === 'iq' && order === 'attack' && !u.manual && W.phase !== 'prep') {
       // المروحيات تبقى خلف الدروع وتضرب من بعيد
-      const lead = W.units.filter(v => v.side === 'iq' && ground(v) && (v.t === 'tank' || v.t === 'ifv'));
-      if (lead.length) { const ly = Math.min(...lead.map(v => v.y)); goal = {x: lead.reduce((s, v) => s + v.x, 0) / lead.length + (u.id % 2 ? 40 : -40), y: ly + 70}; }
+      const n1 = nearestEnemy(u);
+      if (n1) goal = {x: n1.v.x + (u.x - n1.v.x) / n1.d * 5.2 * KM + (u.id % 2 ? 25 : -25), y: n1.v.y + (u.y - n1.v.y) / n1.d * 5.2 * KM};
     }
     // إذا اقترب عدو صامد جداً (خارج المدن) نتراجع قليلاً إلى مسافة الرمي بدل الالتحام
     let backing = false;
@@ -1129,8 +1141,10 @@ function stepWar(dt){
         if (toward > .2) sp *= .5;
       }
     }
-    if (goal && !(u.side === 'tr' || order !== 'hold' || u.retreat || u.manual)) goal = null;
+    if (goal && !(u.side === 'tr' || order !== 'hold' || u.retreat || u.manual || u.relocT > W.t)) goal = null;
     if (halt && !backing) goal = null;
+    if (u.prone && !u.manual && !u.retreat) goal = null;
+    if (u.relocT > W.t) goal = u.relocTo;
     drive(u, d, goal, sp, dt);
     if (u.dug && u.moving && dist(u, u.home) > 25) u.dug = false;
   }
@@ -1185,6 +1199,8 @@ function projPos(p){
 }
 function stepProj(dt){
   for (const p of W.proj) {
+    // صاروخ موجّه: إذا قُتل الرامي أو ثُبّت تحت النار فقد التوجيه وانحرف
+    if (p.shooter && !p.lost && p.t > 0 && (p.shooter.dead || p.shooter.sup > 85)) { p.lost = true; p.hit = false; p.x1 += (wrand() - .5) * 40; p.y1 += (wrand() - .5) * 40; if (wrand() < .4) wlog('فقد رامي الصاروخ الموجّه التوجيه، فانحرف الصاروخ', p.side === 'iq' ? 'tr' : 'iq'); }
     if (p.k === 'agm') { p.t += dt; if (!p.lit && p.t >= p.drop) { p.lit = true; const q = projPos(p); wsound('jet_release', q.x, q.y, .5); wsound('missile_fly', q.x, q.y, .35, .2); } }
     else p.t += dt;
     if (p.t < p.dur || p.done) continue;
@@ -1193,19 +1209,20 @@ function stepProj(dt){
     if (p.k === 'arty' || p.k === 'rkt' || p.k === 'bm' || p.k === 'agm') {
       const big = {arty: p.area > 18 ? 1.1 : .8, rkt: 1.25, bm: 2.1, agm: 1.7}[p.k];
       wboom(p.x1, p.y1, big);
-      const A = {arty: p.area, rkt: 30, bm: 60, agm: 34}[p.k], soft = {arty: p.soft, rkt: 45, bm: 90, agm: 70}[p.k], hard = {arty: p.hard, rkt: 30, bm: 80, agm: 110}[p.k];
-      for (const v of W.units) if (ground(v) && v.side !== p.side) { const r = Math.hypot(v.x - p.x1, v.y - p.y1); if (r < A) damage(v, (UT[v.t].arm ? hard : soft) * (1 - r / A) * cover(v) * 1.3, p.side); }
+      const A = {arty: p.area, rkt: 30, bm: 40, agm: 34}[p.k], soft = {arty: p.soft, rkt: 22, bm: 60, agm: 70}[p.k], hard = {arty: p.hard, rkt: 14, bm: 40, agm: 110}[p.k];
+      for (const v of W.units) if (ground(v) && v.side !== p.side) { const r = Math.hypot(v.x - p.x1, v.y - p.y1); if (r < A) damage(v, (UT[v.t].arm ? hard : soft) * (1 - r / A) * cover(v) * 1.3, p.side, "area_" + p.k + (p.by ? "_" + p.by : "")); }
     } else if (p.k === 'int') {
       const m = p.vs; if (!m || m.done) continue;
-      if (p.ok) { m.intercepted = true; m.done = true; if (m.jet) kill(m.jet, p.side); wp('intercept', p.x1, p.y1, {s0: 10, s1: 40, life: .7}); wp('smoke_dark', p.x1, p.y1, {s0: 8, s1: 30, a0: .55, life: 2.2, vx: 3, vy: -2, layer: 'top'}); wsound('intercept', p.x1, p.y1, .6); }
+      if (p.ok) { m.intercepted = true; m.done = true; if (m.jet && !m.jet.dead) kill(m.jet, p.side); wp('intercept', p.x1, p.y1, {s0: 10, s1: 40, life: .7}); wp('smoke_dark', p.x1, p.y1, {s0: 8, s1: 30, a0: .55, life: 2.2, vx: 3, vy: -2, layer: 'top'}); wsound('intercept', p.x1, p.y1, .6); }
       else wp('intercept', p.x1, p.y1, {s0: 6, s1: 20, life: .5});
     } else {
       const v = p.target;
       if (v && p.hit && !v.dead) {
         damage(v, p.dmg, p.side, p.k); c2Mark(p.x1, p.y1, 'hit');
+        if (p.by === 'drone') wlog('ضربة مسيّرة على دروعنا: لم نسمعها ولم نرها قبل الانفجار', 'tr');
         if (UT[v.t].arm) { wp('armor_sparks', p.x1, p.y1, {s0: 5, s1: 16, life: .35}); if (p.k !== 'tracer' && p.k !== 'bullet') wsound('armor_hit', p.x1, p.y1, .45); else if (wrand() < .3) wsound('metal_hits', p.x1, p.y1, .3); }
         if (p.k === 'atgm' || p.k === 'hrkt' || (p.k === 'shell' && wrand() < .5)) wboom(p.x1, p.y1, .5, p.k !== 'shell');
-      } else if (v) v.sup = Math.min(100, v.sup + (p.k === 'tracer' || p.k === 'bullet' ? 9 : 18));
+      } else if (v) v.sup = Math.min(100, v.sup + (p.by === 'mg' ? 16 : p.k === 'tracer' || p.k === 'bullet' ? 9 : 18));
       if (!p.hit || !v) {
         // الطلقة الخاطئة تثير غباراً حيث تسقط
         if (p.k === 'tracer' || p.k === 'bullet') { if (wrand() < .5) wp('dirt_hits', p.x1, p.y1, {s0: 4, s1: 9, a0: .8, life: .5, layer: 'mid'}); }
@@ -1228,7 +1245,7 @@ function stepAir(dt){
       const sp = UT.jet.spd;
       if (j.phase === 'in') {
         const dx = j.rx - j.x, dy = j.ry - j.y, r = Math.hypot(dx, dy); j.ang = Math.atan2(dy, dx);
-        if (!j.fired && r < 12) { j.phase = 'out'; j.outT = 0; if (j.id % 2) wlog('المقاتلات أطلقت صواريخها من 10 كم وتنعطف عائدة دون أن تدخل مدى العدو', 'iq'); wsound('jet_flyby', j.x, j.y, .7); j.fired = true; for (let i = 0; i < 2; i++) { const tx = j.tx + (wrand() - .5) * 22, ty = j.ty + (wrand() - .5) * 22, rr = Math.hypot(tx - j.x, ty - j.y); W.proj.push({k: 'agm', x0: j.x + (i ? 4 : -4), y0: j.y, x1: tx, y1: ty, t: -i * .4, dur: 1 + rr / (330 / 30), drop: 1, alt0: j.alt, side: j.side}); } }
+        if (!j.fired && r < 12) { j.phase = 'out'; j.outT = 0; if (j.id % 2) wlog('المقاتلات أطلقت صواريخها من 18 كم وتنعطف عائدة دون أن تدخل مدى العدو', 'iq'); wsound('jet_flyby', j.x, j.y, .7); j.fired = true; for (let i = 0; i < 2; i++) { const tx = j.tx + (wrand() - .5) * 22, ty = j.ty + (wrand() - .5) * 22, rr = Math.hypot(tx - j.x, ty - j.y); W.proj.push({k: 'agm', x0: j.x + (i ? 4 : -4), y0: j.y, x1: tx, y1: ty, t: -i * .4, dur: 1 + rr / (330 / 30), drop: 1, alt0: j.alt, side: j.side}); } }
       } else {
         j.outT += dt; const want = Math.PI / 2 + (j.side === 'iq' ? 0 : Math.PI);
         j.ang += (j.id % 2 ? 1 : -1) * Math.min(.18 * dt, Math.abs(angDiff(j.ang, want))); /* نصف قطر انعطاف نحو 1.4 كم */
@@ -1249,20 +1266,30 @@ function stepAir(dt){
       const tg = j.drone;
       if (!j.fired && tg && !tg.dead) {
         const dx = tg.x - j.x, dy = tg.y - j.y, r = Math.hypot(dx, dy); j.ang = Math.atan2(dy, dx);
-        if (r > 4 * KM) { j.x += dx / r * UT.drone.spd * dt; j.y += dy / r * UT.drone.spd * dt; }
-        else { j.fired = true; W.proj.push({k: 'atgm', x0: j.x, y0: j.y, x1: tg.x, y1: tg.y, t: 0, dur: r / (240 / 30), target: tg, hit: wrand() < .65, dmg: 70, side: j.side, alt0: j.alt}); wsound('missile_fly', j.x, j.y, .4); }
+        if (r > 6 * KM) { j.x += dx / r * UT.drone.spd * dt; j.y += dy / r * UT.drone.spd * dt; }
+        else { j.fired = true; W.proj.push({k: 'atgm', x0: j.x, y0: j.y, x1: tg.x, y1: tg.y, t: 0, dur: r / (240 / 30), target: tg, hit: wrand() < .65, dmg: 70, by: 'drone', side: j.side, alt0: j.alt}); wsound('missile_fly', j.x, j.y, .4); }
       } else { j.ang += angDiff(j.ang, -Math.PI / 2) * Math.min(1, dt); j.x += Math.cos(j.ang) * UT.drone.spd * dt; j.y += Math.sin(j.ang) * UT.drone.spd * dt; if (j.y < tg_y_exit(j)) { j.dead = true; j.gone = true; } }
     }
   }
   // الدفاع الجوي: يعترض الصواريخ والطائرات المعادية في مداه
   for (const a of W.units) {
     if (a.dead || a.t !== 'ad') continue;
-    a.cd -= dt; if (a.cd > 0) continue;
-    const threats = W.proj.filter(p => (p.k === 'rkt' || p.k === 'bm' || p.k === 'agm') && p.side !== a.side && !p.intercepted && !p.engaged && p.t > .25 * p.dur && Math.hypot(p.x1 - a.x, p.y1 - a.y) < UT.ad.airRng);
-    const air = W.units.filter(j => !j.dead && j.side !== a.side && (j.t === 'jet' || j.t === 'drone' || j.t === 'recon') && !j.engaged && dist(j, a) < UT.ad.airRng);
-    const m = threats[0] || null, jet = !m ? air[0] : null;
-    if (m) { m.engaged = true; const k = Math.min(.95, m.t / m.dur + .3); const x = m.x0 + (m.x1 - m.x0) * k, y = m.y0 + (m.y1 - m.y0) * k; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: x, y1: y, t: 0, dur: Math.max(.3, (k - m.t / m.dur) * m.dur), peak: 40, side: a.side, vs: m, ok: wrand() < .45}); wsound('missile_pass', a.x, a.y, .35); a.cd = 1.1; a.ta = Math.atan2(y - a.y, x - a.x); }
-    else if (jet) { jet.engaged = true; const ok = wrand() < (jet.t === 'jet' ? .25 : .5); const lead = {x: jet.x + Math.cos(jet.ang) * UT[jet.t].spd * 8, y: jet.y + Math.sin(jet.ang) * UT[jet.t].spd * 8}; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: lead.x, y1: lead.y, t: 0, dur: Math.max(1, Math.hypot(lead.x - a.x, lead.y - a.y) / (1000 / 30)), peak: 40, side: a.side, vs: {done: false, jet: ok ? jet : null}, ok}); if (ok && jet.t === 'jet') W.stats.jetsLost++; a.cd = 2.2; }
+    a.cd -= dt;
+    if (a.lock) {
+      const L = a.lock, m = L.m, j = L.j;
+      if ((m && (m.done || m.intercepted)) || (j && (j.dead || (j.t === 'heli' && !j.popped)))) { a.lock = null; continue; }
+      if (W.t < L.at) continue;
+      if (m) { const k = Math.min(.95, m.t / m.dur + .25), x = m.x0 + (m.x1 - m.x0) * k, y = m.y0 + (m.y1 - m.y0) * k, d = Math.hypot(x - a.x, y - a.y); W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: x, y1: y, t: 0, dur: Math.max(.5, Math.min((k - m.t / m.dur) * m.dur, d / (1000 / 30))), peak: 40, side: a.side, vs: m, ok: wrand() < .45}); a.ta = Math.atan2(y - a.y, x - a.x); }
+      else { const ok = wrand() < (j.t === 'jet' ? .2 : j.t === 'heli' ? .35 : .45); const lead = {x: j.x + Math.cos(j.ang) * UT[j.t].spd * 6, y: j.y + Math.sin(j.ang) * UT[j.t].spd * 6}; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: lead.x, y1: lead.y, t: 0, dur: Math.max(1, Math.hypot(lead.x - a.x, lead.y - a.y) / (1000 / 30)), peak: 40, side: a.side, vs: {done: false, jet: ok ? j : null}, ok}); if (ok && j.t === 'jet') W.stats.jetsLost++; }
+      wsound('missile_pass', a.x, a.y, .35); wp('smoke_light', a.x, a.y, {s0: 6, s1: 30, a0: .7, life: 3, vx: 2, vy: -2, layer: 'mid'});
+      if (++L.n >= 2) { a.lock = null; a.cd = 1.5; } else L.at = W.t + 1.2;
+      continue;
+    }
+    if (a.cd > 0) continue;
+    const threats = W.proj.filter(p => (p.k === 'rkt' || p.k === 'bm' || p.k === 'agm') && p.side !== a.side && !p.intercepted && !p.engaged && p.t > .2 * p.dur && Math.hypot(p.x1 - a.x, p.y1 - a.y) < UT.ad.airRng);
+    const air = W.units.filter(j => !j.dead && j.side !== a.side && (j.t === 'jet' || j.t === 'drone' || j.t === 'recon' || (j.t === 'heli' && j.popped && dist(j, a) < 10 * KM)) && !j.engaged && dist(j, a) < UT.ad.airRng);   /* المروحية المنخفضة لا يراها الرادار أبعد من 10 كم */
+    const m = threats[0] || null, j = !m ? air[0] : null;
+    if (m || j) { if (m) m.engaged = true; else j.engaged = true; a.lock = {m, j, at: W.t + 4 + wrand() * 2, n: 0}; }   /* زمن الرد 4-6 ثوانٍ */
   }
   // الراجمات: تتجه للهدف وتتهيأ ثم تطلق بالتتابع، ثم تغيّر موقعها حتى لا تُكشف
   for (const m of W.units) {
@@ -1284,9 +1311,9 @@ function stepAir(dt){
   }
   // صواريخ تركية دورية من خارج الخريطة، ومسيّرة بيرقدار
   W.trMslT -= dt;
-  if (W.trMslT <= 0 && !W.trCollapse) { W.trMslT = 240; const tg = densest('iq'); if (tg) { for (let i = 0; i < 4; i++) { const x0 = 1150 + i * 25, y0 = 180, tx = tg.x + (wrand() - .5) * 40, ty = tg.y + (wrand() - .5) * 40, r = Math.hypot(tx - x0, ty - y0); W.proj.push({k: 'bm', x0, y0, x1: tx, y1: ty, t: -i * .8, dur: 70, peak: 300, side: 'tr'}); } wlog('تركيا تطلق 4 صواريخ باليستية على قواتنا', 'tr'); W.stats.trMsl += 4; wsound('real_rockets_in', tg.x, tg.y, .6, 58); } }
+  if (W.trMslT <= 0 && !W.trCollapse && W.trBm > 0) { W.trMslT = 360; W.trBm--; /* مخزون محدود: 4 رشقات × 4 صواريخ */ const tg = densest('iq'); if (tg) { for (let i = 0; i < 4; i++) { const x0 = 1150 + i * 25, y0 = 180, tx = tg.x + (wrand() - .5) * 40, ty = tg.y + (wrand() - .5) * 40, r = Math.hypot(tx - x0, ty - y0); W.proj.push({k: 'bm', x0, y0, x1: tx, y1: ty, t: -i * .8, dur: 70, peak: 300, side: 'tr'}); } wlog('تركيا تطلق 4 صواريخ باليستية على قواتنا', 'tr'); W.stats.trMsl += 4; wsound('real_rockets_in', tg.x, tg.y, .6, 58); } }
   W.droneT -= dt;
-  if (W.droneT <= 0 && !W.trCollapse) { W.droneT = 300; const tgs = W.units.filter(v => v.side === 'iq' && ground(v) && v.t === 'tank'); if (tgs.length) { const tg = tgs[Math.floor(wrand() * tgs.length)]; mkUnit('tr', 'drone', tg.x + 60, tg.y - 9 * KM, {drone: tg}); wlog('مسيّرة بيرقدار تركية تتجه نحو دروعنا', 'tr'); wsound('drone', tg.x, tg.y, .4); } }
+  if (W.droneT <= 0 && !W.trCollapse) { W.droneT = 300; const tgs = W.units.filter(v => v.side === 'iq' && ground(v) && v.t === 'tank'); if (tgs.length) { const tg = tgs[Math.floor(wrand() * tgs.length)]; mkUnit('tr', 'drone', tg.x + 60, tg.y - 11 * KM, {drone: tg}); } }
 }
 function densest(side){
   let best = null, bn = 0;
@@ -1306,13 +1333,13 @@ function wOrder(k){
   if ((k === 'msl' || k === 'air') && !W.aim && ((k === 'msl' && W.uses.msl > 0 && W.cool.msl <= 0) || (k === 'air' && W.uses.air > 0 && W.cool.air <= 0))) { W.aim = k; hint(k === 'air' ? 'اضغط على الخريطة: هدف الضربة الجوية' : 'اضغط على الخريطة: هدف الراجمات'); syncWarUI(); return; }
   if (k === 'msl-go' && W.uses.msl > 0) {
     const tg = W.aimAt || densest('tr'), L = W.units.filter(u => u.side === 'iq' && u.t === 'mlrs' && !u.dead && !u.job);
-    if (tg && L.length) { W.uses.msl--; W.cool.msl = 300; /* إعادة تلقيم الراجمة دقائق */ for (const m of L) m.job = {st: 'aim', t: 0, tx: tg.x, ty: tg.y, count: 6}; W.stats.msl += 6 * L.length; wlog(`الراجمات تتجه نحو الهدف وتتهيأ للإطلاق: ${6 * L.length} صاروخاً`, 'iq'); wsound('radio', W.cam.x, W.cam.y, .35); }
+    if (tg && L.length) { W.uses.msl--; W.cool.msl = 300; /* إعادة تلقيم الراجمة دقائق */ for (const m of L) m.job = {st: 'aim', t: 0, tx: tg.x, ty: tg.y, count: 20}; W.stats.msl += 20 * L.length; wlog(`الراجمات تتجه نحو الهدف وترفع منصاتها: ${20 * L.length} صاروخاً`, 'iq'); wsound('radio', W.cam.x, W.cam.y, .35); }
   }
   if (k === 'air-go' && W.uses.air > 0) {
     const tg = W.aimAt || densest('tr');
     if (tg) {
-      W.uses.air--; W.cool.air = 360; wlog('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع عالٍ وتطلقان من 10 كم', 'iq'); wsound('jet_high', tg.x, tg.y + 300, .5);
-      for (let i = 0; i < 2; i++) { const x0 = tg.x - 30 + i * 60, y0 = tg.y + 14 * KM; const rx = tg.x - 20 + i * 40, ry = tg.y + 10 * KM; mkUnit('iq', 'jet', x0, y0 + i * 30, {phase: 'in', rx, ry, tx: tg.x + (i - .5) * 16, ty: tg.y, ang: -Math.PI / 2}); }
+      W.uses.air--; W.cool.air = 360; wlog('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع عالٍ وتطلقان من 18 كم', 'iq'); wsound('jet_high', tg.x, tg.y + 300, .5);
+      for (let i = 0; i < 2; i++) { const x0 = tg.x - 30 + i * 60, y0 = tg.y + 22 * KM; const rx = tg.x - 20 + i * 40, ry = tg.y + 18 * KM; mkUnit('iq', 'jet', x0, y0 + i * 30, {phase: 'in', rx, ry, tx: tg.x + (i - .5) * 16, ty: tg.y, ang: -Math.PI / 2}); }
     }
   }
   if (k === 'res' && W.uses.res > 0) { W.uses.res--; const c = [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -28], ['tank', 8], ['tank', 44], ['ifv', -10], ['squad', -28], ['squad', 28]]) { const u = mkUnit('iq', t, 1240 + dx, 1420 + (t === 'squad' ? 36 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
@@ -1394,7 +1421,7 @@ function drawWar(dt){
       const sh = slopeShade(u.x, u.y); if (sh < .6) shade(c, T.hull, u.x, u.y, s, u.ang + Math.PI / 2, (.6 - sh) * .9);
     } else {
       shade(c, u.spr, u.x + 1.6, u.y + 2.2, s, u.ang + Math.PI / 2, .35);
-      spr(u.spr, u.x, u.y, s, u.ang + Math.PI / 2, d.inf && u.sup > 55 ? .8 : u.retreat ? .85 : 1);
+      spr(u.spr, u.x, u.y, d.inf && (u.prone || u.sup > 55) ? s * .86 : s, u.ang + Math.PI / 2, d.inf && (u.prone || u.sup > 55) ? .82 : u.retreat ? .85 : 1);
     }
   }
   for (const u of W.units) if (W.sel && W.sel.includes(u.id) && !u.dead) {
@@ -1512,6 +1539,7 @@ function engineSounds(){
   const set = (k, v) => { const L = LOOPS[k]; if (L) L.g.gain.setTargetAtTime(v, actx.currentTime, .4); };
   set('tank_pass', .55 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
   set('tank_idle', .35 * near(u => !u.moving && u.t === 'tank'));
+  set('track_loop', .45 * near(u => u.moving && (u.t === 'tank' || u.t === 'ifv')));
   set('wheeled', .35 * near(u => u.moving && (u.t === 'arty' || u.t === 'mlrs' || u.t === 'ad')));
   // صيحات الجنود حين يكون المشاة في اشتباك قريب من الكاميرا
   if (Math.random() < .05 && near(u => UT[u.t].inf && W.t - u.lastShot < 2) > .5) play('shouts', {vol: .28});
@@ -1537,8 +1565,8 @@ function warLoop(now){
 function startWar(){
   document.getElementById('wres').classList.remove('on');
   stopLoops(); setupWar(); wspeed = 4; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '4'));
-  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','real_battle','real_tank','real_strike','real_rockets_in','real_hmg','real_bursts','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
-  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('real_battle', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
+  audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','arty_c1','arty_c2','arty_c3','cannon_real','arty_f1','arty_f2','arty_f3','mort_1','mort_2','mort_3','mort_4','mort_t','rpg_real','rico_1','rico_2','bullet_crack','jet_pass','range_blast','track_loop','helicopter_chinook','real_battle','real_tank','real_strike','real_rockets_in','real_hmg','real_bursts','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
+  setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('track_loop', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('real_battle', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
   wResize(); syncWarUI();
 }
 function war(){ document.getElementById('war').classList.add('on'); startWar(); cancelAnimationFrame(wraf); wlast = performance.now(); wraf = requestAnimationFrame(warLoop); }
