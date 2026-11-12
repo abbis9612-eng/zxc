@@ -112,27 +112,28 @@ const TOWNS = [
 ];
 // أنواع الوحدات (المدى بالبكسل، والسرعة بكسل/ثانية، hold = مسافة الوقوف والرمي نسبة للمدى، minD = أقرب مسافة لعدو صامد)
 const UT = {
-  tank:   {hp: 100, arm: 2, rng: 2.6 * KM, rof: 3.6, ds: 22, dh: 46, acc: .55, spd: 11,  sz: 13, cost: 3,   snd: 'tank_cannon', fx: 'shell', veh: 1, turn: .9, hold: .85, minD: 1.5 * KM},
-  ifv:    {hp: 70,  arm: 1, rng: 1.8 * KM, rof: 1.5, ds: 16, dh: 14, acc: .5,  spd: 12,  sz: 11, cost: 2,   snd: 'hmg', fx: 'tracer', veh: 1, turn: 1.2, hold: .9, minD: 1.1 * KM},
-  squad:  {hp: 60,  arm: 0, rng: 1.0 * KM, rof: 1.1, ds: 9,  dh: 2,  acc: .45, spd: 5.5, sz: 15, cost: 1,   snd: 'ak47', fx: 'tracer', inf: 1, hold: 1, minD: .8 * KM},
-  atgm:   {hp: 40,  arm: 0, rng: 3.5 * KM, rof: 10,  ds: 4,  dh: 72, acc: .62, spd: 4.6, sz: 10, cost: 1.5, snd: 'atgm_launch', fx: 'atgm', heavyOnly: true, inf: 1, hold: .9, minD: 1.5 * KM},
-  mg:     {hp: 40,  arm: 0, rng: 1.4 * KM, rof: .55, ds: 6,  dh: 1,  acc: .4,  spd: 4.6, sz: 10, cost: 1,   snd: 'hmg2', fx: 'tracer', softOnly: true, inf: 1, hold: .95, minD: .8 * KM},
-  mortar: {hp: 40,  arm: 0, rng: 5 * KM,   rof: 4.5, ds: 14, dh: 8,  acc: .35, spd: 4,   sz: 10, cost: 1,   snd: 'artillery2', fx: 'indirect', ind: true, area: 16, inf: 1, hold: .8, minD: 2 * KM},
-  sniper: {hp: 30,  arm: 0, rng: 1.6 * KM, rof: 4.5, ds: 32, dh: 0,  acc: .7,  spd: 4.6, sz: 9,  cost: 1,   snd: 'rifle', fx: 'none', softOnly: true, inf: 1, hold: .95, minD: 1 * KM},
-  arty:   {hp: 60,  arm: 1, rng: 25 * KM,  rof: 8,   ds: 24, dh: 16, acc: .3,  spd: 2.2, sz: 15, cost: 2,   snd: 'artillery', fx: 'indirect', ind: true, area: 22, veh: 1, turn: .6, hold: .3, minD: 4 * KM},
-  mlrs:   {hp: 50,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: 5,   sz: 15, cost: 2,   veh: 1, turn: .8, hold: 0, minD: 5 * KM},
-  ad:     {hp: 60,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: 2.2, sz: 14, cost: 2,   airRng: 22 * KM, veh: 1, turn: .6, hold: 0, minD: 4 * KM},
-  heli:   {hp: 70,  arm: 1, rng: 4.5 * KM, rof: 2.2, ds: 14, dh: 40, acc: .55, spd: 10,  sz: 20, cost: 3,   snd: 'heli_gun', fx: 'heli', air: true, alt: 24, hold: .8, minD: 3 * KM},
-  drone:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: 22, sz: 16, cost: 0, air: true, alt: 55},
-  recon:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: 26, sz: 18, cost: 0, air: true, alt: 60},
-  jet:    {hp: 40,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: 150, sz: 28, cost: 0, air: true, alt: 95},
+  tank:   {hp: 100, arm: 2, rng: 2.6 * KM, rof: 3.6, ds: 22, dh: 46, acc: .55, spd: (12 / 30),  sz: 13, cost: 3,   snd: 'tank_cannon', fx: 'shell', veh: 1, turn: .9, hold: .85, minD: 1.5 * KM},
+  ifv:    {hp: 70,  arm: 1, rng: 1.8 * KM, rof: 1.5, ds: 16, dh: 14, acc: .5,  spd: (13 / 30),  sz: 11, cost: 2,   snd: 'hmg', fx: 'tracer', veh: 1, turn: 1.2, hold: .9, minD: 1.1 * KM},
+  squad:  {hp: 60,  arm: 0, rng: 1.0 * KM, rof: 1.1, ds: 9,  dh: 2,  acc: .45, spd: (1.6 / 30), sz: 15, cost: 1,   snd: 'ak47', fx: 'tracer', inf: 1, hold: 1, minD: .8 * KM},
+  atgm:   {hp: 40,  arm: 0, rng: 3.5 * KM, rof: 10,  ds: 4,  dh: 72, acc: .62, spd: (1.3 / 30), sz: 10, cost: 1.5, snd: 'atgm_launch', fx: 'atgm', heavyOnly: true, ammo: 4, inf: 1, hold: .9, minD: 1.5 * KM},
+  mg:     {hp: 40,  arm: 0, rng: 1.4 * KM, rof: .55, ds: 6,  dh: 1,  acc: .4,  spd: (1.3 / 30), sz: 10, cost: 1,   snd: 'hmg2', fx: 'tracer', softOnly: true, inf: 1, hold: .95, minD: .8 * KM},
+  mortar: {hp: 40,  arm: 0, rng: 5 * KM,   rof: 4.5, ds: 14, dh: 8,  acc: .35, spd: (1.2 / 30),   sz: 10, cost: 1,   snd: 'artillery2', fx: 'indirect', ind: true, area: 16, ammo: 40, inf: 1, hold: .8, minD: 2 * KM},
+  sniper: {hp: 30,  arm: 0, rng: 1.6 * KM, rof: 4.5, ds: 32, dh: 0,  acc: .7,  spd: (1.3 / 30), sz: 9,  cost: 1,   snd: 'rifle', fx: 'none', softOnly: true, inf: 1, hold: .95, minD: 1 * KM},
+  arty:   {hp: 60,  arm: 1, rng: 25 * KM,  rof: 8,   ds: 24, dh: 16, acc: .3,  spd: (8 / 30), sz: 15, cost: 2,   snd: 'artillery', fx: 'indirect', ind: true, area: 22, veh: 1, turn: .6, hold: .3, minD: 4 * KM},
+  mlrs:   {hp: 50,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: (10 / 30),   sz: 15, cost: 2,   veh: 1, turn: .8, hold: 0, minD: 5 * KM},
+  ad:     {hp: 60,  arm: 1, rng: 0,        rof: 99,  ds: 0,  dh: 0,  acc: 0,   spd: (8 / 30), sz: 14, cost: 2,   airRng: 22 * KM, veh: 1, turn: .6, hold: 0, minD: 4 * KM},
+  heli:   {hp: 70,  arm: 1, rng: 4.5 * KM, rof: 2.2, ds: 14, dh: 40, acc: .55, spd: (60 / 30),  sz: 20, cost: 3,   snd: 'heli_gun', fx: 'heli', air: true, alt: 24, hold: .8, minD: 3 * KM},
+  drone:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (45 / 30), sz: 16, cost: 0, air: true, alt: 55},
+  recon:  {hp: 30,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (35 / 30), sz: 18, cost: 0, air: true, alt: 60},
+  jet:    {hp: 40,  arm: 1, rng: 0, rof: 99, ds: 0, dh: 0, acc: 0, spd: (250 / 30), sz: 28, cost: 0, air: true, alt: 95},
 };
 const SPRITE = {
   iq: {tank: ['qaqaa', 't72'], ifv: ['bmp1'], squad: ['squad_iq'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['samsama'], mlrs: ['mlrs_iq'], ad: ['pantsir'], heli: ['mi35b'], recon: ['ch4'], jet: ['f16a'], drone: ['ch4']},
   tr: {tank: ['leopard2a4', 'altay'], ifv: ['acv15'], squad: ['squad_tr'], atgm: ['atgm_team'], mg: ['mg_team'], mortar: ['mortar'], sniper: ['sniper'], arty: ['firtina'], mlrs: ['firtina'], ad: ['ad_truck'], heli: ['t129b'], drone: ['tb2'], recon: ['tb2'], jet: ['f16a']}
 };
 const NAME = {tank: 'دبابة', ifv: 'مدرعة', squad: 'فصيل مشاة', atgm: 'فريق مضاد دروع', mg: 'فريق رشاش', mortar: 'هاون', sniper: 'قناصة', arty: 'مدفعية', mlrs: 'راجمة صواريخ', ad: 'دفاع جوي', heli: 'مروحية', drone: 'مسيّرة', recon: 'مسيّرة استطلاع', jet: 'مقاتلة'};
-const PREP = 40;   // ثواني التمهيد الناري قبل تقدم الدروع
+const PREP = 150;   // ثواني التمهيد الناري قبل تقدم الدروع (دقيقتان ونصف)
+const BATTLE = 3600; // مدة المعركة بزمنها الحقيقي: ساعة (استعمل التسريع)
 
 let W = null;   // حالة المعركة
 let wraf = 0, wlast = 0, wspeed = 1;
@@ -143,13 +144,13 @@ const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 function mkUnit(side, t, x, y, o = {}){
   const d = UT[t], spr = SPRITE[side][t];
   const ang = side === 'iq' ? -Math.PI / 2 : Math.PI / 2;
-  const u = Object.assign({id: W.nid++, side, t, x, y, hp: d.hp, mor: 100, sup: 0, cd: wrand() * d.rof, ang, ta: ang, v: 0, path: [], pi: 0, retreat: false, dead: false, home: {x, y}, lastHit: -99, lastShot: -99, trk: {x, y}, dustT: 0, recoil: 0, alt: d.alt || 0, spr: spr[W.nid % spr.length]}, o);
+  const u = Object.assign({id: W.nid++, ammo: d.ammo ?? -1, side, t, x, y, hp: d.hp, mor: 100, sup: 0, cd: wrand() * d.rof, ang, ta: ang, v: 0, path: [], pi: 0, retreat: false, dead: false, home: {x, y}, lastHit: -99, lastShot: -99, trk: {x, y}, dustT: 0, recoil: 0, alt: d.alt || 0, spr: spr[W.nid % spr.length]}, o);
   W.units.push(u); return u;
 }
 function setupWar(){
   W = {losC: new Map(), sel: [], aim: null, t: 0, seed: 20261011, nid: 1, units: [], proj: [], parts: [], decals: [], props: [], fly: [], smokes: [], log: [], order: 'attack', phase: 'prep', end: null,
     stats: {iq: {lost: {}, fired: 0}, tr: {lost: {}, fired: 0}, msl: 0, trMsl: 0, jetsLost: 0},
-    uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 70, droneT: 85, follow: true,
+    uses: {air: 2, msl: 3, res: 1}, cool: {air: 0, msl: 0}, ctl: {duhok: 0, simele: 0, alqosh: 0}, trMslT: 300, droneT: 360, follow: true,
     cam: {x: 1250, y: 1400, k: 2.6}};
   // خط الدفاع التركي الأول على السلسلة الجنوبية، والثاني عند مدخل دهوك
   const line1 = [[1060, 1088], [1150, 1080], [1240, 1092], [1330, 1084], [1420, 1098]];
@@ -174,13 +175,13 @@ function setupWar(){
   // العراق: ثلاث مجموعات على خط الانطلاق، على بعد 11 كم من الخط التركي الأول
   const east = [[1445, 1147], [1300, 840], [1170, 680]], center = [[1220, 1085], [1180, 830], [1165, 670]], west = [[960, 1000], [760, 720]];
   const grp = (pts, list, x0, y0, g) => list.forEach(([t, dx, dy]) => mkUnit('iq', t, x0 + dx, y0 + dy, {grp: g, path: pts.map(([x, y]) => ({x: x + dx * .4, y: y + dy * .2}))}));
-  grp(center, [['tank', -36, 0], ['tank', 0, -6], ['tank', 36, 0], ['ifv', -18, 26], ['ifv', 18, 26], ['squad', -40, 46], ['squad', 0, 50], ['squad', 40, 46], ['atgm', 0, 72], ['mg', -26, 76], ['sniper', 26, 76], ['mortar', -12, 100], ['mortar', 12, 100]], 1220, 1460, 'الوسط');
-  grp(east, [['tank', -28, 0], ['tank', 8, -6], ['tank', 44, 4], ['ifv', 0, 26], ['squad', -22, 46], ['squad', 22, 46], ['atgm', 0, 68], ['mortar', 0, 92]], 1500, 1480, 'الشرق');
-  grp(west, [['tank', -18, 0], ['tank', 18, 0], ['ifv', 0, 24], ['squad', -18, 44], ['squad', 18, 44]], 980, 1440, 'الغرب');
+  grp(center, [['tank', -36, 0], ['tank', 0, -6], ['tank', 36, 0], ['ifv', -18, 26], ['ifv', 18, 26], ['squad', -40, 46], ['squad', 0, 50], ['squad', 40, 46], ['atgm', 0, 72], ['mg', -26, 76], ['sniper', 26, 76], ['mortar', -12, 100], ['mortar', 12, 100]], 1220, 1260, 'الوسط');
+  grp(east, [['tank', -28, 0], ['tank', 8, -6], ['tank', 44, 4], ['ifv', 0, 26], ['squad', -22, 46], ['squad', 22, 46], ['atgm', 0, 68], ['mortar', 0, 92]], 1500, 1280, 'الشرق');
+  grp(west, [['tank', -18, 0], ['tank', 18, 0], ['ifv', 0, 24], ['squad', -18, 44], ['squad', 18, 44]], 980, 1240, 'الغرب');
   mkUnit('iq', 'arty', 1180, 1760); mkUnit('iq', 'arty', 1260, 1770); mkUnit('iq', 'arty', 1340, 1760);
   mkUnit('iq', 'mlrs', 1140, 1820); mkUnit('iq', 'mlrs', 1380, 1825);
-  mkUnit('iq', 'ad', 1300, 1640);
-  mkUnit('iq', 'heli', 1200, 1640, {grp: 'المروحيات'}); mkUnit('iq', 'heli', 1460, 1650, {grp: 'المروحيات'});
+  mkUnit('iq', 'ad', 1300, 1480);
+  mkUnit('iq', 'heli', 1200, 1460, {grp: 'المروحيات'}); mkUnit('iq', 'heli', 1460, 1470, {grp: 'المروحيات'});
   mkUnit('iq', 'recon', 1250, 1250, {orbit: {x: 1240, y: 1060, r: 110}, oa: 0});
   for (const u of W.units) u.start = {x: u.x, y: u.y};
   W.init = {iq: strength('iq'), tr: strength('tr')};
@@ -230,16 +231,20 @@ let sndBudget = 0;
 const SNDS = {iq: {squad: 'ak_close', mg: 'pkm_close', ifv: 'cannon30', sniper: 'sniper2', mortar: 'mortar_launch'}, tr: {squad: 'g3', mg: 'm2', ifv: 'm2', sniper: 'sniper2', mortar: 'mortar_launch'}};
 const FAR = {tank_cannon: 'tank_far_shot', tank_close_shot: 'tank_far_shot', ak_close: 'ak_far', g3: 'ak_far', pkm_close: 'mg_far', m2: 'mg_far', cannon30: 'mg_far', dshk: 'mg_far', artillery: 'arty_far', mlrs: 'mlrs_far', explosion_big: 'boom_echo'};
 const ALT = {tank_cannon: ['tank_cannon', 'tank_close_shot', 'real_tank'], explosion_big: ['explosion_big', 'real_strike'], dshk: ['dshk', 'real_hmg'], ak_close: ['ak_close', 'real_bursts'], explosion_med: ['explosion_med', 'boom_close'], ricochet: ['ricochet', 'ricochet2'], rocket_one: ['rocket_one', 'rocket_one2']};
-const NODELAY = {radio: 1, incoming: 1, mortar_in: 1, missile_alert: 1, jet_high: 1, war_horn: 1};
+const NODELAY = {radio: 1, missile_alert: 1, jet_high: 1, war_horn: 1, cracks: 1, shouts: 1};
+// المستمع في مركز الشاشة، وارتفاعه بحسب التقريب (كلما ابتعدت الكاميرا ابتعد المستمع)
+function listenerDist(x, y){ const c = W.cam, g = Math.hypot(x - c.x, y - c.y) * 30, h = 1100 / c.k; return Math.hypot(g, h); }
 function wsound(k, x, y, vol = .7, delay = 0, rate){
-  if (sndBudget > 10) return; sndBudget++;
-  const c = W.cam, sx = (x - c.x) * c.k + innerWidth / 2, d = Math.hypot(x - c.x, y - c.y) * c.k / innerWidth;
-  if (d > 2.2) return;
+  if (sndBudget > 14) return;
+  const c = W.cam, d = listenerDist(x, y);                      // بالأمتار
+  if (d > 30000) return;
+  sndBudget++;
   if (ALT[k]) k = ALT[k][Math.floor(Math.random() * ALT[k].length)];
-  if (d > .8 && FAR[k]) { k = FAR[k]; vol *= 1.3; }
-  // الضوء يصل قبل الصوت: الانفجار البعيد تراه ثم تسمعه
-  if (!NODELAY[k]) delay += Math.min(2, Math.max(0, Math.hypot(x - c.x, y - c.y) / KM - 1.5) * .3);
-  play(k, {vol: vol * Math.max(.15, 1 - d * .4), x: Math.max(0, Math.min(innerWidth, sx)), dist: Math.min(1, d * .6), delay, rate});
+  if (d > 1600 && FAR[k]) { k = FAR[k]; vol *= 1.5; }
+  // الضوء يصل فوراً، والصوت بسرعة 343 م/ث: انفجار على 3 كم تراه ثم تسمعه بعد 9 ثوانٍ
+  const travel = NODELAY[k] ? 0 : d / 343;
+  const sx = (x - c.x) * c.k + innerWidth / 2;
+  play(k, {vol: vol * Math.min(1.3, 700 / (d + 250)) + .02, x: Math.max(0, Math.min(innerWidth, sx)), dist: Math.min(1, d / 7000), delay: (delay + travel) / Math.max(1, wspeed), rate, echo: Math.max(0, Math.min(.55, (d - 700) / 6000))});
 }
 
 // ------------------------------------------------------------------ المحاكاة
@@ -277,54 +282,55 @@ function fire(u, v){
   const dmg = (UT[v.t].arm === 2 ? d.dh : UT[v.t].arm === 1 ? (d.ds + d.dh) / 2 : d.ds) * (.7 + wrand() * .6);
   if (d.ind) {
     // مدفعية وهاون: القذيفة تعلو ثم تنزل، والصفير يسبق السقوط
-    const tx = v.x + (wrand() - .5) * 24, ty = v.y + (wrand() - .5) * 24, dur = (u.t === 'mortar' ? 2.2 : 3.2) + r / 400;
+    const tx = v.x + (wrand() - .5) * 24, ty = v.y + (wrand() - .5) * 24, dur = u.t === 'mortar' ? 10 + r / KM * 5 : 8 + r / KM * 2.5; /* هاون: قوس عالٍ بطيء. 155 ملم: نحو 45 ث لـ 15 كم */
     W.proj.push({k: 'arty', x0: u.x, y0: u.y, x1: tx, y1: ty, t: 0, dur, peak: u.t === 'mortar' ? 70 : 140, side: u.side, area: d.area, soft: d.ds, hard: d.dh});
     const m = muzzleOf(u);
     wp('muzzle', m.x, m.y, {s0: d.sz * .8, s1: d.sz * 1.2, life: .16, rot: u.ta + Math.PI / 2, vr: 0});
     wp('blast_dust', m.x, m.y, {s0: d.sz * .8, s1: d.sz * 3, a0: .75, life: 2.2, layer: 'mid'});
     u.recoil = 1;
     wsound(snd, u.x, u.y, u.t === 'mortar' ? .4 : .55);
-    wsound(u.t === 'mortar' ? 'mortar_in' : 'incoming', tx, ty, .4, Math.max(0, dur - (u.t === 'mortar' ? 1.4 : 1.6)));
+    wsound(u.t === 'mortar' ? 'mortar_in' : 'incoming', tx, ty, .45, Math.max(0, dur - (u.t === 'mortar' ? 1.4 : 1.8)) - listenerDist(tx, ty) / 343);
     return;
   }
   const m = muzzleOf(u), fx = d.fx;
   const miss = hit ? 0 : 1, mx = miss * (wrand() - .5) * 28, my = miss * (wrand() - .5) * 28;
   if (fx === 'shell') {
     // طلقة الدبابة: وميض، وحلقة غبار حول الدبابة، وارتداد البرج، وقذيفة مضيئة سريعة
-    W.proj.push({k: 'shell', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.06, r / 420), target: v, hit, dmg, side: u.side, by: u.t});
+    W.proj.push({k: 'shell', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.05, r / (1700 / 30)), target: v, hit, dmg, side: u.side, by: u.t}); /* 1,700 م/ث */
     wp('muzzle', m.x, m.y, {s0: d.sz * .7, s1: d.sz * 1.1, life: .12, rot: u.ta + Math.PI / 2, vr: 0});
     wp('blast_dust', m.x, m.y, {s0: d.sz * .9, s1: d.sz * 2.8, a0: .8, life: 1.8, layer: 'mid', vr: 0});
     wp('smoke_light', m.x, m.y, {s0: d.sz * .4, s1: d.sz * 1.6, a0: .4, life: 2, vx: 2, vy: -2, layer: 'mid'});
     u.recoil = 1;
     wsound(snd, u.x, u.y, .55);
+    if (listenerDist(v.x, v.y) < 600) wsound('cracks', v.x, v.y, .5, r / (1700 / 30));
   } else if (fx === 'tracer' && u.t === 'squad' && UT[v.t].arm && r < .7 * KM && wrand() < .25) {
     // المشاة يطلقون آر بي جي على المدرعات القريبة
-    W.proj.push({k: 'hrkt', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.15, r / 150), target: v, hit, dmg: 48 * (.7 + wrand() * .6), side: u.side, by: 'rpg'});
+    W.proj.push({k: 'hrkt', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.15, r / (200 / 30)), target: v, hit, dmg: 48 * (.7 + wrand() * .6), side: u.side, by: 'rpg'}); /* آر بي جي ~200 م/ث */
     wp('backblast', u.x - Math.cos(u.ta) * 5, u.y - Math.sin(u.ta) * 5, {s0: 6, s1: 16, a0: .8, life: 1.4, rot: u.ta + Math.PI / 2, vr: 0, layer: 'mid'}); wsound('rpg2', u.x, u.y, .5);
   } else if (fx === 'tracer') {
     // رشقة: عدة طلقات مضيئة متتابعة، وغبار حيث تسقط
     const n = u.t === 'mg' ? 5 : 3;
-    for (let i = 0; i < n; i++) W.proj.push({k: 'tracer', x0: m.x, y0: m.y, x1: v.x + mx + (wrand() - .5) * 10, y1: v.y + my + (wrand() - .5) * 10, t: -i * .07, dur: Math.max(.06, r / 300), target: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, by: u.t});
+    for (let i = 0; i < n; i++) W.proj.push({k: 'tracer', x0: m.x, y0: m.y, x1: v.x + mx + (wrand() - .5) * 10, y1: v.y + my + (wrand() - .5) * 10, t: -i * .07, dur: Math.max(.05, r / ((u.t === 'ifv' ? 1000 : 800) / 30)), target: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, by: u.t});
     wp('rifle_flash', m.x, m.y, {s0: 4, s1: 6, life: .1, vr: 0});
     if (wrand() < .55) wsound(snd, u.x, u.y, .38);
     // من يقف قرب الهدف يسمع الرصاص يطقطق فوقه، وفي القتال القريب تُرمى قنابل يدوية
-    if (wrand() < .2 && Math.hypot(v.x - W.cam.x, v.y - W.cam.y) * W.cam.k < innerWidth * .4) wsound('cracks', v.x, v.y, .28);
+    if (wrand() < .35 && listenerDist(v.x, v.y) < 500) wsound('cracks', v.x, v.y, .4, r / ((u.t === 'ifv' ? 1000 : 800) / 30));
     if (u.t === 'squad' && r < .55 * KM && wrand() < .08) { wboom(v.x + (wrand() - .5) * 6, v.y + (wrand() - .5) * 6, .25, false); wsound('grenade', v.x, v.y, .45); if (hit) damage(v, 12, u.side); }
   } else if (fx === 'atgm') {
     // صاروخ مضاد دروع: عصفة غبار خلف الرامي، وصاروخ بطيء يتمايل ووراءه دخان
-    W.proj.push({k: 'atgm', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / 95), target: v, hit, dmg, side: u.side, by: u.t});
+    W.proj.push({k: 'atgm', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / (280 / 30)), target: v, hit, dmg, side: u.side, by: u.t}); /* مضاد دروع ~280 م/ث */
     const bx = u.x - Math.cos(u.ta) * 7, by = u.y - Math.sin(u.ta) * 7;
     wp('backblast', bx, by, {s0: 10, s1: 26, a0: .85, life: 1.8, rot: u.ta + Math.PI / 2, vr: 0, layer: 'mid'});
     wp('muzzle', m.x, m.y, {s0: 5, s1: 8, life: .12, rot: u.ta + Math.PI / 2, vr: 0});
     wsound('atgm_launch', u.x, u.y, .5);
   } else if (fx === 'heli') {
     // المروحية: صاروخ موجّه على الدروع، وصواريخ غير موجهة على المشاة، ورشاشها إذا كان العدو قريباً
-    if (hv) { W.proj.push({k: 'atgm', x0: u.x, y0: u.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / 120), target: v, hit, dmg: dmg * 1.2, side: u.side, by: u.t, alt0: u.alt}); wsound('atgm_launch', u.x, u.y, .5); }
-    else if (r < 2 * KM) { for (let i = 0; i < 6; i++) W.proj.push({k: 'tracer', x0: u.x, y0: u.y, x1: v.x + (wrand() - .5) * 14, y1: v.y + (wrand() - .5) * 14, t: -i * .05, dur: Math.max(.06, r / 320), target: i === 0 ? v : null, hit: i === 0 && hit, dmg: dmg * .6, side: u.side, by: u.t}); wsound('heli_gun', u.x, u.y, .5); }
-    else { for (let i = 0; i < 4; i++) W.proj.push({k: 'hrkt', x0: u.x + (i % 2 ? 3 : -3), y0: u.y, x1: v.x + (wrand() - .5) * 26, y1: v.y + (wrand() - .5) * 26, t: -i * .12, dur: Math.max(.2, r / 210), target: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, by: u.t, alt0: u.alt}); wsound('rocket_salvo', u.x, u.y, .5); }
+    if (hv) { W.proj.push({k: 'atgm', x0: u.x, y0: u.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.3, r / (400 / 30)), target: v, hit, dmg: dmg * 1.2, side: u.side, by: u.t, alt0: u.alt}); wsound('atgm_launch', u.x, u.y, .5); }
+    else if (r < 2 * KM) { for (let i = 0; i < 6; i++) W.proj.push({k: 'tracer', x0: u.x, y0: u.y, x1: v.x + (wrand() - .5) * 14, y1: v.y + (wrand() - .5) * 14, t: -i * .05, dur: Math.max(.05, r / (900 / 30)), target: i === 0 ? v : null, hit: i === 0 && hit, dmg: dmg * .6, side: u.side, by: u.t}); wsound('heli_gun', u.x, u.y, .5); }
+    else { for (let i = 0; i < 4; i++) W.proj.push({k: 'hrkt', x0: u.x + (i % 2 ? 3 : -3), y0: u.y, x1: v.x + (wrand() - .5) * 26, y1: v.y + (wrand() - .5) * 26, t: -i * .12, dur: Math.max(.2, r / (600 / 30)), target: i === 0 ? v : null, hit: i === 0 && hit, dmg, side: u.side, by: u.t, alt0: u.alt}); wsound('rocket_salvo', u.x, u.y, .5); }
   } else {
     // قناص: طلقة واحدة بلا خط مضيء
-    W.proj.push({k: 'bullet', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.05, r / 600), target: v, hit, dmg, side: u.side, by: u.t});
+    W.proj.push({k: 'bullet', x0: m.x, y0: m.y, x1: v.x + mx, y1: v.y + my, t: 0, dur: Math.max(.05, r / (850 / 30)), target: v, hit, dmg, side: u.side, by: u.t});
     wsound(snd, u.x, u.y, .35);
   }
 }
@@ -336,7 +342,7 @@ function damage(v, dmg, by, kind){
   if (v.hp <= 0) { kill(v, by); return; }
   // الدبابة المصابة تطلق قنابل دخان وتتراجع خلفها
   if (UT[v.t].veh && v.hp < UT[v.t].hp * .6 && !v.smokeUsed && (v.t === 'tank' || v.t === 'ifv')) {
-    v.smokeUsed = true; W.smokes.push({x: v.x, y: v.y, r: 18, until: W.t + 22});
+    v.smokeUsed = true; W.smokes.push({x: v.x, y: v.y, r: 18, until: W.t + 90});
     for (let i = 0; i < 5; i++) wp('smoke_screen', v.x + Math.cos(v.ta + (i - 2) * .5) * 10, v.y + Math.sin(v.ta + (i - 2) * .5) * 10, {s0: 8, s1: 42, a0: .65, a1: 0, life: 22, delay: i * .1, vx: 1, vy: -.6, vr: .05, layer: 'top'});
     wsound('smoke_pop', v.x, v.y, .45);
   }
@@ -363,7 +369,7 @@ function kill(v, by){
 // حركة واقعية: المركبة تتسارع وتلتف بقوس وتسير باتجاه مقدمتها، والجنود يمشون مباشرة
 function drive(u, d, goal, sp, dt){
   u.moving = false;
-  if (!goal) { u.v = Math.max(0, u.v - 6 * dt); if (u.v > .2 && d.veh) { u.x += Math.cos(u.ang) * u.v * dt; u.y += Math.sin(u.ang) * u.v * dt; u.moving = true; } return; }
+  if (!goal) { u.v = Math.max(0, u.v - .12 * dt); if (u.v > .01 && d.veh) { u.x += Math.cos(u.ang) * u.v * dt; u.y += Math.sin(u.ang) * u.v * dt; u.moving = true; } return; }
   const dx = goal.x - u.x, dy = goal.y - u.y, r = Math.hypot(dx, dy);
   if (r < 3) { u.v = Math.max(0, u.v - 6 * dt); return; }
   let f = 1;
@@ -373,16 +379,16 @@ function drive(u, d, goal, sp, dt){
   const want = Math.atan2(dy, dx);
   if (d.veh) {
     const df = angDiff(u.ang, want); u.ang += Math.max(-d.turn * dt, Math.min(d.turn * dt, df));
-    const target = sp * f * Math.max(.2, Math.cos(Math.min(Math.abs(df), 1.4))) * Math.min(1, r / 20);
-    u.v += Math.max(-6 * dt, Math.min(3 * dt, target - u.v));
-    u.x += Math.cos(u.ang) * u.v * dt; u.y += Math.sin(u.ang) * u.v * dt; u.moving = u.v > .3;
+    const target = sp * f * Math.max(.2, Math.cos(Math.min(Math.abs(df), 1.4))) * Math.min(1, r / 6);
+    u.v += Math.max(-.12 * dt, Math.min(.05 * dt, target - u.v)); /* تسارع دبابة حقيقي: نحو 1.5 م/ث² */
+    u.x += Math.cos(u.ang) * u.v * dt; u.y += Math.sin(u.ang) * u.v * dt; u.moving = u.v > .02;
   } else {
     u.ang += angDiff(u.ang, want) * Math.min(1, dt * 4); const st = Math.min(r, sp * f * dt);
-    u.x += dx / r * st; u.y += dy / r * st; u.moving = st > .01; u.v = sp * f;
+    u.x += dx / r * st; u.y += dy / r * st; u.moving = st > 0; u.v = sp * f;
   }
   if (u.moving && d.veh && !d.air) {
     if (dist(u, u.trk) > 9) { if (W.decals.length > 300) W.decals.shift(); W.decals.push({k: 'tracks', x: (u.x + u.trk.x) / 2, y: (u.y + u.trk.y) / 2, s: d.sz * .9, rot: Math.atan2(u.y - u.trk.y, u.x - u.trk.x) + Math.PI / 2, a: .3}); u.trk = {x: u.x, y: u.y}; }
-    u.dustT -= dt; if (u.dustT <= 0 && u.v > 2) { u.dustT = .4; const bx = u.x - Math.cos(u.ang) * d.sz * .6, by = u.y - Math.sin(u.ang) * d.sz * .6; wp('dust_trail', bx, by, {s0: d.sz * 1.2, s1: d.sz * 2.4, a0: .45, life: 1.8, rot: u.ang + Math.PI / 2, vr: 0, vx: 1.5, vy: -1, layer: 'mid'}); }
+    u.dustT -= dt; if (u.dustT <= 0 && u.v > .12) { u.dustT = 1.2; const bx = u.x - Math.cos(u.ang) * d.sz * .6, by = u.y - Math.sin(u.ang) * d.sz * .6; wp('dust_trail', bx, by, {s0: d.sz * 1.2, s1: d.sz * 2.4, a0: .45, life: 1.8, rot: u.ang + Math.PI / 2, vr: 0, vx: 1.5, vy: -1, layer: 'mid'}); }
   }
 }
 
@@ -396,7 +402,7 @@ function stepWar(dt){
     if (W.order === 'attack') {
       wlog('المرحلة الثانية: الدروع تتقدم وتغطي المشاة بالنار، والتقدم بالتناوب. الهاون يطلق ستاراً دخانياً.', 'iq'); wsound('radio', W.cam.x, W.cam.y, .4);
       // ستار دخاني أمام الخط التركي الأول يغطي اقتراب المشاة
-      for (const x of [1120, 1220, 1320]) { W.smokes.push({x, y: 1150, r: 30, until: W.t + 45}); for (let i = 0; i < 4; i++) wp('smoke_screen', x + (i - 1.5) * 16, 1150 + (wrand() - .5) * 10, {s0: 10, s1: 60, a0: .6, life: 45, delay: 1.5 + i * .2, vx: 1.2, vy: -.5, vr: .04, layer: 'top'}); }
+      for (const x of [1120, 1220, 1320]) { W.smokes.push({x, y: 1150, r: 30, until: W.t + 150}); for (let i = 0; i < 4; i++) wp('smoke_screen', x + (i - 1.5) * 16, 1150 + (wrand() - .5) * 10, {s0: 10, s1: 60, a0: .6, life: 45, delay: 1.5 + i * .2, vx: 1.2, vy: -.5, vr: .04, layer: 'top'}); }
     }
   }
   for (const u of W.units) {
@@ -417,12 +423,14 @@ function stepWar(dt){
     if (d.inf || d.air) u.ang = tgt && !u.moving ? aim : u.ang;
     const aligned = Math.abs(angDiff(u.ta, aim)) < .1;
     let halt = false;
+    if (tgt && u.ammo === 0) tgt = null;
     if (tgt && u.cd <= 0 && aligned) {
-      if (u.t === 'tank' && u.v > 1.2) halt = true;
-      else { fire(u, tgt); u.cd = d.rof * (.8 + wrand() * .4) * (u.retreat ? 1.6 : 1); }
+      if (u.t === 'tank' && u.v > .12) halt = true;
+      else { fire(u, tgt); if (u.ammo > 0) u.ammo--; u.cd = d.rof * (.8 + wrand() * .4) * (u.retreat ? 1.6 : 1); }
     } else if (tgt && u.t === 'tank' && u.cd < .8 && aligned) halt = true;
     // الحركة
     let goal = null, sp = d.spd;
+    if (d.inf && u.side === 'iq') { const n0 = nearestEnemy(u); u.mounted = !n0 || n0.d > 3.5 * KM; if (u.mounted) sp = 12 / 30; }
     const order = u.side === 'iq' ? W.order : (W.trCollapse ? 'retreat' : 'hold');
     const ne = nearestEnemy(u);
     const broken = ne && (ne.v.retreat || ne.v.mor < 30), pinned = ne && ne.v.sup > 55;
@@ -507,7 +515,7 @@ function stepWar(dt){
   if (!W.end) {
     if (W.ctl.duhok >= 100) endWar('win');
     else if (sIq < .25) endWar('lose');
-    else if (W.t >= 300) endWar('time');
+    else if (W.t >= BATTLE) endWar('time');
   }
   // الحطام المحترق
   for (const dc of W.decals) if (dc.burn > 0) { dc.burn -= dt; dc.bt = (dc.bt || 0) - dt; if (dc.bt <= 0) { dc.bt = .45; wp('smoke_oil', dc.x, dc.y, {s0: 6, s1: 40, a0: .6, life: 3.4, vx: 5, vy: -7, layer: 'top'}); if (dc.burn > 20) wp('tank_fire', dc.x + (wrand() - .5) * 3, dc.y + (wrand() - .5) * 3, {s0: dc.s * .6, s1: dc.s * 1.1, a0: .9, life: .7, vr: 0}); } }
@@ -559,6 +567,7 @@ function stepProj(dt){
 }
 
 // ------------------------------------------------------------------ الجو: مقاتلات ومسيّرات ودفاع جوي وصواريخ بعيدة
+const tg_y_exit = j => (j.drone ? j.drone.y : 1200) - 10 * KM;
 function stepAir(dt){
   for (const j of W.units) {
     if (j.dead && !(j.falling > 0)) continue;
@@ -568,18 +577,18 @@ function stepAir(dt){
       const sp = UT.jet.spd;
       if (j.phase === 'in') {
         const dx = j.rx - j.x, dy = j.ry - j.y, r = Math.hypot(dx, dy); j.ang = Math.atan2(dy, dx);
-        if (!j.fired && r < 12) { j.phase = 'out'; j.outT = 0; if (j.id % 2) wlog('المقاتلات أطلقت صواريخها من 14 كم وتنعطف عائدة دون أن تدخل مدى العدو', 'iq'); wsound('jet_flyby', j.x, j.y, .7); j.fired = true; for (let i = 0; i < 2; i++) { const tx = j.tx + (wrand() - .5) * 22, ty = j.ty + (wrand() - .5) * 22, rr = Math.hypot(tx - j.x, ty - j.y); W.proj.push({k: 'agm', x0: j.x + (i ? 4 : -4), y0: j.y, x1: tx, y1: ty, t: -i * .4, dur: .5 + rr / 230, drop: .5, alt0: j.alt, side: j.side}); } }
+        if (!j.fired && r < 12) { j.phase = 'out'; j.outT = 0; if (j.id % 2) wlog('المقاتلات أطلقت صواريخها من 10 كم وتنعطف عائدة دون أن تدخل مدى العدو', 'iq'); wsound('jet_flyby', j.x, j.y, .7); j.fired = true; for (let i = 0; i < 2; i++) { const tx = j.tx + (wrand() - .5) * 22, ty = j.ty + (wrand() - .5) * 22, rr = Math.hypot(tx - j.x, ty - j.y); W.proj.push({k: 'agm', x0: j.x + (i ? 4 : -4), y0: j.y, x1: tx, y1: ty, t: -i * .4, dur: 1 + rr / (330 / 30), drop: 1, alt0: j.alt, side: j.side}); } }
       } else {
         j.outT += dt; const want = Math.PI / 2 + (j.side === 'iq' ? 0 : Math.PI);
-        j.ang += (j.id % 2 ? 1 : -1) * Math.min(1.7 * dt, Math.abs(angDiff(j.ang, want)));
-        if (j.y > FIELD.h + 150 || j.outT > 14) { j.dead = true; j.gone = true; }
+        j.ang += (j.id % 2 ? 1 : -1) * Math.min(.18 * dt, Math.abs(angDiff(j.ang, want))); /* نصف قطر انعطاف نحو 1.4 كم */
+        if (j.outT > 70) { j.dead = true; j.gone = true; }
       }
       j.x += Math.cos(j.ang) * sp * dt; j.y += Math.sin(j.ang) * sp * dt;
       continue;
     }
     if (j.t === 'recon') {
       // مسيّرة الاستطلاع تدور فوق خطوط العدو وتكشفها للمدفعية
-      j.oa += dt * .25; const o = j.orbit; const gx = o.x + Math.cos(j.oa) * o.r, gy = o.y + Math.sin(j.oa) * o.r * .6;
+      j.oa += dt * UT.recon.spd / j.orbit.r; const o = j.orbit; const gx = o.x + Math.cos(j.oa) * o.r, gy = o.y + Math.sin(j.oa) * o.r * .6;
       const dx = gx - j.x, dy = gy - j.y, r = Math.hypot(dx, dy) || 1; j.ang = Math.atan2(dy, dx); j.x += dx / r * Math.min(r, UT.recon.spd * dt); j.y += dy / r * Math.min(r, UT.recon.spd * dt);
       if (W.phase !== 'prep' && !j.moved) { j.moved = true; o.y -= 230; }
       continue;
@@ -589,9 +598,9 @@ function stepAir(dt){
       const tg = j.drone;
       if (!j.fired && tg && !tg.dead) {
         const dx = tg.x - j.x, dy = tg.y - j.y, r = Math.hypot(dx, dy); j.ang = Math.atan2(dy, dx);
-        if (r > 3 * KM) { j.x += dx / r * UT.drone.spd * dt; j.y += dy / r * UT.drone.spd * dt; }
-        else { j.fired = true; W.proj.push({k: 'atgm', x0: j.x, y0: j.y, x1: tg.x, y1: tg.y, t: 0, dur: r / 120, target: tg, hit: wrand() < .65, dmg: 70, side: j.side, alt0: j.alt}); wsound('missile_fly', j.x, j.y, .4); }
-      } else { j.ang += angDiff(j.ang, -Math.PI / 2) * Math.min(1, dt); j.x += Math.cos(j.ang) * UT.drone.spd * dt; j.y += Math.sin(j.ang) * UT.drone.spd * dt; if (j.y < 150) { j.dead = true; j.gone = true; } }
+        if (r > 4 * KM) { j.x += dx / r * UT.drone.spd * dt; j.y += dy / r * UT.drone.spd * dt; }
+        else { j.fired = true; W.proj.push({k: 'atgm', x0: j.x, y0: j.y, x1: tg.x, y1: tg.y, t: 0, dur: r / (240 / 30), target: tg, hit: wrand() < .65, dmg: 70, side: j.side, alt0: j.alt}); wsound('missile_fly', j.x, j.y, .4); }
+      } else { j.ang += angDiff(j.ang, -Math.PI / 2) * Math.min(1, dt); j.x += Math.cos(j.ang) * UT.drone.spd * dt; j.y += Math.sin(j.ang) * UT.drone.spd * dt; if (j.y < tg_y_exit(j)) { j.dead = true; j.gone = true; } }
     }
   }
   // الدفاع الجوي: يعترض الصواريخ والطائرات المعادية في مداه
@@ -602,7 +611,7 @@ function stepAir(dt){
     const air = W.units.filter(j => !j.dead && j.side !== a.side && (j.t === 'jet' || j.t === 'drone' || j.t === 'recon') && !j.engaged && dist(j, a) < UT.ad.airRng);
     const m = threats[0] || null, jet = !m ? air[0] : null;
     if (m) { m.engaged = true; const k = Math.min(.95, m.t / m.dur + .3); const x = m.x0 + (m.x1 - m.x0) * k, y = m.y0 + (m.y1 - m.y0) * k; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: x, y1: y, t: 0, dur: Math.max(.3, (k - m.t / m.dur) * m.dur), peak: 40, side: a.side, vs: m, ok: wrand() < .45}); wsound('missile_pass', a.x, a.y, .35); a.cd = 1.1; a.ta = Math.atan2(y - a.y, x - a.x); }
-    else if (jet) { jet.engaged = true; const ok = wrand() < (jet.t === 'jet' ? .25 : .5); const lead = {x: jet.x + Math.cos(jet.ang) * 50, y: jet.y + Math.sin(jet.ang) * 50}; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: lead.x, y1: lead.y, t: 0, dur: 1.4, peak: 40, side: a.side, vs: {done: false, jet: ok ? jet : null}, ok}); if (ok && jet.t === 'jet') W.stats.jetsLost++; a.cd = 2.2; }
+    else if (jet) { jet.engaged = true; const ok = wrand() < (jet.t === 'jet' ? .25 : .5); const lead = {x: jet.x + Math.cos(jet.ang) * UT[jet.t].spd * 8, y: jet.y + Math.sin(jet.ang) * UT[jet.t].spd * 8}; W.proj.push({k: 'int', x0: a.x, y0: a.y, x1: lead.x, y1: lead.y, t: 0, dur: Math.max(1, Math.hypot(lead.x - a.x, lead.y - a.y) / (1000 / 30)), peak: 40, side: a.side, vs: {done: false, jet: ok ? jet : null}, ok}); if (ok && jet.t === 'jet') W.stats.jetsLost++; a.cd = 2.2; }
   }
   // الراجمات: تتجه للهدف وتتهيأ ثم تطلق بالتتابع، ثم تغيّر موقعها حتى لا تُكشف
   for (const m of W.units) {
@@ -610,10 +619,10 @@ function stepAir(dt){
     const jb = m.job; jb.t += dt;
     if (jb.st === 'aim') { const want = Math.atan2(jb.ty - m.y, jb.tx - m.x); m.ang += Math.max(-.8 * dt, Math.min(.8 * dt, angDiff(m.ang, want))); m.ta = m.ang; if (jb.t > 2.2 && Math.abs(angDiff(m.ang, want)) < .05) { jb.st = 'fire'; jb.t = 0; jb.n = 0; wsound('mlrs', m.x, m.y, .65); } }
     else if (jb.st === 'fire') {
-      while (jb.n < jb.count && jb.t >= jb.n * .35) {
+      while (jb.n < jb.count && jb.t >= jb.n * .5) { /* صاروخ كل نصف ثانية (غراد: 40 في 20 ث) */
         const back = UT.mlrs.sz * .3, x0 = m.x - Math.cos(m.ang) * back + (wrand() - .5) * 3, y0 = m.y - Math.sin(m.ang) * back + (wrand() - .5) * 3;
         const tx = jb.tx + (wrand() - .5) * 46, ty = jb.ty + (wrand() - .5) * 46, r = Math.hypot(tx - x0, ty - y0);
-        W.proj.push({k: 'rkt', x0, y0, x1: tx, y1: ty, t: 0, dur: 2.5 + r / 260, peak: 120 + r * .08, side: m.side});
+        W.proj.push({k: 'rkt', x0, y0, x1: tx, y1: ty, t: 0, dur: 10 + r / KM * 1.5, peak: 120 + r * .08, side: m.side}); /* غراد: نحو 40 ث لـ 20 كم */
         wp('fireball', x0, y0, {s0: 5, s1: 14, life: .3, vr: 0});
         wp('launch_dust', x0, y0, {s0: 12, s1: 52, a0: .75, life: 4.5, vx: 2 + wrand() * 2, vy: -1.5, layer: 'mid'});
         if (jb.n % 2 === 0) wsound('rocket_one', x0, y0, .45);
@@ -624,9 +633,9 @@ function stepAir(dt){
   }
   // صواريخ تركية دورية من خارج الخريطة، ومسيّرة بيرقدار
   W.trMslT -= dt;
-  if (W.trMslT <= 0 && !W.trCollapse) { W.trMslT = 65; const tg = densest('iq'); if (tg) { for (let i = 0; i < 4; i++) { const x0 = 1150 + i * 25, y0 = 180, tx = tg.x + (wrand() - .5) * 40, ty = tg.y + (wrand() - .5) * 40, r = Math.hypot(tx - x0, ty - y0); W.proj.push({k: 'bm', x0, y0, x1: tx, y1: ty, t: -i * .8, dur: 5 + r / 400, peak: 300, side: 'tr'}); } wlog('تركيا تطلق 4 صواريخ باليستية على قواتنا', 'tr'); W.stats.trMsl += 4; wsound('real_rockets_in', tg.x, tg.y, .55, 1); } }
+  if (W.trMslT <= 0 && !W.trCollapse) { W.trMslT = 240; const tg = densest('iq'); if (tg) { for (let i = 0; i < 4; i++) { const x0 = 1150 + i * 25, y0 = 180, tx = tg.x + (wrand() - .5) * 40, ty = tg.y + (wrand() - .5) * 40, r = Math.hypot(tx - x0, ty - y0); W.proj.push({k: 'bm', x0, y0, x1: tx, y1: ty, t: -i * .8, dur: 70, peak: 300, side: 'tr'}); } wlog('تركيا تطلق 4 صواريخ باليستية على قواتنا', 'tr'); W.stats.trMsl += 4; wsound('real_rockets_in', tg.x, tg.y, .6, 58); } }
   W.droneT -= dt;
-  if (W.droneT <= 0 && !W.trCollapse) { W.droneT = 80; const tgs = W.units.filter(v => v.side === 'iq' && ground(v) && v.t === 'tank'); if (tgs.length) { const tg = tgs[Math.floor(wrand() * tgs.length)]; mkUnit('tr', 'drone', 1200, 250, {drone: tg}); wlog('مسيّرة بيرقدار تركية تتجه نحو دروعنا', 'tr'); wsound('drone', tg.x, tg.y, .4); } }
+  if (W.droneT <= 0 && !W.trCollapse) { W.droneT = 300; const tgs = W.units.filter(v => v.side === 'iq' && ground(v) && v.t === 'tank'); if (tgs.length) { const tg = tgs[Math.floor(wrand() * tgs.length)]; mkUnit('tr', 'drone', tg.x + 60, tg.y - 9 * KM, {drone: tg}); wlog('مسيّرة بيرقدار تركية تتجه نحو دروعنا', 'tr'); wsound('drone', tg.x, tg.y, .4); } }
 }
 function densest(side){
   let best = null, bn = 0;
@@ -646,29 +655,30 @@ function wOrder(k){
   if ((k === 'msl' || k === 'air') && !W.aim && ((k === 'msl' && W.uses.msl > 0 && W.cool.msl <= 0) || (k === 'air' && W.uses.air > 0 && W.cool.air <= 0))) { W.aim = k; hint(k === 'air' ? 'اضغط على الخريطة: هدف الضربة الجوية' : 'اضغط على الخريطة: هدف الراجمات'); syncWarUI(); return; }
   if (k === 'msl-go' && W.uses.msl > 0) {
     const tg = W.aimAt || densest('tr'), L = W.units.filter(u => u.side === 'iq' && u.t === 'mlrs' && !u.dead && !u.job);
-    if (tg && L.length) { W.uses.msl--; W.cool.msl = 30; for (const m of L) m.job = {st: 'aim', t: 0, tx: tg.x, ty: tg.y, count: 6}; W.stats.msl += 6 * L.length; wlog(`الراجمات تتجه نحو الهدف وتتهيأ للإطلاق: ${6 * L.length} صاروخاً`, 'iq'); wsound('radio', W.cam.x, W.cam.y, .35); }
+    if (tg && L.length) { W.uses.msl--; W.cool.msl = 300; /* إعادة تلقيم الراجمة دقائق */ for (const m of L) m.job = {st: 'aim', t: 0, tx: tg.x, ty: tg.y, count: 6}; W.stats.msl += 6 * L.length; wlog(`الراجمات تتجه نحو الهدف وتتهيأ للإطلاق: ${6 * L.length} صاروخاً`, 'iq'); wsound('radio', W.cam.x, W.cam.y, .35); }
   }
   if (k === 'air-go' && W.uses.air > 0) {
     const tg = W.aimAt || densest('tr');
     if (tg) {
-      W.uses.air--; W.cool.air = 45; wlog('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع عالٍ وتطلقان من 14 كم', 'iq'); wsound('jet_high', tg.x, tg.y + 300, .5);
-      for (let i = 0; i < 2; i++) { const x0 = tg.x - 30 + i * 60, y0 = Math.min(FIELD.h + 120, tg.y + 900); const rx = tg.x - 20 + i * 40, ry = tg.y + 14 * KM; mkUnit('iq', 'jet', x0, y0 + i * 30, {phase: 'in', rx, ry, tx: tg.x + (i - .5) * 16, ty: tg.y, ang: -Math.PI / 2}); }
+      W.uses.air--; W.cool.air = 360; wlog('ضربة جوية: مقاتلتا F-16 تقتربان على ارتفاع عالٍ وتطلقان من 10 كم', 'iq'); wsound('jet_high', tg.x, tg.y + 300, .5);
+      for (let i = 0; i < 2; i++) { const x0 = tg.x - 30 + i * 60, y0 = tg.y + 14 * KM; const rx = tg.x - 20 + i * 40, ry = tg.y + 10 * KM; mkUnit('iq', 'jet', x0, y0 + i * 30, {phase: 'in', rx, ry, tx: tg.x + (i - .5) * 16, ty: tg.y, ang: -Math.PI / 2}); }
     }
   }
-  if (k === 'res' && W.uses.res > 0) { W.uses.res--; const c = [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -28], ['tank', 8], ['tank', 44], ['ifv', -10], ['squad', -28], ['squad', 28]]) { const u = mkUnit('iq', t, 1240 + dx, 1620 + (t === 'squad' ? 36 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
+  if (k === 'res' && W.uses.res > 0) { W.uses.res--; const c = [[1220, 1085], [1180, 830], [1165, 670]]; for (const [t, dx] of [['tank', -28], ['tank', 8], ['tank', 44], ['ifv', -10], ['squad', -28], ['squad', 28]]) { const u = mkUnit('iq', t, 1240 + dx, 1420 + (t === 'squad' ? 36 : 0), {grp: 'الاحتياط', path: c.map(([x, y]) => ({x: x + dx * .4, y}))}); u.start = {x: u.x, y: u.y}; } wlog('دفع الاحتياط: 3 دبابات ومدرعة وفصيلا مشاة', 'iq'); }
   syncWarUI();
 }
 function syncWarUI(){
+  const mmss = s => s >= 60 ? `${Math.floor(s / 60)}:${String(Math.ceil(s % 60)).padStart(2, '0')} د` : `${Math.ceil(s)} ث`;
   const set = (id, txt, dis) => { const b = document.getElementById(id); if (b) { b.querySelector('small').textContent = txt; b.disabled = dis; } };
-  set('wo-air', W.uses.air ? (W.cool.air > 0 ? `بعد ${Math.ceil(W.cool.air)} ث` : `باقي ${W.uses.air}`) : 'نفدت', !W.uses.air || W.cool.air > 0);
-  set('wo-msl', W.uses.msl ? (W.cool.msl > 0 ? `بعد ${Math.ceil(W.cool.msl)} ث` : `باقي ${W.uses.msl}`) : 'نفدت', !W.uses.msl || W.cool.msl > 0);
+  set('wo-air', W.uses.air ? (W.cool.air > 0 ? `بعد ${mmss(W.cool.air)}` : `باقي ${W.uses.air}`) : 'نفدت', !W.uses.air || W.cool.air > 0);
+  set('wo-msl', W.uses.msl ? (W.cool.msl > 0 ? `بعد ${mmss(W.cool.msl)}` : `باقي ${W.uses.msl}`) : 'نفدت', !W.uses.msl || W.cool.msl > 0);
   set('wo-res', W.uses.res ? '6 وحدات' : 'استُخدم', !W.uses.res);
-  set('wo-attack', W.phase === 'prep' && W.order === 'attack' ? `تمهيد ${Math.ceil(PREP - W.t)} ث` : 'تقدم', false);
+  set('wo-attack', W.phase === 'prep' && W.order === 'attack' ? `تمهيد ${mmss(PREP - W.t)}` : 'تقدم', false);
   for (const k of ['attack', 'hold', 'retreat']) { const b = document.getElementById('wo-' + k); if (b) b.classList.toggle('on', W.order === k); }
   for (const k of ['air', 'msl']) { const b = document.getElementById('wo-' + k); b.classList.toggle('on', W.aim === k); if (W.aim === k) b.disabled = false; }
   W.sel = W.sel.filter(id => W.units.some(u => u.id === id && !u.dead)); selUI();
   const m = Math.floor(W.t / 60), s = Math.floor(W.t % 60);
-  document.getElementById('wtime').textContent = `${m}:${String(s).padStart(2, '0')} / 5:00`;
+  document.getElementById('wtime').textContent = `${m}:${String(s).padStart(2, '0')} / ${BATTLE / 60}:00`;
   const cnt = side => W.units.filter(u => u.side === side && !u.dead && u.t === 'tank').length;
   document.getElementById('wforce').innerHTML = `<span style="color:var(--mine)">دبابات ${cnt('iq')}</span> · <span style="color:#e07b6e">${cnt('tr')} دبابات</span>`;
   document.getElementById('wobj').innerHTML = TOWNS.filter(t => t.obj).map(t => `<div class="wob"><span>${t.n}</span><div class="meter"><i style="width:${W.ctl[t.id]}%;background:var(--mine)"></i></div></div>`).join('');
@@ -857,7 +867,9 @@ function engineSounds(){
   set('tank_tracks', .08 + .2 * near(u => u.moving && UT[u.t].veh));
   set('footsteps', .3 * near(u => u.moving && UT[u.t].inf));
   set('helicopter', .06 + .5 * near(u => u.t === 'heli'));
-  set('jet_high', .55 * near(u => u.t === 'jet'));
+  set('jet_high', .6 * near(u => u.t === 'jet'));
+  { let best = null, bd = 1e12; for (const u of W.units) if (u.t === 'jet' && !u.dead) { const d = listenerDist(u.x, u.y); if (d < bd) { bd = d; best = u; } }
+    const L = LOOPS.jet_high; if (best && L && L.src) { const pd = W.jetPrevD ?? bd, pt = W.jetPrevT ?? W.t, dtg = Math.max(.01, W.t - pt), vr = (bd - pd) / dtg; L.src.playbackRate.setTargetAtTime(Math.max(.7, Math.min(1.45, 343 / (343 + vr))), actx.currentTime, .2); W.jetPrevD = bd; W.jetPrevT = W.t; } else { W.jetPrevD = null; W.jetPrevT = null; } }
 }
 
 // ------------------------------------------------------------------ الحلقة والتحكم
@@ -865,7 +877,7 @@ function warLoop(now){
   const cv = wc(); if (cv && (Math.abs(cv.width - cv.clientWidth * WDPR) > 2 || Math.abs(cv.height - cv.clientHeight * WDPR) > 2)) wResize();
   const real = Math.min(.05, (now - wlast) / 1000); wlast = now;
   const dt = real * wspeed;
-  if (W && !W.end && wspeed > 0) { let left = dt; while (left > 0) { const s = Math.min(.05, left); stepWar(s); left -= s; } }
+  if (W && !W.end && wspeed > 0) { let left = dt; while (left > 0) { const s = Math.min(wspeed > 8 ? .12 : .05, left); stepWar(s); left -= s; } }
   if (W) { (C2MODE ? drawC2 : drawWar)(real * (wspeed || 0) || 0.0001); if ((W.uiT = (W.uiT || 0) - real) <= 0) { W.uiT = .25; syncWarUI(); engineSounds(); } }
   fpsN++; fpsT += real;
   if (fpsT >= 1) { const f = Math.round(fpsN / fpsT), el = document.getElementById('wfps'); if (el) { el.textContent = f + ' fps'; el.style.color = f >= 55 ? '#6fbf86' : f >= 40 ? '#e2b04f' : '#e0705f'; } if (f < 45) lowN++; else lowN = 0; if (lowN >= 3 && WDPR > 1) { WDPR = Math.max(1, WDPR - .25); wResize(); lowN = 0; } fpsN = 0; fpsT = 0; }
@@ -873,7 +885,7 @@ function warLoop(now){
 }
 function startWar(){
   document.getElementById('wres').classList.remove('on');
-  stopLoops(); setupWar(); wspeed = 1; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '1'));
+  stopLoops(); setupWar(); wspeed = 4; document.querySelectorAll('[data-wsp]').forEach(x => x.classList.toggle('on', x.dataset.wsp === '4'));
   audioInit(); ['front_ambience','tank_tracks','tank_close','footsteps','tank_cannon','hmg','hmg2','ak47','rifle','artillery','artillery2','explosion_big','explosion_med','explosion_med2','intercept','missile_pass','mlrs','jet_flyby','jet_high','drone','helicopter','war_horn','victory','defeat','atgm_launch','missile_fly','jet_release','armor_hit','ricochet','debris','rocket_one','incoming','rocket_salvo','heli_gun','cookoff','radio','smoke_pop','missile_alert','ak_close','ak_far','pkm_close','mg_far','m2','g3','sniper2','cannon30','tank_close_shot','tank_far_shot','mortar_launch','mortar_in','arty_far','cracks','metal_hits','ricochet2','rocket_one2','mlrs_far','boom_echo','boom_close','real_battle','real_tank','real_strike','real_rockets_in','real_hmg','real_bursts','shouts','tank_idle','wheeled','grenade','rpg2','tank_pass'].forEach(k => setTimeout(() => load(k), 5));
   setTimeout(() => { sloop('front_ambience', .25); sloop('tank_tracks', .08); sloop('tank_pass', 0); sloop('tank_idle', 0); sloop('wheeled', 0); sloop('real_battle', .16); sloop('footsteps', 0); sloop('helicopter', .06); sloop('jet_high', 0); }, 600);
   wResize(); syncWarUI();
@@ -901,7 +913,7 @@ document.getElementById('wfollow').onclick = () => { if (W) { W.follow = !W.foll
 document.getElementById('wzin').onclick = () => { if (W) W.cam.k = Math.min(6, W.cam.k * 1.4); };
 document.getElementById('wzout').onclick = () => { if (W) W.cam.k = Math.max(.4, W.cam.k / 1.4); };
 document.getElementById('wclose').onclick = closeWar;
-document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 6000) { stepWar(.05); n++; } };
+document.getElementById('wquick').onclick = () => { if (!W || W.end) return; let n = 0; while (!W.end && n < 20000) { stepWar(.15); n++; } };
 
 // ------------------------------------------------------------------ التحكم المباشر: تحديد وحدة ثم أمرها
 function hint(t){ const el = document.getElementById('whint'); el.textContent = t; el.hidden = !t; }
