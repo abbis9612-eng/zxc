@@ -23,3 +23,16 @@
 | مروحية Mi-24V | Rhine_Lab_Muelsyse على Sketchfab | CC BY-NC 4.0 |
 | مقاتلة Mitsubishi F-2 | bohmerang على Sketchfab | CC BY-NC-SA 4.0 |
 | أرض صخرية جاهزة (Rocky Desert - Terrain) | artfromheath على Sketchfab | CC BY 4.0 |
+
+## نماذج المركبات (تُصوَّر من فوق في Blender)
+
+| المركبة | النموذج وصاحبه على Sketchfab | الترخيص |
+|---|---|---|
+| دبابة M1A1 أبرامز (العراق) | [M1A1 Abrams Main Battle Tank](https://sketchfab.com/3d-models/m1a1-abrams-main-battle-tank-1529f5d842cb4f578aa8cb672524f044) — Muhamad Mirza Arrafi | CC Attribution |
+| دبابة T-72 (العراق) | [T-72 (outdated)](https://sketchfab.com/3d-models/t-72-outdated-fe83405ad7c441ff851b2760b3370b1c) — buh | CC Attribution |
+| دبابة T-72B3 (احتياط، فيها قفص روسي) | [T-72B3 Main Battle Tank](https://sketchfab.com/3d-models/t-72b3-main-battle-tank-dfe130dfce724c30958cec51f2bd86b7) — Muhamad Mirza Arrafi | CC Attribution |
+| مدرعة BMP-1 (العراق) | [BMP-1 (outdated)](https://sketchfab.com/3d-models/bmp-1-outdated-9b00c6b1da094bb3802af5ca6a3081bf) — buh | CC Attribution |
+| دبابة Leopard 2A4 (تركيا) | [Leopard 2A4 Main Battle Tank](https://sketchfab.com/3d-models/leopard-2a4-main-battle-tank-99122ebcf2154a74ad6556b6f20ccb9c) — Muhamad Mirza Arrafi | CC Attribution |
+| مدرعة FNSS ACV-15 (تركيا) | [FNSS ACV-15](https://sketchfab.com/3d-models/fnss-acv-15-167b6cd597254676ac47a72646eef7f8) — Muhamad Mirza Arrafi | CC Attribution |
+
+**ملاحظة:** ملفات النماذج الكبيرة لا تُحفظ في المستودع؛ تُنزَّل من روابطها. أما الصور المصوَّرة منها فتُحفظ.
