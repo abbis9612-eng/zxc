@@ -256,7 +256,7 @@ function drawParts(dt, layer, cam){
     const e = 1 - Math.pow(1 - k, 2); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
     const sz = p.s0 + (p.s1 - p.s0) * e, al = p.a0 + (p.a1 - p.a0) * k;
     if (al <= 0 || Math.abs(p.x - cam.x) > vw + sz || Math.abs(p.y - cam.y) > vh + sz) continue;
-    const G = Math.min(30, EX(10, 38)); put(c, tex(p.img), p.x, p.y, sz * G, sz * G, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
+    const BIG = p.img === 'smoke_light' || p.img === 'dust_trail' || p.img === 'smoke_screen' || p.img === 'smoke_oil' || p.img === 'launch_dust' || p.img === 'smoke_dark' || p.img === 'blast_dust', G = BIG ? 1 : Math.min(6, EX(10, 38)); put(c, tex(p.img), p.x, p.y, sz * G, sz * G, p.rot, Math.min(1, al), ADDP[p.img] ? 'add' : 'normal');
   }
   end(c);
   if (layer === 'top') W.parts = W.parts.filter(p => p.delay > 0 || p.t < p.life);
